@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "993221992235",
+    "project_id": "bygram-cf154",
+    "storage_bucket": "bygram-cf154.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:993221992235:android:fde583de08b32d0d8fef6e",
+        "android_client_info": {
+          "package_name": "com.bygram.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHLl9zx_w5lcVWuPBgiEz2W7vYJMkVaUk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

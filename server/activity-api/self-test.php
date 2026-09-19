@@ -1,0 +1,91 @@
+<?php
+declare(strict_types=1);
+require __DIR__ . '/bootstrap.php';
+
+if (PHP_SAPI !== 'cli') exit(1);
+if (getenv('BYGRAM_TEST_LOCAL') !== '1') throw new RuntimeException('Set BYGRAM_TEST_LOCAL=1; self-test never uses the configured production database.');
+$config = require __DIR__ . '/config.php';
+$database = 'bygram_self_test_' . getmypid();
+$admin = new PDO('mysql:host=127.0.0.1;port=3306;charset=utf8mb4', 'root', 'MySQL', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$admin->exec("CREATE DATABASE `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+register_shutdown_function(static fn() => $admin->exec("DROP DATABASE IF EXISTS `$database`"));
+$config['db_dsn'] = "mysql:host=127.0.0.1;port=3306;dbname=$database;charset=utf8mb4";
+$config['db_user'] = 'root';
+$config['db_password'] = 'MySQL';
+$pdo = new PDO($config['db_dsn'], $config['db_user'], $config['db_password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$pdo->exec((string) file_get_contents(__DIR__ . '/schema.sql'));
+$widgetValues = ['auth_date' => '1700000000', 'first_name' => 'Owner', 'id' => '1243802669'];
+assert(telegramLoginHash($widgetValues, 'self-test-token') === '3d22bf85ec04879c0f627bfffc76a504f489d95a19f0d4fa410cb64340db44c7');
+echo "PASS: Telegram Login Widget signature\n";
+$telegramId = 999999999999;
+$licensed = static function () use ($pdo, $telegramId): bool {
+    $query = $pdo->prepare("SELECT 1 FROM licenses WHERE telegram_id = ? AND status = 'active' AND (valid_until IS NULL OR valid_until > UTC_TIMESTAMP())");
+    $query->execute([$telegramId]);
+    return (bool) $query->fetchColumn();
+};
+
+$pdo->beginTransaction();
+try {
+    $pdo->prepare('DELETE FROM licenses WHERE telegram_id = ?')->execute([$telegramId]);
+    assert(!$licensed());
+    $pdo->prepare("INSERT INTO licenses (telegram_id, status) VALUES (?, 'active')")->execute([$telegramId]);
+    assert($licensed());
+    $pdo->prepare("UPDATE licenses SET status = 'refunded' WHERE telegram_id = ?")->execute([$telegramId]);
+    assert(!$licensed());
+echo "PASS: missing, active and refunded licenses\n";
+
+$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','auth_challenges','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','manual_payment_requests','orders','payment_methods','profile_badges','promo_codes','promo_uses','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
+$tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+if (array_diff($required, $tables)) {
+    throw new RuntimeException('FAIL: API schema is incomplete');
+}
+$methods = $pdo->query('SELECT code FROM payment_methods ORDER BY code')->fetchAll(PDO::FETCH_COLUMN);
+if ($methods !== ['stars', 'crypto', 'manual']) {
+    throw new RuntimeException('FAIL: payment methods are incomplete');
+}
+echo "PASS: commerce schema and payment methods\n";
+$activityColumns = $pdo->query("SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND ((TABLE_NAME='chat_activity' AND COLUMN_NAME='activity_type') OR (TABLE_NAME='activity_viewers' AND COLUMN_NAME='permissions'))")->fetchAll(PDO::FETCH_COLUMN);
+sort($activityColumns);
+if ($activityColumns !== ['activity_viewers.permissions', 'chat_activity.activity_type']) throw new RuntimeException('FAIL: activity privacy migration');
+$activityOwner = 999999999996; $activityViewer = 999999999995;
+$pdo->prepare("INSERT INTO chat_activity (owner_id,activity_type,peer_id,peer_name,expires_at) VALUES (?,2,123,'Target',UTC_TIMESTAMP()+INTERVAL 60 SECOND) ON DUPLICATE KEY UPDATE activity_type=2,peer_id=123,peer_name='Target',expires_at=VALUES(expires_at)")->execute([$activityOwner]);
+$pdo->prepare('INSERT INTO activity_viewers (owner_id,viewer_id,permissions) VALUES (?,?,4) ON DUPLICATE KEY UPDATE permissions=4')->execute([$activityOwner,$activityViewer]);
+$visible=$pdo->prepare('SELECT 1 FROM chat_activity a JOIN activity_viewers v ON v.owner_id=a.owner_id AND v.viewer_id=? WHERE a.owner_id=? AND (v.permissions & a.activity_type)<>0');$visible->execute([$activityViewer,$activityOwner]);
+if ($visible->fetchColumn()) throw new RuntimeException('FAIL: category ACL leaked activity');
+$pdo->prepare('UPDATE activity_viewers SET permissions=2 WHERE owner_id=? AND viewer_id=?')->execute([$activityOwner,$activityViewer]);$visible->execute([$activityViewer,$activityOwner]);
+if (!$visible->fetchColumn()) throw new RuntimeException('FAIL: category ACL denied activity');
+echo "PASS: per-viewer activity category ACL\n";
+$pdo->prepare('INSERT INTO app_settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)')->execute(['bot_username', 'BYgram_test_bot']);
+$setting=$pdo->prepare('SELECT setting_value FROM app_settings WHERE setting_key=?');$setting->execute(['bot_username']);
+if ($setting->fetchColumn() !== 'BYgram_test_bot') throw new RuntimeException('FAIL: bot username setting');
+echo "PASS: bot username setting\n";
+$adminId = 999999999998;
+$pdo->prepare('INSERT INTO admins (telegram_id, added_by) VALUES (?, ?)')->execute([$adminId, 1243802669]);
+$query = $pdo->prepare('SELECT added_by FROM admins WHERE telegram_id = ?');
+$query->execute([$adminId]);
+if ((int) $query->fetchColumn() !== 1243802669) {
+    throw new RuntimeException('FAIL: administrator storage');
+}
+echo "PASS: administrator storage\n";
+$referrerId = 999999999997;
+$pdo->prepare('UPDATE referral_settings SET enabled=1,percent=12.5 WHERE id=1')->execute();
+$pdo->prepare('INSERT INTO referrals (referred_id,referrer_id) VALUES (?,?)')->execute([$telegramId,$referrerId]);
+$pdo->prepare("INSERT INTO orders (buyer_id,beneficiary_id,payment_method,amount,currency,status) VALUES (?,?,'manual',100,'BYN','paid')")->execute([$telegramId,$telegramId]);
+$order=['id'=>(int)$pdo->lastInsertId(),'buyer_id'=>$telegramId,'amount'=>100,'currency'=>'BYN'];
+addReferralToOrder($pdo,$order);
+if (($order['_commission'] ?? 0) !== 12.5) throw new RuntimeException('FAIL: referral commission');
+$pdo->prepare("INSERT INTO referral_adjustments (telegram_id,amount,currency,note) VALUES (?,7.5,'BYN','test')")->execute([$referrerId]);
+$q=$pdo->prepare('SELECT SUM(value) FROM (SELECT commission value FROM referral_earnings WHERE referrer_id=? AND currency=\'BYN\' UNION ALL SELECT amount FROM referral_adjustments WHERE telegram_id=? AND currency=\'BYN\') rewards');$q->execute([$referrerId,$referrerId]);
+if((float)$q->fetchColumn()!==20.0)throw new RuntimeException('FAIL: manual referral adjustment');
+$pdo->prepare('UPDATE referral_settings SET enabled=0 WHERE id=1')->execute();$disabledOrder=$order;$disabledOrder['id']++;unset($disabledOrder['_referrer_id'],$disabledOrder['_commission']);
+addReferralToOrder($pdo,$disabledOrder);if(isset($disabledOrder['_commission']))throw new RuntimeException('FAIL: automatic referral switch');
+echo "PASS: automatic and manual referral rewards\n";
+$release=json_decode((string)file_get_contents(__DIR__.'/release.json'),true);
+if(($release['package']??'')!=='com.bygram.mobile'||!preg_match('/^BYgram-[0-9A-Za-z._-]+\.apk$/',(string)($release['apk_name']??'')))throw new RuntimeException('FAIL: release metadata');
+echo "PASS: release metadata\n";
+$badges=loadBadges();
+foreach($badges as $id=>$badge)if(!ctype_digit((string)$id)||!is_array($badge)||(!isset($badge['bygram'])&&!isset($badge['extera']))||!in_array($badge['primary']??'', ['bygram','extera'],true))throw new RuntimeException('FAIL: badges.json');
+echo "PASS: badge storage\n";
+} finally {
+    $pdo->rollBack();
+}

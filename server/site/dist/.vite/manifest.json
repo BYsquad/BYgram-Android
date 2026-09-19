@@ -1,0 +1,49 @@
+{
+  "_jsx-runtime.js": {
+    "file": "assets/jsx-runtime.js",
+    "name": "jsx-runtime"
+  },
+  "_main.css": {
+    "file": "assets/main.css",
+    "src": "_main.css"
+  },
+  "_main.js": {
+    "file": "assets/main.js",
+    "name": "main",
+    "imports": [
+      "_jsx-runtime.js"
+    ],
+    "css": [
+      "assets/main.css"
+    ],
+    "assets": [
+      "assets/bygram-logo.png",
+      "assets/bygram-chats.png",
+      "assets/bygram-settings.png"
+    ]
+  },
+  "assets/bygram-chats.png": {
+    "file": "assets/bygram-chats.png",
+    "src": "assets/bygram-chats.png"
+  },
+  "assets/bygram-logo.png": {
+    "file": "assets/bygram-logo.png",
+    "src": "assets/bygram-logo.png"
+  },
+  "assets/bygram-settings.png": {
+    "file": "assets/bygram-settings.png",
+    "src": "assets/bygram-settings.png"
+  },
+  "src/admin.jsx": {
+    "file": "assets/admin.js",
+    "name": "admin",
+    "src": "src/admin.jsx",
+    "isEntry": true,
+    "imports": [
+      "_jsx-runtime.js"
+    ],
+    "css": [
+      "assets/admin.css"
+    ]
+  }
+}
