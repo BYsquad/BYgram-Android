@@ -18,6 +18,15 @@ function saveAppSetting(string $key, string $value): void {
 function licensed(int $telegramId): bool {
     $q = db()->prepare("SELECT 1 FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP())"); $q->execute([$telegramId]); return (bool) $q->fetchColumn();
 }
+function typingPublicKeys(PDO $pdo, int $telegramId): array {
+    $query = $pdo->prepare("SELECT public_key FROM typing_devices WHERE telegram_id=?
+        UNION ALL
+        SELECT d.public_key FROM licensed_devices d
+        JOIN licenses l ON l.telegram_id=d.telegram_id AND l.status='active' AND (l.valid_until IS NULL OR l.valid_until>UTC_TIMESTAMP())
+        WHERE d.telegram_id=? AND d.revoked_at IS NULL");
+    $query->execute([$telegramId, $telegramId]);
+    return $query->fetchAll(PDO::FETCH_COLUMN);
+}
 function grantLicense(PDO $pdo, int $telegramId): void { $pdo->prepare("INSERT INTO licenses (telegram_id,status,valid_until) VALUES (?,'active',NULL) ON DUPLICATE KEY UPDATE status='active',valid_until=NULL")->execute([$telegramId]); }
 function addReferralToOrder(PDO $pdo, array &$order): void {
     $q=$pdo->prepare('SELECT r.referrer_id,s.percent FROM referrals r JOIN referral_settings s ON s.id=1 AND s.enabled=1 WHERE r.referred_id=?');$q->execute([$order['buyer_id']]);$ref=$q->fetch();

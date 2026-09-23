@@ -33,6 +33,21 @@ try {
     $pdo->prepare("UPDATE licenses SET status = 'refunded' WHERE telegram_id = ?")->execute([$telegramId]);
     assert(!$licensed());
 echo "PASS: missing, active and refunded licenses\n";
+$typingOwner = 999999999994;
+$pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name) VALUES (?,?,?,?,?)')
+    ->execute([str_repeat('a', 32), $typingOwner, 'full-test-key', str_repeat('b', 64), 'Self-test']);
+if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: unlicensed Full device can publish typing statuses');
+$pdo->prepare("INSERT INTO licenses (telegram_id,status) VALUES (?,'active')")->execute([$typingOwner]);
+if (typingPublicKeys($pdo, $typingOwner) !== ['full-test-key']) throw new RuntimeException('FAIL: active Full device cannot publish typing statuses');
+$pdo->prepare('UPDATE licensed_devices SET revoked_at=UTC_TIMESTAMP() WHERE telegram_id=?')->execute([$typingOwner]);
+if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: revoked Full device can publish typing statuses');
+$pdo->prepare('UPDATE licensed_devices SET revoked_at=NULL WHERE telegram_id=?')->execute([$typingOwner]);
+$pdo->prepare("UPDATE licenses SET status='refunded' WHERE telegram_id=?")->execute([$typingOwner]);
+if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: refunded Full license can publish typing statuses');
+$pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key) VALUES (?,?,?)')
+    ->execute([$typingOwner, str_repeat('c', 64), 'lite-test-key']);
+if (typingPublicKeys($pdo, $typingOwner) !== ['lite-test-key']) throw new RuntimeException('FAIL: independent Lite typing registration');
+echo "PASS: typing publication accepts only active Full devices\n";
 
 $required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','auth_challenges','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','manual_payment_requests','orders','payment_methods','profile_badges','promo_codes','promo_uses','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
 $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);

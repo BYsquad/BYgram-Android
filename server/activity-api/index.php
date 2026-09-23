@@ -255,11 +255,9 @@ if ($action === 'typing_put') {
         $value = trim(strip_tags($value));
         if ($value !== '') $statuses[(string) $key] = $value;
     }
-    $query = $pdo->prepare('SELECT public_key FROM typing_devices WHERE telegram_id=?');
-    $query->execute([$userId]);
     $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
     $authorized = false;
-    foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $publicKey) {
+    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
         if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
     }
     if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
