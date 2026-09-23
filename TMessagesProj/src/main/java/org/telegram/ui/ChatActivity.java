@@ -860,7 +860,7 @@ public class ChatActivity extends BaseFragment implements
                     }
                 });
             }
-            AndroidUtilities.runOnUIThread(this, 20_000);
+            AndroidUtilities.runOnUIThread(this, 7_000);
         }
     };
     private int lastLoadIndex = 1;

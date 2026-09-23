@@ -177,24 +177,21 @@ function AuthChallenges({ items, mutate }) {
   return items.length ? items.map((item) => <div className="card row" key={item.id}><div><strong>ID {item.expected_user_id}</strong><div className="meta">Код {item.token_hint} · до {item.expires_at}</div></div><button onClick={() => confirm(`Подтвердить Telegram ID ${item.expected_user_id}?`) && mutate({ action: 'auth.confirm', id: item.id })}>Подтвердить</button></div>) : <div className="empty">Ожидающих подтверждений нет</div>;
 }
 
-function BadgeForm({ telegramId = '', badge = {}, mutate }) {
+function BadgeForm({ peerId = '', peerType = 'user', mutate }) {
   return <form className="card grid" onSubmit={(event) => {
     event.preventDefault(); const form = event.currentTarget;
-    mutate({ ...formData(form), action: 'badge.save', bygram: form.elements.bygram.checked, extera: form.elements.extera.checked });
+    mutate({ ...formData(form), action: 'badge.save' });
   }}>
-    <strong>{telegramId ? `Telegram ID ${telegramId}` : 'Добавить пользователя'}</strong>
-    <label>Telegram ID<input name="telegram_id" inputMode="numeric" pattern="[1-9][0-9]{4,19}" required readOnly={Boolean(telegramId)} defaultValue={telegramId} /></label>
-    <div className="row">
-      <label className="check"><input name="bygram" type="checkbox" defaultChecked={badge.bygram ?? true} /> BYgram</label>
-      <label className="check"><input name="extera" type="checkbox" defaultChecked={Boolean(badge.extera)} /> ExteraGram</label>
-    </div>
-    <label>Основной значок<select name="primary" defaultValue={badge.primary || 'bygram'}><option value="bygram">BYgram</option><option value="extera">ExteraGram</option></select></label>
-    <div className="row"><button>Сохранить</button>{telegramId && <button type="button" className="danger" onClick={() => confirm(`Удалить значки у ${telegramId}?`) && mutate({ action: 'badge.delete', telegram_id: telegramId })}>Удалить</button>}</div>
+    <strong>{peerId ? `${peerType === 'chat' ? 'Канал / группа' : 'Пользователь'} ID ${peerId}` : 'Выдать значок'}</strong>
+    <label>Тип<select name="peer_type" defaultValue={peerType} disabled={Boolean(peerId)}><option value="user">Пользователь · logo-new.png</option><option value="chat">Канал или группа · bygram-logo.png</option></select></label>
+    {peerId && <input type="hidden" name="peer_type" value={peerType} />}
+    <label>Telegram ID (для чата можно -100… или -…)<input name="telegram_id" inputMode="numeric" pattern="-?[0-9]{1,20}" required readOnly={Boolean(peerId)} defaultValue={peerId} /></label>
+    <div className="row"><button>Сохранить</button>{peerId && <button type="button" className="danger" onClick={() => confirm(`Удалить значок у ${peerId}?`) && mutate({ action: 'badge.delete', peer_type: peerType, telegram_id: peerId })}>Удалить</button>}</div>
   </form>;
 }
 
 function Badges({ items, mutate }) {
-  return <div className="grid"><BadgeForm mutate={mutate} />{Object.entries(items).map(([id, badge]) => <BadgeForm key={id} telegramId={id} badge={badge} mutate={mutate} />)}</div>;
+  return <div className="grid"><BadgeForm mutate={mutate} />{Object.entries(items).filter(([, badge]) => badge === true || badge?.bygram).map(([key]) => { const [type, id] = key.includes(':') ? key.split(':') : ['user', key]; return <BadgeForm key={key} peerId={id} peerType={type} mutate={mutate} />; })}</div>;
 }
 
 function Orders({ items }) {

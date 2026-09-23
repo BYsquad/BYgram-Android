@@ -84,7 +84,7 @@ $release=json_decode((string)file_get_contents(__DIR__.'/release.json'),true);
 if(($release['package']??'')!=='com.bygram.mobile'||!preg_match('/^BYgram-[0-9A-Za-z._-]+\.apk$/',(string)($release['apk_name']??'')))throw new RuntimeException('FAIL: release metadata');
 echo "PASS: release metadata\n";
 $badges=loadBadges();
-foreach($badges as $id=>$badge)if(!ctype_digit((string)$id)||!is_array($badge)||(!isset($badge['bygram'])&&!isset($badge['extera']))||!in_array($badge['primary']??'', ['bygram','extera'],true))throw new RuntimeException('FAIL: badges.json');
+foreach($badges as $id=>$badge)if(!preg_match('/^(?:(?:user|chat):[1-9][0-9]*|[1-9][0-9]*)$/D',(string)$id)||($badge!==true&&(!is_array($badge)||(!isset($badge['bygram'])&&!isset($badge['extera'])))))throw new RuntimeException('FAIL: badges.json');
 echo "PASS: badge storage\n";
 } finally {
     $pdo->rollBack();

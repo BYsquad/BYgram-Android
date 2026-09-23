@@ -37,6 +37,7 @@ public final class BygramConfig {
     public static final String FIREBASE_CRASHLYTICS = "bygram_firebase_crashlytics";
     public static final String FIREBASE_ANALYTICS = "bygram_firebase_analytics";
     public static final String CUSTOM_PROFILE_MUSIC = "bygram_custom_profile_music";
+    private static final String CUSTOM_TYPING_PREFIX = "bygram_custom_typing_";
     public static final String FILTER_ZALGO = "bygram_filter_zalgo";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
     public static final String LIQUID_GLASS_PLACEMENTS = "bygram_liquid_glass_placements";
@@ -147,6 +148,7 @@ public final class BygramConfig {
     }
 
     private static boolean isActiveSetting(String key) {
+        if (key.startsWith(CUSTOM_TYPING_PREFIX)) return true;
         switch (key) {
             case GHOST_ENABLED:
             case GHOST_NO_READ:
@@ -201,6 +203,18 @@ public final class BygramConfig {
         return preferences().getBoolean(key, defaultValue);
     }
 
+    public static String getCustomTyping(int account, int action) {
+        if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT || action < 0 || action > 10) return "";
+        return preferences().getString(CUSTOM_TYPING_PREFIX + account + "_" + action, "");
+    }
+
+    public static void setCustomTyping(int account, int action, String value) {
+        if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT || action < 0 || action > 10) return;
+        value = value == null ? "" : value.trim();
+        if (value.length() > 64) value = value.substring(0, 64);
+        preferences().edit().putString(CUSTOM_TYPING_PREFIX + account + "_" + action, value).apply();
+    }
+
     public static void setBoolean(String key, boolean value) {
         if (!isActiveSetting(key)) return;
         preferences().edit().putBoolean(key, value).apply();
@@ -250,6 +264,10 @@ public final class BygramConfig {
         editor.apply();
         clearActivitySettings();
         BygramActivityController.clearSettings();
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            if (UserConfig.getInstance(account).getClientUserId() > 0)
+                BygramTypingController.clear(account);
+        }
         applyTelemetrySettings();
     }
 

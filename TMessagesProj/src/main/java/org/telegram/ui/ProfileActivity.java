@@ -133,11 +133,13 @@ import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BygramActivityController;
+import org.telegram.messenger.BygramBadgeController;
 import org.telegram.messenger.AuthTokensHelper;
 import org.telegram.messenger.BillingController;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.BygramConfig;
+import org.telegram.ui.Components.BygramBadgeDrawable;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.ContactsController;
@@ -414,7 +416,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
             });
-            AndroidUtilities.runOnUIThread(this, 20_000);
+            AndroidUtilities.runOnUIThread(this, 7_000);
         }
     };
     private AnimatedStatusView animatedStatusView;
@@ -11556,6 +11558,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     nameTextView[a].setLeftDrawableOutside(false);
                 }
                 nameTextView[a].setLeftDrawable(leftIcon);
+                if (BygramBadgeController.hasBadge(user)) {
+                    nameTextView[a].setRightDrawable2(new BygramBadgeDrawable(getContext(), false, 18, nameTextView[a].getRightDrawable2()));
+                }
                 if (a == 1 && (rightIconIsStatus || rightIconIsPremium)) {
                     nameTextView[a].setRightDrawableOutside(true);
                 }
@@ -11866,6 +11871,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else {
                         nameTextView[a].setRightDrawable(null);
                     }
+                }
+                if (BygramBadgeController.hasBadge(chat)) {
+                    nameTextView[a].setRightDrawable2(new BygramBadgeDrawable(getContext(), true, 18, nameTextView[a].getRightDrawable2()));
                 }
                 if (chat.bot_verification_icon != 0) {
                     nameTextView[a].setLeftDrawableOutside(true);

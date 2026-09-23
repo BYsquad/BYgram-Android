@@ -181,6 +181,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public ConcurrentHashMap<Long, ConcurrentHashMap<Integer, ArrayList<PrintingUser>>> printingUsers = new ConcurrentHashMap<>(20, 1.0f, 2);
     public LongSparseArray<LongSparseArray<CharSequence>> printingStrings = new LongSparseArray<>();
     public LongSparseArray<LongSparseArray<Integer>> printingStringsTypes = new LongSparseArray<>();
+    private LongSparseArray<LongSparseArray<Integer>> printingActionCodes = new LongSparseArray<>();
     public LongSparseArray<LongSparseArray<Boolean>>[] sendingTypings = new LongSparseArray[12];
     public ConcurrentHashMap<Long, Integer> onlinePrivacy = new ConcurrentHashMap<>(20, 1.0f, 2);
     private LongSparseIntArray pendingUnreadCounter = new LongSparseIntArray();
@@ -11227,6 +11228,7 @@ public class MessagesController extends BaseController implements NotificationCe
     private void updatePrintingStrings() {
         LongSparseArray<LongSparseArray<CharSequence>> newStrings = new LongSparseArray<>();
         LongSparseArray<LongSparseArray<Integer>> newTypes = new LongSparseArray<>();
+        LongSparseArray<LongSparseArray<Integer>> newActionCodes = new LongSparseArray<>();
 
         for (HashMap.Entry<Long, ConcurrentHashMap<Integer, ArrayList<PrintingUser>>> dialogEntry : printingUsers.entrySet()) {
             Long key = dialogEntry.getKey();
@@ -11239,8 +11241,10 @@ public class MessagesController extends BaseController implements NotificationCe
 
                 LongSparseArray<CharSequence> newPrintingStrings = new LongSparseArray<>();
                 LongSparseArray<Integer> newPrintingStringsTypes = new LongSparseArray<>();
+                LongSparseArray<Integer> newPrintingActionCodes = new LongSparseArray<>();
                 newStrings.put(key, newPrintingStrings);
                 newTypes.put(key, newPrintingStringsTypes);
+                newActionCodes.put(key, newPrintingActionCodes);
 
                 int type = 0;
                 CharSequence text = null;
@@ -11386,6 +11390,10 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }
                 if (text != null) {
+                    if (key > 0 && !isEncryptedChat && arr.size() == 1) {
+                        int actionCode = bygramTypingAction(arr.get(0).action);
+                        if (actionCode >= 0) newPrintingActionCodes.put(threadId, actionCode);
+                    }
                     Paint paint = Theme.dialogs_messageNamePaint;
                     if (paint == null) {
                         paint = new Paint();
@@ -11404,7 +11412,21 @@ public class MessagesController extends BaseController implements NotificationCe
         AndroidUtilities.runOnUIThread(() -> {
             printingStrings = newStrings;
             printingStringsTypes = newTypes;
+            printingActionCodes = newActionCodes;
         });
+    }
+
+    private static int bygramTypingAction(TLRPC.SendMessageAction action) {
+        if (action instanceof TLRPC.TL_sendMessageRecordAudioAction) return 1;
+        if (action instanceof TLRPC.TL_sendMessageRecordRoundAction) return 7;
+        if (action instanceof TLRPC.TL_sendMessageUploadRoundAction) return 8;
+        if (action instanceof TLRPC.TL_sendMessageUploadAudioAction) return 9;
+        if (action instanceof TLRPC.TL_sendMessageUploadVideoAction) return 5;
+        if (action instanceof TLRPC.TL_sendMessageRecordVideoAction) return 6;
+        if (action instanceof TLRPC.TL_sendMessageUploadDocumentAction) return 3;
+        if (action instanceof TLRPC.TL_sendMessageUploadPhotoAction) return 4;
+        if (action instanceof TLRPC.TL_sendMessageGamePlayAction) return 10;
+        return action instanceof TLRPC.TL_sendMessageTypingAction ? 0 : -1;
     }
 
     public void cancelTyping(int action, long dialogId, long threadMsgId) {
@@ -21922,7 +21944,16 @@ public class MessagesController extends BaseController implements NotificationCe
         if (threads == null) {
             return null;
         }
-        return threads.get(threadId);
+        CharSequence text = threads.get(threadId);
+        if (text != null && DialogObject.isUserDialog(dialogId)) {
+            LongSparseArray<Integer> actions = printingActionCodes.get(dialogId);
+            Integer action = actions == null ? null : actions.get(threadId);
+            if (action != null) {
+                String custom = BygramTypingController.status(currentAccount, dialogId, action);
+                if (!custom.isEmpty()) return custom;
+            }
+        }
+        return text;
     }
 
     public Integer getPrintingStringType(long dialogId, long threadId) {

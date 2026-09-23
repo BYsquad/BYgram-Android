@@ -7,6 +7,7 @@
 - [Инструкция по сборке](build.md)
 - [Редакции Lite и Full и привязка устройств](full-edition-device-licensing.md)
 - [Функции раздела «Настройки BYgram»](bygram-settings/README.md)
+- [Кастомные статусы печати и значки](bygram-settings/customization.md)
 - [Аудит настроек от 16.09.2026](BYGRAM_SETTINGS_AUDIT_2026-09-16.md)
 - [Обзор функций BYgram](BYGRAM_FEATURE_REVIEW.md)
 - [Проверка ADB-исправлений](adb-fix-verification-2026-09-07.md)

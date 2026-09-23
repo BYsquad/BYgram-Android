@@ -149,6 +149,7 @@ function replaceViewers(PDO $pdo, int $ownerId, array $viewers): void {
 rateLimit($pdo, 'ip:' . $ip, in_array($action, ['device_start', 'device_prove', 'device_status', 'device_replace'], true) ? 30 : 120);
 $pdo->exec('DELETE FROM device_activations WHERE expires_at<UTC_TIMESTAMP()-INTERVAL 1 DAY');
 $pdo->exec('DELETE FROM api_nonces WHERE expires_at<UTC_TIMESTAMP()');
+$pdo->exec('DELETE FROM typing_nonces WHERE expires_at<UTC_TIMESTAMP()');
 $pdo->exec('DELETE FROM chat_activity WHERE expires_at<UTC_TIMESTAMP()');
 $pdo->exec('DELETE FROM api_rate_limits WHERE window_started<UTC_TIMESTAMP()-INTERVAL 1 DAY');
 
@@ -172,6 +173,16 @@ if ($action === 'device_prove') {
     $fingerprint = hash('sha256', base64_decode($publicKey, true));
     $pdo->prepare('UPDATE device_activations SET public_key=?,key_fingerprint=?,device_name=?,proof_at=UTC_TIMESTAMP() WHERE id=?')
         ->execute([$publicKey, $fingerprint, mb_substr($deviceName, 0, 80), $attempt['id']]);
+    // The Telegram account was already verified when this exact device key was registered.
+    // A fresh proof of possession is enough to restore its session without another bot visit.
+    $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND revoked_at IS NULL');
+    $known->execute([$fingerprint, $attempt['expected_user_id']]);
+    if ($known->fetchColumn() !== false) {
+        $attempt['public_key'] = $publicKey;
+        $attempt['key_fingerprint'] = $fingerprint;
+        $attempt['device_name'] = mb_substr($deviceName, 0, 80);
+        jsonResponse(activateDevice($pdo, $attempt));
+    }
     jsonResponse(['ok' => true, 'state' => empty($attempt['telegram_confirmed_at']) ? 'pending_telegram' : 'pending', 'bot_url' => botUrl($value)]);
 }
 if ($action === 'device_status' || $action === 'device_replace') {
@@ -184,6 +195,11 @@ if ($action === 'device_status' || $action === 'device_replace') {
     $signature = base64_decode((string) ($request['signature'] ?? ''), true);
     if ($signature === false || openssl_verify($signedValue, $signature, publicKeyPem((string) $attempt['public_key']), OPENSSL_ALGO_SHA256) !== 1) jsonResponse(['ok' => false], 401);
     if (!licensed((int) $attempt['expected_user_id'])) jsonResponse(['ok' => true, 'state' => 'denied']);
+    if ($action === 'device_status' && !empty($attempt['key_fingerprint'])) {
+        $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND revoked_at IS NULL');
+        $known->execute([$attempt['key_fingerprint'], $attempt['expected_user_id']]);
+        if ($known->fetchColumn() !== false) jsonResponse(activateDevice($pdo, $attempt));
+    }
     if (empty($attempt['telegram_confirmed_at'])) jsonResponse(['ok' => true, 'state' => 'pending_telegram', 'bot_url' => botUrl($value)]);
     jsonResponse(activateDevice($pdo, $attempt, $replaceId));
 }
@@ -200,13 +216,58 @@ if ($action === 'refresh') {
     jsonResponse(['ok' => true, 'access_token' => $access, 'access_expires' => time() + 3600]);
 }
 if ($action === 'badges') {
-    $ids = viewerIds($request['user_ids'] ?? []); $configured = loadBadges(); $badges = [];
-    foreach ($ids as $id) {
-        $badge = $configured[(string) $id] ?? null; if (!is_array($badge)) continue;
-        $bygram = !empty($badge['bygram']); $extera = !empty($badge['extera']); if (!$bygram && !$extera) continue;
-        $badges[] = ['user_id' => $id, 'bygram' => $bygram, 'extera' => $extera, 'primary' => ($badge['primary'] ?? '') === 'extera' && $extera ? 'extera' : 'bygram'];
-    }
+    rateLimit($pdo, 'badges:' . $ip, 120);
+    $ids = viewerIds($request['user_ids'] ?? []);
+    $chatIds = viewerIds($request['chat_ids'] ?? []);
+    $configured = loadBadges(); $badges = [];
+    foreach ($ids as $id) if (badgeFor($configured, 'user', $id)) $badges[] = ['peer_type' => 'user', 'peer_id' => $id];
+    foreach ($chatIds as $id) if (badgeFor($configured, 'chat', $id)) $badges[] = ['peer_type' => 'chat', 'peer_id' => $id];
     jsonResponse(['ok' => true, 'badges' => $badges]);
+}
+if ($action === 'typing_get') {
+    rateLimit($pdo, 'typing_get:' . $ip, 120);
+    $ownerId = filter_var($request['owner_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$ownerId || $ownerId < 1) jsonResponse(['ok' => false], 400);
+    $query = $pdo->prepare('SELECT statuses FROM typing_statuses WHERE telegram_id=?');
+    $query->execute([$ownerId]);
+    $statuses = json_decode((string) ($query->fetchColumn() ?: '{}'), true);
+    jsonResponse(['ok' => true, 'statuses' => is_array($statuses) ? $statuses : []]);
+}
+if ($action === 'typing_register') {
+    rateLimit($pdo, 'typing_register:' . $ip, 12);
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
+    $publicKey = (string) ($request['public_key'] ?? '');
+    $proof = base64_decode((string) ($request['proof'] ?? ''), true);
+    if (!$userId || $userId < 1 || $proof === false || openssl_verify("BYGRAM_TYPING_V1\n$userId", $proof, publicKeyPem($publicKey), OPENSSL_ALGO_SHA256) !== 1) jsonResponse(['ok' => false], 400);
+    $activation = token();
+    $pdo->prepare('INSERT INTO typing_activations (token_hash,telegram_id,public_key,expires_at) VALUES (?,?,?,UTC_TIMESTAMP()+INTERVAL 10 MINUTE)')
+        ->execute([hash('sha256', $activation), $userId, $publicKey]);
+    jsonResponse(['ok' => true, 'bot_url' => 'https://t.me/' . rawurlencode(appSetting('bot_username')) . '?start=typing_' . rawurlencode($activation)]);
+}
+if ($action === 'typing_put') {
+    rateLimit($pdo, 'typing_put:' . $ip, 60);
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
+    $values = $request['statuses'] ?? null;
+    if (!$userId || $userId < 1 || !is_array($values) || count($values) > 12) jsonResponse(['ok' => false], 400);
+    $statuses = [];
+    foreach ($values as $key => $value) {
+        if (!preg_match('/^(?:[0-9]|10)$/D', (string) $key) || !is_string($value) || mb_strlen($value) > 64) jsonResponse(['ok' => false], 400);
+        $value = trim(strip_tags($value));
+        if ($value !== '') $statuses[(string) $key] = $value;
+    }
+    $query = $pdo->prepare('SELECT public_key FROM typing_devices WHERE telegram_id=?');
+    $query->execute([$userId]);
+    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
+    $authorized = false;
+    foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $publicKey) {
+        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
+    }
+    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
+    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId,$nonce]); }
+    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    $pdo->prepare('INSERT INTO typing_statuses (telegram_id,statuses) VALUES (?,?) ON DUPLICATE KEY UPDATE statuses=VALUES(statuses)')
+        ->execute([$userId,json_encode($statuses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+    jsonResponse(['ok' => true]);
 }
 
 $session = authenticatedSession($pdo, $raw); $userId = (int) $session['telegram_id'];

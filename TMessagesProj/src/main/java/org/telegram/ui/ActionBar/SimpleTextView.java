@@ -43,6 +43,7 @@ import org.telegram.messenger.Emoji;
 import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
+import org.telegram.ui.Components.BygramBadgeDrawable;
 import org.telegram.ui.Components.EmptyStubSpan;
 import org.telegram.ui.Components.StaticLayoutEx;
 import org.telegram.ui.Components.spoilers.SpoilerEffect;
@@ -1328,8 +1329,43 @@ public class SimpleTextView extends View implements Drawable.Callback {
         rightDrawableOnClickListener = onClickListener;
     }
 
+    private BygramBadgeDrawable pressedBygramBadge;
+
+    private BygramBadgeDrawable badgeIn(Drawable drawable) {
+        if (drawable instanceof BygramBadgeDrawable) return (BygramBadgeDrawable) drawable;
+        if (drawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
+            Drawable current = ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) drawable).getDrawable();
+            if (current instanceof BygramBadgeDrawable) return (BygramBadgeDrawable) current;
+        }
+        return null;
+    }
+
+    private BygramBadgeDrawable badgeAt(float x, float y) {
+        BygramBadgeDrawable second = badgeIn(rightDrawable2);
+        if (second != null) {
+            Rect bounds = second.badgeBounds();
+            if (x >= bounds.left - dp(8) && x <= bounds.right + dp(8)
+                    && y >= bounds.top - dp(8) && y <= bounds.bottom + dp(8)) return second;
+        }
+        BygramBadgeDrawable first = badgeIn(rightDrawable);
+        if (first != null
+                && Math.abs(x - rightDrawableX) <= dp(16) && Math.abs(y - rightDrawableY) <= dp(16))
+            return first;
+        return null;
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            pressedBygramBadge = badgeAt(event.getX(), event.getY());
+            if (pressedBygramBadge != null) return true;
+        } else if (pressedBygramBadge != null) {
+            if (event.getAction() == MotionEvent.ACTION_UP && badgeAt(event.getX(), event.getY()) == pressedBygramBadge)
+                pressedBygramBadge.showNotice();
+            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
+                pressedBygramBadge = null;
+            return true;
+        }
         if (rightDrawableOnClickListener != null && rightDrawable != null) {
             AndroidUtilities.rectTmp.set(rightDrawableX - dp(16), rightDrawableY - dp(16), rightDrawableX + dp(16), rightDrawableY + dp(16));
             if (event.getAction() == MotionEvent.ACTION_DOWN && AndroidUtilities.rectTmp.contains((int) event.getX(), (int) event.getY())) {

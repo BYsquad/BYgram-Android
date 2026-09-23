@@ -12,6 +12,7 @@ import android.graphics.drawable.Drawable;
 
 import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.BygramActivityController;
+import org.telegram.messenger.BygramTypingController;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildConfig;
 import org.telegram.messenger.BuildVars;
@@ -116,6 +117,7 @@ public class BygramSettingsActivity extends BaseFragment {
             items.add(UItem.asHeader(getString(R.string.BygramCustomization)));
             items.add(UItem.asButton(1, R.drawable.settings_account, getString(R.string.BygramProfile)));
             items.add(UItem.asButton(2, R.drawable.settings_chat, getString(R.string.BygramGeneral)));
+            items.add(UItem.asButton(3, R.drawable.settings_chat, getString(R.string.BygramCustomTyping)));
             items.add(UItem.asShadow(null));
         }
 
@@ -124,6 +126,72 @@ public class BygramSettingsActivity extends BaseFragment {
         @Override void onCustomClick(int id) {
             if (id == 1) presentFragment(new ProfileCustomizationActivity());
             else if (id == 2) presentFragment(new GeneralCustomizationActivity());
+            else if (id == 3) presentFragment(new TypingCustomizationActivity());
+        }
+    }
+
+    public static class TypingCustomizationActivity extends ToggleSettingsActivity {
+        private static final int[] LABELS = {
+                R.string.BygramTypingText, R.string.BygramTypingRecordAudio,
+                R.string.BygramTypingCancel, R.string.BygramTypingFile,
+                R.string.BygramTypingPhoto, R.string.BygramTypingVideo,
+                R.string.BygramTypingRecordVideo, R.string.BygramTypingRecordRound,
+                R.string.BygramTypingUploadRound, R.string.BygramTypingAudio,
+                R.string.BygramTypingGame
+        };
+
+        @Override int getTitleRes() { return R.string.BygramCustomTyping; }
+
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asHeader(getString(R.string.BygramCustomTyping)));
+            for (int i = 0; i < LABELS.length; i++) {
+                if (i == 2) continue;
+                String value = BygramConfig.getCustomTyping(currentAccount, i);
+                items.add(UItem.asButton(100 + i, getString(LABELS[i]), value.isEmpty() ? getString(R.string.BygramTypingDefault) : value));
+            }
+            items.add(UItem.asShadow(getString(R.string.BygramCustomTypingInfo)));
+            items.add(UItem.asButton(200, getString(R.string.BygramTypingPublish)));
+        }
+
+        @Override String keyFor(int id) { return null; }
+
+        @Override void onCustomClick(int id) {
+            if (id == 200) { publish(); return; }
+            int action = id - 100;
+            if (action < 0 || action >= LABELS.length || action == 2) return;
+            EditText input = new EditText(getContext());
+            input.setSingleLine(true);
+            input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)});
+            input.setText(BygramConfig.getCustomTyping(currentAccount, action));
+            input.setSelection(input.length());
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                    .setTitle(getString(LABELS[action]))
+                    .setView(input)
+                    .setNegativeButton(getString(R.string.Cancel), null)
+                    .setPositiveButton(getString(R.string.Save), (dialog, which) -> {
+                        BygramConfig.setCustomTyping(currentAccount, action, input.getText().toString());
+                        listView.adapter.update(true);
+                        publish();
+                    }).create());
+        }
+
+        private void publish() {
+            BygramTypingController.publish(currentAccount, (ok, botUrl) -> {
+                if (getContext() == null || ok) return;
+                if (!botUrl.isEmpty()) {
+                    showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                            .setTitle(getString(R.string.BygramCustomTyping))
+                            .setMessage(getString(R.string.BygramTypingVerify))
+                            .setNegativeButton(getString(R.string.Cancel), null)
+                            .setPositiveButton(getString(R.string.BygramTypingOpenBot), (dialog, which) ->
+                                    org.telegram.messenger.browser.Browser.openUrl(getContext(), botUrl)).create());
+                } else {
+                    showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                            .setTitle(getString(R.string.BygramCustomTyping))
+                            .setMessage(getString(R.string.BygramTypingPublishFailed))
+                            .setPositiveButton(getString(R.string.OK), null).create());
+                }
+            });
         }
     }
 

@@ -15,7 +15,19 @@ if ($expectedSecret === '' || !hash_equals($expectedSecret, $receivedSecret)) { 
 $update = json_decode((string) file_get_contents('php://input'), true);
 $message = is_array($update) ? ($update['message'] ?? null) : null;
 $fromId = (int) ($message['from']['id'] ?? 0); $chatId = (int) ($message['chat']['id'] ?? 0); $text = trim((string) ($message['text'] ?? ''));
-if ($fromId < 1 || $chatId < 1 || !preg_match('/^\/start(?:@\w+)?\s+bind_([A-Za-z0-9_-]{43})$/D', $text, $match)) { http_response_code(204); exit; }
+if ($fromId < 1 || $chatId < 1) { http_response_code(204); exit; }
+if (preg_match('/^\/start(?:@\w+)?\s+typing_([A-Za-z0-9_-]{43})$/D', $text, $typingMatch)) {
+    $pdo = db();
+    $query = $pdo->prepare('SELECT telegram_id,public_key FROM typing_activations WHERE token_hash=? AND expires_at>UTC_TIMESTAMP() AND confirmed_at IS NULL');
+    $query->execute([hash('sha256', $typingMatch[1])]); $attempt = $query->fetch();
+    if (!$attempt || (int) $attempt['telegram_id'] !== $fromId) { botReply($chatId, 'Ссылка подтверждения недействительна для этого аккаунта.'); http_response_code(204); exit; }
+    $fingerprint = hash('sha256', base64_decode((string) $attempt['public_key'], true));
+    $pdo->prepare('INSERT IGNORE INTO typing_devices (telegram_id,key_fingerprint,public_key) VALUES (?,?,?)')->execute([$fromId,$fingerprint,$attempt['public_key']]);
+    $pdo->prepare('UPDATE typing_activations SET confirmed_at=UTC_TIMESTAMP() WHERE token_hash=?')->execute([hash('sha256', $typingMatch[1])]);
+    botReply($chatId, 'BYgram подтверждён. Вернитесь в настройки кастомных статусов и нажмите «Сохранить».');
+    http_response_code(204); exit;
+}
+if (!preg_match('/^\/start(?:@\w+)?\s+bind_([A-Za-z0-9_-]{43})$/D', $text, $match)) { http_response_code(204); exit; }
 $value = $match[1]; $pdo = db();
 $query = $pdo->prepare('SELECT id,expected_user_id,proof_at FROM device_activations WHERE token_hash=? AND expires_at>UTC_TIMESTAMP()');
 $query->execute([hash('sha256', $value)]); $attempt = $query->fetch();

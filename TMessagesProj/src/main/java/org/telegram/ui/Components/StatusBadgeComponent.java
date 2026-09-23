@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramBadgeController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
@@ -11,6 +12,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.Premium.PremiumGradient;
 
 public class StatusBadgeComponent {
+    private final View parentView;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable statusDrawable;
     private Drawable verifiedDrawable;
 
@@ -19,6 +21,7 @@ public class StatusBadgeComponent {
     }
 
     public StatusBadgeComponent(View parentView, int sizeDp) {
+        this.parentView = parentView;
         statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(parentView, AndroidUtilities.dp(sizeDp));
     }
 
@@ -32,6 +35,16 @@ public class StatusBadgeComponent {
     }
 
     public Drawable updateDrawable(TLRPC.User user, TLRPC.Chat chat, int colorFilter, boolean animated) {
+        if (user != null && BygramBadgeController.hasBadge(user)) {
+            statusDrawable.set(new BygramBadgeDrawable(parentView.getContext(), false, 18), animated);
+            statusDrawable.setColor(null);
+            return statusDrawable;
+        }
+        if (chat != null && BygramBadgeController.hasBadge(chat)) {
+            statusDrawable.set(new BygramBadgeDrawable(parentView.getContext(), true, 18), animated);
+            statusDrawable.setColor(null);
+            return statusDrawable;
+        }
         if (chat != null && chat.verified) {
             statusDrawable.set(verifiedDrawable = (verifiedDrawable == null ? new CombinedDrawable(Theme.dialogs_verifiedDrawable, Theme.dialogs_verifiedCheckDrawable) : verifiedDrawable), animated);
             statusDrawable.setColor(null);

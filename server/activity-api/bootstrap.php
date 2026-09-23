@@ -101,8 +101,22 @@ function loadBadges(): array {
     $badges = json_decode((string) @file_get_contents(__DIR__ . '/badges.json'), true);
     return is_array($badges) ? $badges : [];
 }
+function badgeKey(string $type, int $id): string {
+    if (!in_array($type, ['user', 'chat'], true) || $id < 1) throw new InvalidArgumentException('Неверный тип или ID');
+    return $type . ':' . $id;
+}
+function badgeId(string $type, mixed $value): int {
+    $text = trim((string) $value);
+    if ($type === 'chat' && str_starts_with($text, '-100')) $text = substr($text, 4);
+    elseif ($type === 'chat' && str_starts_with($text, '-')) $text = substr($text, 1);
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $text)) throw new InvalidArgumentException('Неверный Telegram ID');
+    return (int) $text;
+}
+function badgeFor(array $badges, string $type, int $id): bool {
+    return !empty($badges[badgeKey($type, $id)]) || ($type === 'user' && !empty($badges[(string) $id]['bygram']));
+}
 function saveBadges(array $badges): void {
-    ksort($badges, SORT_NUMERIC);
+    ksort($badges, SORT_STRING);
     $json = json_encode($badges, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     if ($json === false || file_put_contents(__DIR__ . '/badges.json.tmp', $json . "\n", LOCK_EX) === false
             || !rename(__DIR__ . '/badges.json.tmp', __DIR__ . '/badges.json')) {

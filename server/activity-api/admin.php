@@ -23,6 +23,6 @@ $loginUrl = preg_replace('~/[^/]+$~', '/admin-login.php', $adminUrl);
 <?php else: ?>
 <div id="admin-root"></div>
 <a class="admin-logout" href="admin-login.php?action=logout">Выйти</a>
-<script type="module" src="../assets/admin.js"></script>
+<script type="module" src="../assets/admin.js?v=20260923-badges"></script>
 <?php endif; ?>
 </body></html>

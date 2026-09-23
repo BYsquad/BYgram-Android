@@ -71,6 +71,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.CharacterStyle;
 import android.text.style.ClickableSpan;
+import android.text.style.ImageSpan;
 import android.text.style.DynamicDrawableSpan;
 import android.text.style.LeadingMarginSpan;
 import android.text.style.StrikethroughSpan;
@@ -104,6 +105,7 @@ import androidx.core.math.MathUtils;
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramBadgeController;
 import org.telegram.messenger.AppGlobalConfig;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BotForumHelper;
@@ -158,6 +160,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.AvatarSpan;
 import org.telegram.ui.ChatActivity;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
+import org.telegram.ui.Components.BygramBadgeDrawable;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
 import org.telegram.ui.Components.AnimatedFileDrawable;
 import org.telegram.ui.Components.AnimatedFloat;
@@ -1687,6 +1690,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private float summarizeButtonX, summarizeButtonY;
 
     private StaticLayout nameLayout;
+    private BygramBadgeDrawable authorBygramBadge;
     private int nameLayoutWidth;
     private boolean adminLayoutIsAdmin, adminLayoutIsOwner, adminLayoutIsTag;
     private StaticLayout adminLayout;
@@ -2230,6 +2234,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
             if (event.getAction() == MotionEvent.ACTION_UP && nameLayoutPressed) {
+                if (authorBygramBadge != null && !viaOnly
+                        && getEventX(event) >= nameLayoutSelector.getBounds().right - dp(24)) {
+                    authorBygramBadge.showNotice();
+                    nameLayoutSelector.setState(StateSet.NOTHING);
+                    nameLayoutPressed = false;
+                    return true;
+                }
                 if (delegate != null) {
                     if (viaOnly) {
                         if (currentViaBotUser != null && currentViaBotUser.bot_inline_placeholder == null) {
@@ -18931,7 +18942,19 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             if (adminString != null) {
                 nameWidth -= dp(8);
             }
-            nameStringFinal = TextUtils.ellipsize(nameStringFinal, Theme.chat_namePaint, nameWidth + additionalWidth - (viaBot ? viaWidth : 0), TextUtils.TruncateAt.END);
+            boolean badgedAuthor = currentUser != null ? BygramBadgeController.hasBadge(currentUser)
+                    : currentChat != null && BygramBadgeController.hasBadge(currentChat);
+            authorBygramBadge = !viaBot && !viaGuestBot && messageObject.customName == null && badgedAuthor
+                    ? new BygramBadgeDrawable(getContext(), currentUser == null, 16) : null;
+            int badgeWidth = authorBygramBadge == null ? 0 : dp(22);
+            nameStringFinal = TextUtils.ellipsize(nameStringFinal, Theme.chat_namePaint, Math.max(0, nameWidth + additionalWidth - (viaBot ? viaWidth : 0) - badgeWidth), TextUtils.TruncateAt.END);
+            if (authorBygramBadge != null) {
+                authorBygramBadge.setBounds(0, 0, dp(16), dp(16));
+                SpannableStringBuilder withBadge = new SpannableStringBuilder(nameStringFinal);
+                withBadge.append(" \uFFFC");
+                withBadge.setSpan(new ImageSpan(authorBygramBadge, ImageSpan.ALIGN_CENTER), withBadge.length() - 1, withBadge.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                nameStringFinal = withBadge;
+            }
 
             if (viaGuestBot) {
                 int colorKey;

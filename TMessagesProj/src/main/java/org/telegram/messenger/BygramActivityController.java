@@ -29,8 +29,8 @@ public final class BygramActivityController {
     private static final long POSITIVE_REFRESH_MS = 60 * 60 * 1000L;
     private static final long NEGATIVE_REFRESH_MS = 60 * 1000L;
     private static final long LICENSE_GRACE_MS = 24 * 60 * 60 * 1000L;
-    private static final long ACTIVITY_CACHE_MS = 10_000L;
-    private static final long ACTIVITY_HEARTBEAT_MS = 20_000L;
+    private static final long ACTIVITY_CACHE_MS = 7_000L;
+    private static final long ACTIVITY_HEARTBEAT_MS = 7_000L;
 
     public interface Callback { void run(String activity); }
     public interface LicenseCallback { void run(Boolean licensed, String botUrl); }
@@ -132,7 +132,11 @@ public final class BygramActivityController {
         if (userId <= 0) { if (callback != null) callback.run(false, ""); return; }
         SharedPreferences prefs = preferences();
         String access = prefs.getString(key("access", userId), "");
-        if (access.isEmpty()) { authenticate(account, callback); return; }
+        if (access.isEmpty()) {
+            if (prefs.getString(key("refresh", userId), "").isEmpty()) authenticate(account, callback);
+            else refreshAccess(account, callback);
+            return;
+        }
         if (prefs.getLong(key("access_expires", userId), 0) <= System.currentTimeMillis() / 1000 + 30) {
             refreshAccess(account, callback);
             return;
@@ -266,7 +270,13 @@ public final class BygramActivityController {
         String refresh = preferences().getString(key("refresh", userId), "");
         if (refresh.isEmpty()) { preferences().edit().remove(key("access", userId)).apply(); authenticate(account, callback); return; }
         request(userId, json("action", "refresh", "refresh_token", refresh), false, response -> {
-            if (response == null || !response.optBoolean("ok")) {
+            if (response == null || response.optInt("_http_status") >= 500 || response.optInt("_http_status") == 429) {
+                if (callback != null) callback.run(null, "");
+            } else if (!response.optBoolean("ok")) {
+                if (response.optInt("_http_status") != 401 && response.optInt("_http_status") != 403) {
+                    if (callback != null) callback.run(null, "");
+                    return;
+                }
                 preferences().edit().remove(key("access", userId)).remove(key("refresh", userId)).apply();
                 authenticate(account, callback);
             } else {
@@ -509,6 +519,8 @@ public final class BygramActivityController {
                     while ((line = reader.readLine()) != null) text.append(line);
                     if (text.length() > 0) response = new JSONObject(text.toString());
                 }
+                if (response == null) response = new JSONObject();
+                response.put("_http_status", status);
             } catch (Exception e) { FileLog.e(e); }
             finally { if (connection != null) connection.disconnect(); }
             if (callback != null) { JSONObject result = response; AndroidUtilities.runOnUIThread(() -> callback.run(result)); }

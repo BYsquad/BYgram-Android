@@ -42,6 +42,7 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
+import android.text.style.ImageSpan;
 import android.text.style.ReplacementSpan;
 import android.text.style.StyleSpan;
 import android.view.Gravity;
@@ -105,6 +106,8 @@ import org.telegram.ui.Components.ButtonBounce;
 import org.telegram.ui.Components.CanvasButton;
 import org.telegram.ui.Components.CheckBox2;
 import org.telegram.ui.Components.ColoredImageSpan;
+import org.telegram.ui.Components.BygramBadgeDrawable;
+import org.telegram.messenger.BygramBadgeController;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.DialogCellTags;
 import org.telegram.ui.Components.EmptyStubSpan;
@@ -543,6 +546,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     public int nameAdditionalsForChannelSubscriber;
     public boolean channelShouldUseLineWidth;
     public StaticLayout nameLayout;
+    private BygramBadgeDrawable bygramNameBadge;
+    private boolean bygramBadgePressed;
     private boolean nameLayoutFits;
     public float nameLayoutTranslateX;
     private boolean nameLayoutEllipsizeLeft;
@@ -2415,7 +2420,11 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             if (nameString instanceof String) {
                 nameString = ((String) nameString).replace('\n', ' ');
             }
+            boolean bygramBadged = (user != null && BygramBadgeController.hasBadge(user))
+                    || (chat != null && BygramBadgeController.hasBadge(chat));
             CharSequence nameStringFinal = nameString;
+            bygramNameBadge = null;
+            if (bygramBadged) ellipsizeWidth = Math.max(0, ellipsizeWidth - dp(24));
             if (nameLayoutEllipsizeByGradient) {
                 nameLayoutFits = nameStringFinal.length() == TextUtils.ellipsize(nameStringFinal, Theme.dialogs_namePaint[paintIndex], ellipsizeWidth, TextUtils.TruncateAt.END).length();
                 ellipsizeWidth += dp(48);
@@ -2428,6 +2437,15 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 nameStringFinal = TextUtils.ellipsize(nameStringFinal, Theme.dialogs_namePaint[paintIndex], ellipsizeWidth, TextUtils.TruncateAt.END);
             }
             nameStringFinal = Emoji.replaceEmoji(nameStringFinal, Theme.dialogs_namePaint[paintIndex].getFontMetricsInt(), false);
+            if (bygramBadged) {
+                bygramNameBadge = new BygramBadgeDrawable(getContext(), chat != null, 18);
+                bygramNameBadge.setBounds(0, 0, dp(18), dp(18));
+                SpannableStringBuilder withBadge = new SpannableStringBuilder(nameStringFinal);
+                withBadge.append(" \uFFFC");
+                withBadge.setSpan(new ImageSpan(bygramNameBadge, ImageSpan.ALIGN_CENTER), withBadge.length() - 1, withBadge.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                nameStringFinal = withBadge;
+                ellipsizeWidth += dp(24);
+            }
             if (message != null && message.hasHighlightedWords()) {
                 CharSequence s = AndroidUtilities.highlightText(nameStringFinal, message.highlightedWords, resourcesProvider);
                 if (s != null) {
@@ -6115,6 +6133,22 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (bygramNameBadge != null && nameLayout != null) {
+            int offset = nameLayout.getText().length() - 1;
+            int line = nameLayout.getLineForOffset(offset);
+            float badgeX = nameLeft + nameLayoutTranslateX + nameLayout.getPrimaryHorizontal(offset);
+            float badgeY = dp(useForceThreeLines || SharedConfig.useThreeLinesLayout ? 10 : 14) + nameLayout.getLineTop(line);
+            boolean hit = Math.abs(event.getX() - badgeX) < dp(22) && event.getY() >= badgeY - dp(4) && event.getY() <= badgeY + dp(24);
+            if (event.getAction() == MotionEvent.ACTION_DOWN && hit) {
+                bygramBadgePressed = true;
+                return true;
+            }
+            if (bygramBadgePressed && (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)) {
+                if (hit && event.getAction() == MotionEvent.ACTION_UP) bygramNameBadge.showNotice();
+                bygramBadgePressed = false;
+                return true;
+            }
+        }
         if (rightFragmentOpenedProgress == 0 && !isTopic && !isShareToStoryCell && storyParams.checkOnTouchEvent(event, this)) {
             return true;
         }

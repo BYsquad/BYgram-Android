@@ -1,6 +1,6 @@
 # Настройки BYgram: документация разработчика
 
-Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Значки BYgram и ExteraGram из Android-клиента удалены.
+Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Кастомные статусы печати работают в Lite и Full через `BygramTypingController`, значки — через `BygramBadgeController`.
 
 ## Карта экранов
 
@@ -8,7 +8,8 @@
 Настройки → Настройки BYgram
 ├─ Кастомизация
 │  ├─ Профиль
-│  └─ Общие
+│  ├─ Общие
+│  └─ Кастомный статус печати
 ├─ Другое
 ├─ Режим призрака
 ├─ Шпион

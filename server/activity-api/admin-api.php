@@ -44,14 +44,11 @@ try{
             $id=(int)($input['id']??0);if($id<1)throw new InvalidArgumentException('Неверная заявка');
             $q=$pdo->prepare('UPDATE auth_challenges SET confirmed_user_id=expected_user_id,confirmed_at=UTC_TIMESTAMP() WHERE id=? AND confirmed_user_id IS NULL AND expires_at>UTC_TIMESTAMP()');$q->execute([$id]);if(!$q->rowCount())throw new InvalidArgumentException('Заявка не найдена или истекла');
         }elseif($action==='badge.save'){
-            $id=(int)($input['telegram_id']??0);$bygram=!empty($input['bygram']);$extera=!empty($input['extera']);$primary=(string)($input['primary']??'bygram');
-            if($id<1||(!$bygram&&!$extera)||!in_array($primary,['bygram','extera'],true))throw new InvalidArgumentException('Проверьте Telegram ID и значки');
-            if($extera&&!hasExteraBadge($id))throw new InvalidArgumentException('У пользователя нет значка ExteraGram');
-            if(($primary==='bygram'&&!$bygram)||($primary==='extera'&&!$extera))$primary=$bygram?'bygram':'extera';
-            $badges=loadBadges();$badges[(string)$id]=['bygram'=>$bygram,'extera'=>$extera,'primary'=>$primary];saveBadges($badges);
+            $type=(string)($input['peer_type']??'user');$id=badgeId($type,$input['telegram_id']??'');
+            $key=badgeKey($type,$id);$badges=loadBadges();$badges[$key]=true;saveBadges($badges);
         }elseif($action==='badge.delete'){
-            $id=(int)($input['telegram_id']??0);if($id<1)throw new InvalidArgumentException('Неверный Telegram ID');
-            $badges=loadBadges();unset($badges[(string)$id]);saveBadges($badges);
+            $type=(string)($input['peer_type']??'user');$id=badgeId($type,$input['telegram_id']??'');
+            $key=badgeKey($type,$id);$badges=loadBadges();unset($badges[$key]);if($type==='user')unset($badges[(string)$id]);saveBadges($badges);
         }elseif($action==='method.save'){
             $code=(string)($input['code']??'');if(!in_array($code,['stars','crypto','manual'],true)||(float)($input['price']??0)<0)throw new InvalidArgumentException('Неверный способ оплаты');
             $pdo->prepare('UPDATE payment_methods SET enabled=?,price=? WHERE code=?')->execute([!empty($input['enabled']),$input['price'],$code]);
