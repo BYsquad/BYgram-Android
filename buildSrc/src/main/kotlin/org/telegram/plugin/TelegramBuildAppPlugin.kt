@@ -28,6 +28,7 @@ class TelegramBuildAppPlugin : Plugin<Project> {
                 stringsXml.from(
                     telegramModule.fileTree("src/main/res/values") {
                         include("strings.xml")
+                        include("bygram_strings.xml", "bygram_preferences.xml")
                     },
                     project.fileTree("src/main/res/values") {
                         include("strings.xml")
@@ -37,6 +38,7 @@ class TelegramBuildAppPlugin : Plugin<Project> {
                 localizationFiles.from(
                     telegramModule.fileTree("src/main/res") {
                         include("values-*/strings.xml")
+                        include("values-*/bygram_strings.xml", "values-*/bygram_preferences.xml")
                     },
                     project.fileTree("src/main/res") {
                         include("values-*/strings.xml")

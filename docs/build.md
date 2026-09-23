@@ -28,6 +28,7 @@ android sdk list --all
 - `APP_PACKAGE` всегда должен быть `com.bygram.mobile`.
 - Не уменьшайте KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
 - Перед каждой сборкой обязательно загрузите одобренные переводы.
+- Генератор бинарной локализации должен включать `bygram_strings.xml` и `bygram_preferences.xml` для английского, русского и украинского языков. Иначе `LocaleController.getString(R.string.Bygram...)` показывает `LOC_ERR:null`, даже если текст есть в Android XML.
 
 ## Gradle Wrapper в PowerShell
 
@@ -109,6 +110,7 @@ $apk = '.\output\BYgram-full.apk'
 & (Join-Path $sdk 'build-tools\36.0.0\aapt.exe') dump badging $apk | Select-Object -First 3
 & (Join-Path $sdk 'build-tools\36.0.0\apksigner.bat') verify --verbose --print-certs $apk
 Get-FileHash -Algorithm SHA256 $apk
+python Tools/check_bygram_localization_apk.py $apk
 ```
 
 Проверьте:
@@ -118,6 +120,7 @@ Get-FileHash -Algorithm SHA256 $apk
 - `sdkVersion` не ниже 23;
 - `apksigner` завершился успешно;
 - размер и SHA-256 записаны в release metadata.
+- все строки BYgram доступны через бинарную локализацию Telegram.
 
 ## Установка на тестовое устройство
 
