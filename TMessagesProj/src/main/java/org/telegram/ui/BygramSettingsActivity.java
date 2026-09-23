@@ -85,7 +85,7 @@ public class BygramSettingsActivity extends BaseFragment {
         items.add(UItem.asHeader(getString(R.string.BygramLinks)));
         items.add(UItem.asButton(10, R.drawable.msg_channel, getString(R.string.BygramChannel)));
         items.add(UItem.asButton(11, R.drawable.msg_discussion, getString(R.string.BygramChat)));
-        items.add(UItem.asButton(12, R.drawable.msg_link, getString(R.string.BygramCrowdin)));
+        items.add(UItem.asButton(12, R.drawable.msg_link, getString(R.string.BygramTranslations)));
         items.add(UItem.asShadow(null));
     }
 
@@ -105,7 +105,7 @@ public class BygramSettingsActivity extends BaseFragment {
         } else if (item.id == 11) {
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://t.me/BYgram_community");
         } else if (item.id == 12) {
-            org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://crowdin.com/project/bygram");
+            org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://github.com/BYxarek/BYgram-translations");
         }
     }
 

@@ -16,7 +16,7 @@
 - Основной Android package: `com.bygram.mobile`; не добавляйте `.debug`, `.test` или `.beta` к `applicationId` приложения.
 - `com.bygram.mobile.test` — отдельный тестовый package instrumentation APK.
 - Не меняйте версию клиента без прямого запроса.
-- Перед сборкой загрузите одобренные переводы Crowdin.
+- Переводы BYgram ведутся в публичном репозитории [BYgram-translations](https://github.com/BYxarek/BYgram-translations). После проверки pull request импортируйте их в закрытый проект командой из [инструкции по сборке](build.md); сборка использует зафиксированные XML-файлы и не зависит от Crowdin.
 - Не уменьшайте версии KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
 - После изменения функций обновите соответствующий документ и минимальную runnable-проверку.
 - При публикации релиза обновите metadata и страницу скачивания APK.

@@ -3,7 +3,6 @@
 ## Перед любой сборкой
 
 ```powershell
-crowdin download translations --export-only-approved --skip-untranslated-strings
 python Tools/check_bygram_settings_fixes.py
 ```
 
@@ -51,5 +50,5 @@ php -d zend.assertions=1 -d assert.exception=1 server/activity-api/self-test.php
 - Global/account scope проверен сменой Telegram account.
 - Privacy data не уходит до opt-in.
 - Reset/clear удаляет ровно перечисленный scope.
-- Все новые строки есть в `values` и `values-ru`, затем получены из Crowdin для остальных locales.
+- Все новые строки есть в английском каталоге [BYgram-translations](https://github.com/BYxarek/BYgram-translations) и в приложении; проверенные переводы импортированы из публичного каталога.
 - Licensed activity test пройден на контролируемом test dataset.

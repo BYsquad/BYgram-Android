@@ -10,7 +10,7 @@
 - Android NDK `27.2.12479018`.
 - CMake `3.22.1`.
 - Gradle Wrapper `8.13` скачивает Gradle автоматически.
-- Crowdin CLI с доступом к проекту.
+- Python 3 для проверки локализации и импорта из публичного каталога переводов.
 
 Проверьте окружение:
 
@@ -27,7 +27,7 @@ android sdk list --all
 - Не меняйте `APP_VERSION_CODE` и `APP_VERSION_NAME`, если задача отдельно этого не требует.
 - `APP_PACKAGE` всегда должен быть `com.bygram.mobile`.
 - Не уменьшайте KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
-- Перед каждой сборкой обязательно загрузите одобренные переводы.
+- Сборка использует XML-переводы, зафиксированные в этом репозитории. Перед релизом импортируйте проверенный коммит из публичного [BYgram-translations](https://github.com/BYxarek/BYgram-translations).
 - Генератор бинарной локализации должен включать `bygram_strings.xml` и `bygram_preferences.xml` для английского, русского и украинского языков. Иначе `LocaleController.getString(R.string.Bygram...)` показывает `LOC_ERR:null`, даже если текст есть в Android XML.
 
 ## Gradle Wrapper в PowerShell
@@ -42,15 +42,17 @@ java -classpath $gradleJar $gradleMain --version
 
 PATH менять не требуется.
 
-## Обязательная загрузка переводов
+## Обновление переводов
 
-Из корня `C:\project\BYgram-mobile`:
+После проверки и слияния pull request в публичный репозиторий получите его свежий `main` и из корня `C:\project\BYgram-mobile` выполните:
 
 ```powershell
-crowdin download translations --export-only-approved --skip-untranslated-strings
+gh repo clone BYxarek/BYgram-translations C:\project\BYgram-translations
+python Tools/sync_bygram_translations.py C:\project\BYgram-translations
+python Tools/sync_bygram_translations.py C:\project\BYgram-translations --check
 ```
 
-Если Crowdin завершился с ошибкой, сборку не продолжайте: исправьте авторизацию/конфигурацию и повторите download.
+Если каталог уже клонирован, перед импортом выполните `git -C C:\project\BYgram-translations pull --ff-only`. Скрипт читает только XML, проверяет имена ресурсов, форматные аргументы и длины массивов, затем копирует переводы в приложение. Он требует, чтобы английские исходные XML-файлы в обоих репозиториях совпадали. После импорта проверьте diff и зафиксируйте его в закрытом репозитории. Обычная сборка не обращается к внешнему сервису переводов.
 
 ## Две редакции APK
 
