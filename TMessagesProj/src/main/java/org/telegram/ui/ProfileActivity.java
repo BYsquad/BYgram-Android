@@ -120,7 +120,6 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import org.telegram.ui.Components.ScrimOptions;
-import org.telegram.ui.Components.StatusBadgeComponent;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
@@ -5738,8 +5737,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         writeButtonSetBackground();
         if (userId != 0) {
             if (imageUpdater != null) {
-                cameraDrawable = new RLottieDrawable(R.raw.camera_outline, String.valueOf(R.raw.camera_outline), AndroidUtilities.dp(56), AndroidUtilities.dp(56), false, null);
-                cellCameraDrawable = new RLottieDrawable(R.raw.camera_outline, R.raw.camera_outline + "_cell", AndroidUtilities.dp(42), AndroidUtilities.dp(42), false, null);
+                cameraDrawable = new RLottieDrawable(R.raw.camera_outline, AndroidUtilities.dp(56), AndroidUtilities.dp(56), false, null);
+                cellCameraDrawable = new RLottieDrawable(R.raw.camera_outline, AndroidUtilities.dp(42), AndroidUtilities.dp(42), false, null);
 
                 if (actionsView != null) {
                     actionsView.beginApplyingActions();
@@ -6065,7 +6064,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int getActionsExtraHeight(boolean withMusic) {
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
-        return dp(74 + (withMusic ? getMusicExtraHeight() : 0));
+        return dp(74) + (withMusic ? getMusicExtraHeight() : 0);
     }
 
     private int getMusicExtraHeight() {
@@ -11207,7 +11206,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         updateEmojiStatusDrawableColor();
         return userId != 0
-                ? StatusBadgeComponent.withBadge(nameTextView[a], emojiStatusDrawable[a], userId, 24, true)
+                ? emojiStatusDrawable[a]
                 : emojiStatusDrawable[a];
     }
 
@@ -11262,7 +11261,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionsView.updatePosition(listView.getMeasuredWidth(), dp(74));
         } else {
             actionsView.clipHeight = -1;
-            float bottom = extraHeight + newTop - dp(getMusicExtraHeight());
+            float bottom = extraHeight + newTop - getMusicExtraHeight();
             float height = Math.min(dp(74), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
@@ -11584,7 +11583,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         premiumPreviewBottomSheet.startEnterFromX1 = textView.getLeft();
                         premiumPreviewBottomSheet.startEnterFromY1 = textView.getTop();
                         premiumPreviewBottomSheet.startEnterFromView = textView;
-                        if (StatusBadgeComponent.unwrap(textView.getRightDrawable()) == emojiStatusDrawable[1] && emojiStatusDrawable[1] != null && emojiStatusDrawable[1].getDrawable() instanceof AnimatedEmojiDrawable) {
+                        if (textView.getRightDrawable() == emojiStatusDrawable[1] && emojiStatusDrawable[1] != null && emojiStatusDrawable[1].getDrawable() instanceof AnimatedEmojiDrawable) {
                             premiumPreviewBottomSheet.startEnterFromScale *= 0.98f;
                             TLRPC.Document document = ((AnimatedEmojiDrawable) emojiStatusDrawable[1].getDrawable()).getDocument();
                             if (document != null) {
@@ -11621,19 +11620,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             }
                         }
                         showDialog(premiumPreviewBottomSheet);
-                    });
-                }
-                if (!getMessagesController().isPremiumUser(user) && DialogObject.getEmojiStatusDocumentId(user.emoji_status) == 0) {
-                    SimpleTextView currentNameTextView = nameTextView[a];
-                    currentNameTextView.setRightDrawableOnClick(v -> {
-                        BygramActivityController.ProfileBadgeInfo info = BygramActivityController.getProfileBadgeInfo(currentAccount, user.id, currentNameTextView);
-                        long documentId = info.extera ? BygramActivityController.getExteraBadgeDocumentId(user.id, currentNameTextView) : 0;
-                        if (documentId == 0) return;
-                        BulletinFactory.of(ProfileActivity.this).createEmojiBulletin(
-                                AnimatedEmojiDrawable.findDocument(currentAccount, documentId),
-                                LocaleController.formatString(R.string.BygramExteraSupporter, UserObject.getFirstName(user)),
-                                LocaleController.getString(R.string.LearnMore),
-                                () -> Browser.openUrl(getContext(), "https://exteragram.app")).show();
                     });
                 }
             }

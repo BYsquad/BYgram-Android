@@ -33,21 +33,25 @@ UI-группа раскрывается без отдельного persisted e
 
 `AVATAR_CORNERS`, 0…28 dp: 0 — square, 28 — circle. Значение ограничивается UI и применяется общим `ImageReceiver`, включая форумные avatars. Новый special avatar shape не должен обходить этот контракт без явного исключения в UI.
 
+Обводка реакций под сообщениями также использует `BygramConfig.avatarRadius(height)`: при 0 она квадратная, при увеличении настройки её углы скругляются вместе с аватарами.
+
 ### Liquid Glass
 
-`LIQUID_GLASS_PLACEMENTS` — mask из 6 битов. UI и examples используют массивы одинаковой длины; consumer guards находятся в viewer, context panels, FAB, search, selection и popup components.
+`LIQUID_GLASS_PLACEMENTS` — маска из 8 битов. Для каждого флага нужен пункт и пример в `BygramLiquidGlassPlaces` и `BygramLiquidGlassExamples` во всех локализациях. Экран ограничивает обход длиной обоих массивов, чтобы неполный перевод не вызывал вылет. Consumer guards находятся в viewer, context panels, FAB, search, selection и popup components.
 
 Новая область требует нового бита, строки/примера, consumer guard и обновления `GLASS_ALL`. Не переиспользуйте старый бит.
 
 ## Профиль
 
-### Badges
+### Значки рядом с именем
 
-Preview использует `StatusBadgeComponent.profileBadges()`. BYgram badges приходят batch-запросом к своему API; Extera badges — из публичного profiles endpoint. Локального toggle нет: состояние server-managed.
+Значки BYgram и ExteraGram удалены из Android-клиента. `StatusBadgeComponent` отображает только стандартные статусы Telegram.
 
 ### Музыка профиля
 
 `CUSTOM_PROFILE_MUSIC` управляет custom view в `ProfileActivity`/`ProfileMusicView`. Выключение скрывает представление и не удаляет media пользователя.
+
+`getContentHeight()` уже возвращает пиксели. При расчёте высоты заголовка и положения панели действий повторно применять `dp()` к этому значению нельзя.
 
 ### ID и DC
 

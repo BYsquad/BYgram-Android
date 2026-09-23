@@ -1,6 +1,6 @@
 # Настройки BYgram: документация разработчика
 
-Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность и badges — в `BygramActivityController` и `server/activity-api`.
+Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Значки BYgram и ExteraGram из Android-клиента удалены.
 
 ## Карта экранов
 

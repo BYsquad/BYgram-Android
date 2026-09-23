@@ -988,11 +988,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             titleTextView.setRightDrawable(null);
             rightDrawableContentDescription = null;
         }
-        TLRPC.User titleUser = parentFragment == null ? null : parentFragment.getCurrentUser();
-        if (titleUser != null) {
-            titleTextView.setRightDrawable(StatusBadgeComponent.withBadge(titleTextView,
-                    StatusBadgeComponent.unwrap(titleTextView.getRightDrawable()), titleUser.id, 20));
-        }
         checkActionBar(animated);
     }
 

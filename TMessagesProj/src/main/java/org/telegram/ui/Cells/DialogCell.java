@@ -639,8 +639,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private boolean drawVerified;
     private boolean drawBotVerified;
     private boolean drawPremium;
-    private boolean drawBygramBadge;
-    private final Drawable bygramBadgeDrawable;
     private final View emojiStatusView;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emojiStatus;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable botVerification;
@@ -721,7 +719,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         };
         addView(emojiStatusView);
         emojiStatus = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(emojiStatusView, dp(22));
-        bygramBadgeDrawable = context.getDrawable(R.drawable.bygram_logo_new);
         botVerification = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(17));
         avatarImage.setAllowLoadingOnAttachedOnly(true);
     }
@@ -1497,7 +1494,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     }
                 }
             } else {
-                drawBygramBadge = false;
                 if (currentDialogFolderId == 0 && !isTopic) {
                     long dialogBotVerificationIcon = 0;
                     if (chat != null) {
@@ -1519,7 +1515,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             drawBotVerified = !forbidVerified && chat.bot_verification_icon != 0;
                         }
                     } else if (user != null) {
-                        drawBygramBadge = BygramActivityController.hasProfileBadge(currentAccount, user.id, this);
                         dialogBotVerificationIcon = DialogObject.getBotVerificationIcon(user);
                         if (user.scam) {
                             drawScam = 1;
@@ -2402,12 +2397,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             if (LocaleController.isRTL) {
                 nameLeft += w;
             }
-        }
-        if (drawBygramBadge) {
-            int w = dp(27);
-            nameWidth -= w;
-            nameAdditionalsForChannelSubscriber += w;
-            if (LocaleController.isRTL) nameLeft += w;
         }
         if (drawBotVerified) {
             nameWidth -= dp(21);
@@ -4543,15 +4532,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 setDrawableBounds((drawScam == 1 ? Theme.dialogs_scamDrawable : Theme.dialogs_fakeDrawable), nameMuteLeft, y);
                 (drawScam == 1 ? Theme.dialogs_scamDrawable : Theme.dialogs_fakeDrawable).draw(canvas);
             }
-            if (drawBygramBadge && nameLayout != null) {
-                float badgeLeft = nameLeft + nameLayout.getLineWidth(0) + dp(6);
-                if (drawPremium) badgeLeft = nameMuteLeft + dp(25);
-                else if (drawVerified) badgeLeft = nameMuteLeft + Theme.dialogs_verifiedDrawable.getIntrinsicWidth() + dp(3);
-                int badgeTop = dp(useForceThreeLines || SharedConfig.useThreeLinesLayout ? 14 : 17);
-                bygramBadgeDrawable.setBounds((int) badgeLeft, badgeTop, (int) badgeLeft + dp(18), badgeTop + dp(18));
-                bygramBadgeDrawable.draw(canvas);
-            }
-
             if (drawReorder || reorderIconProgress != 0) {
                 if (!LocaleController.isRTL) {
                     final Paint reorderGradientPaint = getPaintReorderGradient();

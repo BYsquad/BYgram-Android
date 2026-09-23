@@ -3,8 +3,6 @@
     <string name="BygramCustomization">Кастомізація</string>
     <string name="BygramCustomProfileMusic">Власне відображення музики</string>
     <string name="BygramCustomProfileMusicInfo">Показує музику в профілі великою карткою. Вимкніть, щоб використовувати звичайний компактний вигляд.</string>
-    <string name="BygramProfileBadgesManaged">Значки профілю призначають адміністратори BYgram.</string>
-    <string name="BygramExteraSupporter">%1$s підтримав(-ла) ExteraGram і отримав(-ла) унікальний значок.</string>
     <string name="BygramFilterZalgoInfo">Видаляє символи Zalgo, що спотворюють текст, з імен і повідомлень.</string>
     <string name="BygramProfileIdModeInfo">Telegram API показує ID без змін. Bot API додає мінус для груп і -100 для супергруп та каналів.</string>
     <string name="BygramProfileIdCopied">ID скопійовано</string>
@@ -20,7 +18,7 @@
         <item>Рядки пошуку</item>
         <item>Панель вибору повідомлень</item>
         <item>Спливні меню й компактні перемикачі</item>
-        <item>Меню дій після натискання на повідомлення</item>
+        <item>Меню дій із повідомленням</item>
         <item>Спливні меню кнопок</item>
     </string-array>
     <string-array name="BygramLiquidGlassExamples">
@@ -30,7 +28,7 @@
         <item>Приклад: матове поле пошуку поверх списку</item>
         <item>Приклад: напівпрозора панель над вибраними повідомленнями</item>
         <item>Приклад: компактне матове спливне меню</item>
-        <item>Приклад: меню відповіді, копіювання й видалення повідомлення</item>
+        <item>Приклад: відповідь, копіювання й видалення після натискання на повідомлення</item>
         <item>Приклад: меню кнопки ⋮ у заголовку екрана</item>
     </string-array>
     <string name="BygramSwipePip">Проведіть угору для режиму «Зображення в зображенні»</string>

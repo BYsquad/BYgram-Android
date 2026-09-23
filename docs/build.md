@@ -1,6 +1,6 @@
 # Сборка BYgram на Windows
 
-Инструкция проверена 15 сентября 2026 года в PowerShell 7.6.6 на текущем дереве проекта.
+Инструкция обновлена 23 сентября 2026 года; проверена компиляция `:TMessagesProj_App:compileAfatDebugJavaWithJavac` в PowerShell.
 
 ## Требования
 
@@ -9,7 +9,7 @@
 - Android SDK с Platform 36 и Build Tools 36.0.0.
 - Android NDK `27.2.12479018`.
 - CMake `3.22.1`.
-- Gradle Wrapper `8.11.1` скачивает Gradle автоматически.
+- Gradle Wrapper `8.13` скачивает Gradle автоматически.
 - Crowdin CLI с доступом к проекту.
 
 Проверьте окружение:

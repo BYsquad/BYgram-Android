@@ -31,8 +31,6 @@
     <string name="BygramCustomization">Кастомизация</string>
     <string name="BygramCustomProfileMusic">Кастомное отображение музыки</string>
     <string name="BygramCustomProfileMusicInfo">Показывает музыку в профиле крупной карточкой. Выключите, чтобы использовать обычный компактный вид.</string>
-    <string name="BygramProfileBadgesManaged">Значки профиля назначают администраторы BYgram.</string>
-    <string name="BygramExteraSupporter">%1$s поддержал(а) ExteraGram и получил(а) уникальный значок.</string>
     <string name="BygramRelativeOnline">Относительное время онлайна</string>
     <string name="BygramHidePhone">Скрыть номер телефона</string>
     <string name="BygramScrollHideKeyboard">Скрывать клавиатуру при прокрутке</string>
@@ -91,7 +89,7 @@
         <item>Строки поиска</item>
         <item>Панель выделения сообщений</item>
         <item>Всплывающие меню и компактные селекторы</item>
-        <item>Меню действий при нажатии на сообщение</item>
+        <item>Меню действий с сообщением</item>
         <item>Всплывающие меню кнопок</item>
     </string-array>
     <string-array name="BygramLiquidGlassExamples">
@@ -101,8 +99,8 @@
         <item>Пример: матовое поле поиска поверх списка</item>
         <item>Пример: полупрозрачная панель над сообщениями</item>
         <item>Пример: матовое компактное меню</item>
-        <item>Пример: меню ответа, копирования и удаления сообщения</item>
-        <item>Пример: меню по кнопке ⋮ в шапке экрана</item>
+        <item>Пример: ответ, копирование и удаление после нажатия на сообщение</item>
+        <item>Пример: меню кнопки ⋮ в заголовке экрана</item>
     </string-array>
     <string name="BygramUnlimitedStickers">Неограниченные недавние стикеры</string>
     <string name="BygramHideReactions">Скрывать реакции</string>

@@ -52,8 +52,8 @@
     <string name="BygramActivityProfileShort">профили</string>
     <string name="BygramActivityChatShort">чаты</string>
     <string name="BygramLicenseTitle">Платная функция</string>
-    <string name="BygramLicenseMessage">Свяжитесь с менеджером BYgram, чтобы купить бессрочный доступ к функции «С кем они общаются?».</string>
-    <string name="BygramLicenseBuy">Открыть менеджера</string>
+    <string name="BygramLicenseMessage">Купите бессрочный доступ к функции «С кем они общаются?» через официального бота BYgram.</string>
+    <string name="BygramLicenseBuy">Открыть бота</string>
     <string name="BygramLicenseUnavailable">Не удалось проверить лицензию. Проверьте подключение к интернету и попробуйте снова.</string>
     <string name="BygramLicenseActivationMessage">Подтвердите этот аккаунт Telegram в официальном боте BYgram, затем вернитесь в приложение.</string>
     <string name="BygramLicenseActivate">Активировать Full</string>

@@ -9358,9 +9358,7 @@ public class MessagesController extends BaseController implements NotificationCe
                             }
                         }
                     }
-                    if (messageObject != null && messageObject.isBygramDeleted()) {
-                        locallyDeletedMessages.add(messageId);
-                    } else {
+                    if (messageObject == null || !messageObject.isBygramDeleted()) {
                         bygramDeletedMessages.add(messageId);
                         getMessagesStorage().markMessageAsBygramDeleted(dialogId, messageId);
                     }

@@ -24,6 +24,8 @@ Toggle master или `GHOST_NO_ONLINE` вызывает `updateTimerProc()`, ч�
 
 `SPY_SAVE_DELETED` не даёт физически удалить входящее сообщение и ставит custom message flag. Значок удаления отображается в строке времени перед галочками доставки. Покрыты обычные сообщения, channel delete, push delete, clear history и secret-chat random IDs/flush history. Данные остаются в SQLite и не входят в `clearSpyData()`.
 
+При повторном локальном удалении сообщения с этим флагом `MessagesController.deleteMessages()` оставляет его в истории. Повторное действие не переводит сообщение в ветку физического удаления.
+
 ### История правок
 
 Перед применением cloud edit сохраняются предыдущие text/entities/date. Одинаковая последняя версия пропускается, максимум — 20 ревизий на message key. Контекстное меню показывает историю в обратном порядке.

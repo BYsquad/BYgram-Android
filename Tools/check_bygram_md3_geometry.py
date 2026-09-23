@@ -30,7 +30,6 @@ admin_api = source("server/activity-api/admin-api.php")
 admin = source("server/activity-api/admin.php")
 admin_ui = source("server/site/src/admin.jsx")
 bootstrap = source("server/activity-api/bootstrap.php")
-release = source("server/activity-api/release.json")
 gradle = source("gradle.properties")
 main_site = source("server/site/src/main.jsx")
 config_example = source("server/activity-api/config.example.php")
@@ -46,10 +45,10 @@ for placement in ("GLASS_MEDIA", "GLASS_CONTEXT_PANELS", "GLASS_FLOATING_BUTTONS
 assert "BygramLiquidGlassExamples" in settings, "Liquid-glass rows have no examples"
 assert "bygram_uniform_avatars" not in image_receiver and "Arrays.fill(avatarRoundRadius" in image_receiver, "Visible avatar radius does not apply uniformly"
 assert "avatarRadius(" in config and "BygramConfig.avatarRadius" in image_receiver + profile + stories + profile_stories, "Profile avatars and story rings do not share the configured shape"
-assert "bygram_logo_new" in badge and "loadBadges()" in api and "badge.save" in admin_api, "BYgram badge is not wired end to end"
+assert "bygram_logo_new" not in badge and "getProfileBadgeInfo" not in activity_controller, "Profile badges are still present in the client"
 assert "setMultilineTextAndValue" in settings, "Long BYgram toggle labels are still ellipsized"
-assert "APP_VERSION_CODE=7038" in gradle and "APP_VERSION_NAME=12.10.1" in gradle and '"version": "12.10.1"' in release and '"version_code": "70389"' in release, "Release version changed without approval"
+assert "APP_VERSION_CODE=7089" in gradle and "APP_VERSION_NAME=12.10.3" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
 assert "telegram-widget.js" in admin and "data-telegram-login" in admin and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
 assert "hasExteraBadge" in bootstrap and "hasExteraBadge($id)" in admin_api, "ExteraGram badge ownership is not verified"
 assert "BYxarek" + "_manager" not in activity_controller + api + bootstrap + main_site + config_example and "BYgram_manager" in activity_controller + api + main_site + config_example, "Manager username is outdated"
-print("PASS: MD3, liquid-glass examples, avatar endpoints and BYgram badge are wired")
+print("PASS: MD3, liquid-glass examples, avatar endpoints and removed profile badges")

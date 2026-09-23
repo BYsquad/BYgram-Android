@@ -31,8 +31,6 @@
     <string name="BygramCustomization">Customization</string>
     <string name="BygramCustomProfileMusic">Custom music card</string>
     <string name="BygramCustomProfileMusicInfo">Shows profile music as a large card. Turn it off to use the standard compact style.</string>
-    <string name="BygramProfileBadgesManaged">Profile badges are assigned by BYgram administrators.</string>
-    <string name="BygramExteraSupporter">%1$s supported ExteraGram and received a unique badge.</string>
     <string name="BygramRelativeOnline">Relative last seen time</string>
     <string name="BygramHidePhone">Hide phone number</string>
     <string name="BygramScrollHideKeyboard">Hide keyboard when scrolling</string>

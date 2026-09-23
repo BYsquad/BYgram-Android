@@ -25,7 +25,6 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
-import org.telegram.ui.Components.StatusBadgeComponent;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.UItem;
@@ -207,7 +206,7 @@ public class BygramSettingsActivity extends BaseFragment {
                             BygramConfig.GLASS_SELECTION, BygramConfig.GLASS_POPUPS,
                             BygramConfig.GLASS_MESSAGE_MENUS, BygramConfig.GLASS_BUTTON_MENUS};
                     String[] examples = getContext().getResources().getStringArray(R.array.BygramLiquidGlassExamples);
-                    for (int i = 0; i < flags.length; i++) {
+                    for (int i = 0; i < flags.length && i < places.length && i < examples.length; i++) {
                         items.add(UItem.asButtonCheck(100 + i, places[i], examples[i]).setChecked((glass & flags[i]) != 0));
                     }
                 }
@@ -240,26 +239,11 @@ public class BygramSettingsActivity extends BaseFragment {
     }
 
     public static class ProfileCustomizationActivity extends ToggleSettingsActivity {
-        private TextView badgePreview;
 
         @Override int getTitleRes() { return R.string.BygramProfile; }
 
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             items.add(UItem.asHeader(getString(R.string.BygramProfile)));
-            if (badgePreview == null) {
-                badgePreview = new TextView(getContext());
-                badgePreview.setTextSize(18);
-                badgePreview.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                badgePreview.setGravity(Gravity.CENTER);
-                badgePreview.setText(UserObject.getUserName(getUserConfig().getCurrentUser()) + " ✨");
-                badgePreview.setCompoundDrawablePadding(AndroidUtilities.dp(6));
-            }
-            long selfId = getUserConfig().getClientUserId();
-            Drawable badges = StatusBadgeComponent.profileBadges(badgePreview, selfId, 24);
-            badges.setBounds(0, 0, badges.getIntrinsicWidth(), AndroidUtilities.dp(24));
-            badgePreview.setCompoundDrawables(null, null, badges, null);
-            items.add(UItem.asCustom(badgePreview, 64));
-            items.add(UItem.asShadow(getString(R.string.BygramProfileBadgesManaged)));
             items.add(UItem.asCheck(1, getString(R.string.BygramCustomProfileMusic))
                     .setChecked(BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)));
             items.add(UItem.asShadow(getString(R.string.BygramCustomProfileMusicInfo)));

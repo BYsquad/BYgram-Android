@@ -12,11 +12,6 @@ import android.view.ViewGroup;
 import androidx.core.content.FileProvider;
 
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
-import com.microsoft.appcenter.AppCenter;
-import com.microsoft.appcenter.CustomProperties;
-import com.microsoft.appcenter.analytics.Analytics;
-import com.microsoft.appcenter.crashes.Crashes;
-import com.microsoft.appcenter.distribute.Distribute;
 
 import org.telegram.messenger.regular.BuildConfig;
 import org.telegram.tgnet.ConnectionsManager;
@@ -79,6 +74,7 @@ public class ApplicationLoaderImpl extends ApplicationLoader {
                 crashlytics.setCustomKey("user", Build.USER);
                 crashlytics.setCrashlyticsCollectionEnabled(BygramConfig.getBoolean("bygram_firebase_crashlytics"));
             }
+            /*
             if (BuildVars.DEBUG_VERSION) {
                 Distribute.setEnabledForDebuggableBuild(true);
                 String appHash = org.telegram.messenger.BuildConfig.APP_CENTER_HASH;
@@ -111,6 +107,7 @@ public class ApplicationLoaderImpl extends ApplicationLoader {
                 }
                 AppCenter.setUserId(userId);
             }
+            */
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -125,7 +122,7 @@ public class ApplicationLoaderImpl extends ApplicationLoader {
                     return;
                 }
                 lastUpdateCheckTime = SystemClock.elapsedRealtime();
-                Distribute.checkForUpdate();
+                // Distribute.checkForUpdate();
             }
         } catch (Throwable e) {
             FileLog.e(e);
@@ -141,7 +138,7 @@ public class ApplicationLoaderImpl extends ApplicationLoader {
             }
         }
         try {
-            Crashes.trackError(e);
+            // Crashes.trackError(e);
         } catch (Throwable ignore) {
 
         }

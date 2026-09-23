@@ -28,6 +28,7 @@ import org.telegram.ui.recyclerview.ChatListItemAnimator;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.DocumentObject;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.ImageLocation;
@@ -914,7 +915,7 @@ public class ReactionsLayoutInBubble {
                         if (reuseFrom != null && reuseFrom.starDrawable != null) {
                             starDrawable = reuseFrom.starDrawable;
                         } else {
-                            starDrawable = new RLottieDrawable(R.raw.star_reaction_click, "star_reaction_click", dp(40), dp(40));
+                            starDrawable = new RLottieDrawable(R.raw.star_reaction_click, dp(40), dp(40));
                         }
                         imageReceiver.setImageBitmap(starDrawable);
                     } else {
@@ -995,7 +996,7 @@ public class ReactionsLayoutInBubble {
             if (!LiteMode.isEnabled(LiteMode.FLAG_ANIMATED_EMOJI_REACTIONS) || !LiteMode.isEnabled(LiteMode.FLAG_PARTICLES)) return false;
 
             AndroidUtilities.rectTmp.set(x, y, x + width, y + height);
-            float rad = height / 2f;
+            float rad = BygramConfig.avatarRadius(height);
 
             particles.bounds.set(AndroidUtilities.rectTmp);
             particles.bounds.inset(-dp(4), -dp(4));
@@ -1126,7 +1127,7 @@ public class ReactionsLayoutInBubble {
             if (drawOverlayScrim && getDrawServiceShaderBackground() < 1 && parentView instanceof ChatMessageCell) {
                 MessageDrawable messageBackground = ((ChatMessageCell) parentView).getCurrentBackgroundDrawable(false);
                 if (messageBackground != null && !isTag) {
-                    canvas.drawRoundRect(AndroidUtilities.rectTmp, rad, rad, messageBackground.getPaint());
+                    drawRoundRect(canvas, AndroidUtilities.rectTmp, rad, messageBackground.getPaint());
                 }
             }
             if (cutTagCircle) {

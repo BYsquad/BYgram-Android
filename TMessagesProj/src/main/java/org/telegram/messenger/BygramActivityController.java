@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
-import android.view.View;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -23,12 +22,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.lang.ref.WeakReference;
 import java.util.UUID;
 
 public final class BygramActivityController {
     private static final String ENDPOINT = "https://byxarek.site/TEST-PROJECT/BYgram/api/";
-    private static final String EXTERA_PROFILES_ENDPOINT = "https://api.exteragram.app/api/v1/profiles";
     private static final long POSITIVE_REFRESH_MS = 60 * 60 * 1000L;
     private static final long NEGATIVE_REFRESH_MS = 60 * 1000L;
     private static final long LICENSE_GRACE_MS = 24 * 60 * 60 * 1000L;
@@ -38,8 +35,6 @@ public final class BygramActivityController {
     public interface Callback { void run(String activity); }
     public interface LicenseCallback { void run(Boolean licensed, String botUrl); }
     private interface JsonCallback { void run(JSONObject response); }
-    public static final int BADGE_BYGRAM = 0;
-    public static final int BADGE_EXTERA = 1;
     private static final int PEER_USER = 1;
     private static final int PEER_BOT = 2;
     private static final int PEER_GROUP = 3;
@@ -95,27 +90,6 @@ public final class BygramActivityController {
             if (active) scheduleHeartbeat();
         }
     };
-    public static final class ProfileBadgeInfo {
-        public final boolean bygram;
-        public final boolean extera;
-        public final int primary;
-        ProfileBadgeInfo(boolean bygram, boolean extera, int primary) {
-            this.bygram = bygram;
-            this.extera = extera;
-            this.primary = primary;
-        }
-    }
-    private static final Map<Long, ProfileBadgeInfo> badgeCache = new HashMap<>();
-    private static final Set<Long> pendingBadges = new HashSet<>();
-    private static final ArrayList<WeakReference<View>> badgeViews = new ArrayList<>();
-    private static final Map<Long, Long> exteraBadges = new HashMap<>();
-    private static final ArrayList<WeakReference<View>> exteraBadgeViews = new ArrayList<>();
-    private static boolean badgeFlushScheduled;
-    private static long badgeRetryAt;
-    private static boolean exteraBadgesLoading;
-    private static long exteraBadgesLoadedAt;
-    private static long exteraBadgesRetryAt;
-
     private BygramActivityController() {}
 
     public static String purchaseUrl(String botUrl) {
@@ -491,120 +465,6 @@ public final class BygramActivityController {
         if (type != BygramConfig.ACTIVITY_DIALOGS && type != BygramConfig.ACTIVITY_PROFILE && type != BygramConfig.ACTIVITY_CHAT) return null;
         if (type != BygramConfig.ACTIVITY_DIALOGS && name.isEmpty()) return null;
         return new ActivityInfo(type, value.optLong("peer_id"), name, value.optInt("peer_kind"));
-    }
-
-    public static boolean hasProfileBadge(int account, long userId, View view) {
-        return getProfileBadgeInfo(account, userId, view).bygram;
-    }
-
-    public static ProfileBadgeInfo getProfileBadgeInfo(int account, long userId, View view) {
-        if (userId <= 0) return new ProfileBadgeInfo(false, false, BADGE_BYGRAM);
-        synchronized (badgeCache) {
-            ProfileBadgeInfo cached = badgeCache.get(userId);
-            if (cached != null) return cached;
-            if (System.currentTimeMillis() < badgeRetryAt) return new ProfileBadgeInfo(false, false, BADGE_BYGRAM);
-            pendingBadges.add(userId);
-            if (view != null) badgeViews.add(new WeakReference<>(view));
-            if (!badgeFlushScheduled) {
-                badgeFlushScheduled = true;
-                AndroidUtilities.runOnUIThread(BygramActivityController::flushBadges, 150);
-            }
-        }
-        return new ProfileBadgeInfo(false, false, BADGE_BYGRAM);
-    }
-
-    private static void flushBadges() {
-        final ArrayList<Long> ids;
-        final ArrayList<WeakReference<View>> views;
-        synchronized (badgeCache) {
-            ids = new ArrayList<>(pendingBadges);
-            pendingBadges.clear();
-            views = new ArrayList<>(badgeViews);
-            badgeViews.clear();
-            badgeFlushScheduled = false;
-        }
-        if (ids.isEmpty()) return;
-        request(0, json("action", "badges", "user_ids", new JSONArray(ids)), false, response -> {
-            if (response == null || !response.optBoolean("ok")) {
-                synchronized (badgeCache) { badgeRetryAt = System.currentTimeMillis() + NEGATIVE_REFRESH_MS; }
-                return;
-            }
-            HashMap<Long, ProfileBadgeInfo> enabled = new HashMap<>();
-            JSONArray values = response.optJSONArray("badges");
-            if (values != null) for (int i = 0; i < values.length(); i++) {
-                JSONObject value = values.optJSONObject(i);
-                if (value != null) enabled.put(value.optLong("user_id"), new ProfileBadgeInfo(
-                        value.optBoolean("bygram"), value.optBoolean("extera"),
-                        "extera".equals(value.optString("primary")) ? BADGE_EXTERA : BADGE_BYGRAM));
-            }
-            synchronized (badgeCache) {
-                badgeRetryAt = 0;
-                for (long id : ids) badgeCache.put(id, enabled.getOrDefault(id, new ProfileBadgeInfo(false, false, BADGE_BYGRAM)));
-            }
-            for (WeakReference<View> reference : views) {
-                View target = reference.get();
-                if (target != null) { target.requestLayout(); target.invalidate(); }
-            }
-        });
-    }
-
-    public static long getExteraBadgeDocumentId(long userId, View view) {
-        if (userId <= 0) return 0;
-        synchronized (exteraBadges) {
-            Long badge = exteraBadges.get(userId);
-            if (badge != null) return badge;
-            long now = System.currentTimeMillis();
-            if (view != null) exteraBadgeViews.add(new WeakReference<>(view));
-            if (!exteraBadgesLoading && now >= exteraBadgesRetryAt
-                    && (exteraBadgesLoadedAt == 0 || now - exteraBadgesLoadedAt > 6 * 60 * 60 * 1000L)) {
-                exteraBadgesLoading = true;
-                loadExteraBadges();
-            }
-        }
-        return 0;
-    }
-
-    private static void loadExteraBadges() {
-        Utilities.globalQueue.postRunnable(() -> {
-            HashMap<Long, Long> loaded = new HashMap<>();
-            HttpURLConnection connection = null;
-            try {
-                connection = (HttpURLConnection) new URL(EXTERA_PROFILES_ENDPOINT).openConnection();
-                connection.setConnectTimeout(7000); connection.setReadTimeout(15000);
-                try (InputStream stream = connection.getInputStream(); BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-                    StringBuilder text = new StringBuilder(); String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (text.length() + line.length() > 2 * 1024 * 1024) throw new IllegalStateException("ExteraGram profiles response is too large");
-                        text.append(line);
-                    }
-                    JSONArray profiles = new JSONArray(text.toString());
-                    for (int i = 0; i < profiles.length(); i++) {
-                        JSONObject profile = profiles.optJSONObject(i);
-                        JSONObject badge = profile == null ? null : profile.optJSONObject("badge");
-                        long id = profile == null ? 0 : profile.optLong("id");
-                        long documentId = badge == null ? 0 : badge.optLong("documentId");
-                        if (id > 0 && documentId > 0 && "USER".equals(profile.optString("type"))) loaded.put(id, documentId);
-                    }
-                }
-            } catch (Exception e) {
-                FileLog.e(e);
-            } finally {
-                if (connection != null) connection.disconnect();
-            }
-            AndroidUtilities.runOnUIThread(() -> {
-                ArrayList<WeakReference<View>> views;
-                synchronized (exteraBadges) {
-                    exteraBadgesLoading = false;
-                    if (loaded.isEmpty()) exteraBadgesRetryAt = System.currentTimeMillis() + NEGATIVE_REFRESH_MS;
-                    else { exteraBadges.clear(); exteraBadges.putAll(loaded); exteraBadgesLoadedAt = System.currentTimeMillis(); exteraBadgesRetryAt = 0; }
-                    views = new ArrayList<>(exteraBadgeViews); exteraBadgeViews.clear();
-                }
-                for (WeakReference<View> reference : views) {
-                    View target = reference.get();
-                    if (target != null) { target.requestLayout(); target.invalidate(); }
-                }
-            });
-        });
     }
 
     private static JSONObject json(Object... values) {

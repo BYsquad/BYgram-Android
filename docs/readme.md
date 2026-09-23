@@ -2,6 +2,8 @@
 
 ## Android-клиент
 
+Основа исходников синхронизирована с официальным Telegram commit `9552e5541e1274b9557c9832b204dbfcaf44b3dc`. Версия Android-клиента BYgram: `APP_VERSION_NAME=12.10.3`, `APP_VERSION_CODE=7089`; основной package — `com.bygram.mobile`.
+
 - [Инструкция по сборке](build.md)
 - [Редакции Lite и Full и привязка устройств](full-edition-device-licensing.md)
 - [Функции раздела «Настройки BYgram»](bygram-settings/README.md)
