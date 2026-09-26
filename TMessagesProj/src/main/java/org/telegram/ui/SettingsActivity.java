@@ -151,6 +151,7 @@ import me.vkryl.android.animator.FactorAnimator;
 public class SettingsActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate, ImageUpdater.ImageUpdaterDelegate, MainTabsActivity.TabFragmentDelegate, FactorAnimator.Target {
 
     private static final int ANIMATOR_ID_SEARCH_PAGE_VISIBLE = 0;
+    private static final int BYGRAM_SETTINGS_ID = 1000;
 
     private final BoolAnimator animatorSearchPageVisible = new BoolAnimator(ANIMATOR_ID_SEARCH_PAGE_VISIBLE,
             this, CubicBezierInterpolator.EASE_OUT_QUINT, 350);
@@ -692,7 +693,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        items.add(SettingCell.Factory.of(24, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.bygram_logo, getString(R.string.BygramSettings)));
+        items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.bygram_logo, getString(R.string.BygramSettings)));
         items.add(UItem.asShadow(null));
         items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
         items.add(SettingCell.Factory.of(2, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
@@ -751,7 +752,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         if (SharedSettings.experimentalSettingsAllowed.get()) {
             items.add(UItem.asShadow(null));
             items.add(UItem.asHeader("Experimental"));
-            items.add(SettingCell.Factory.of(25, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.RoundVideoSettings)));
+            items.add(SettingCell.Factory.of(24, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.RoundVideoSettings)));
         }
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
@@ -821,7 +822,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             return;
         }
         switch (item.id) {
-            case 24:
+            case BYGRAM_SETTINGS_ID:
                 presentSettingFragment(new BygramSettingsActivity());
                 break;
             case 1:
@@ -895,7 +896,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 }
                 break;
             }
-            case 25: {
+            case 24: {
                 presentFragment(new RoundVideoSettingsActivity());
                 break;
             }
