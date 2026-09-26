@@ -751,7 +751,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         if (SharedSettings.experimentalSettingsAllowed.get()) {
             items.add(UItem.asShadow(null));
             items.add(UItem.asHeader("Experimental"));
-            items.add(SettingCell.Factory.of(24, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.RoundVideoSettings)));
+            items.add(SettingCell.Factory.of(25, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.RoundVideoSettings)));
         }
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
@@ -895,7 +895,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 }
                 break;
             }
-            case 24: {
+            case 25: {
                 presentFragment(new RoundVideoSettingsActivity());
                 break;
             }
