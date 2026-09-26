@@ -1,9 +1,9 @@
 {
-  "version": "12.10.1",
-  "version_code": "70389",
-  "status": "Стабильная версия · APK",
-  "size": "≈ 123 МБ",
+  "version": "12.10.3",
+  "version_code": "70899",
+  "status": "Lite · бесплатно",
+  "size": "110,3 МиБ",
   "requirements": "Android 6.0+",
   "package": "com.bygram.mobile",
-  "apk_name": "BYgram-12.10.1.apk"
+  "apk_name": "BYgram-lite-12.10.3.apk"
 }

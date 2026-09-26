@@ -17,6 +17,7 @@
     <string name="BygramTypingAudio">Sending audio</string>
     <string name="BygramTypingGame">Playing game</string>
     <string name="BygramTypingPublish">Publish statuses</string>
+    <string name="BygramTypingPublishSuccess">Statuses saved successfully</string>
     <string name="BygramTypingVerify">Confirm your Telegram account through the BYgram bot, then return here and tap Publish statuses.</string>
     <string name="BygramTypingOpenBot">Open bot</string>
     <string name="BygramTypingPublishFailed">Could not publish statuses. Check your connection and try again.</string>

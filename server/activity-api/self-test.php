@@ -49,7 +49,7 @@ $pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_ke
 if (typingPublicKeys($pdo, $typingOwner) !== ['lite-test-key']) throw new RuntimeException('FAIL: independent Lite typing registration');
 echo "PASS: typing publication accepts only active Full devices\n";
 
-$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','auth_challenges','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','manual_payment_requests','orders','payment_methods','profile_badges','promo_codes','promo_uses','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
+$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','orders','payment_methods','promo_codes','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
 $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
 if (array_diff($required, $tables)) {
     throw new RuntimeException('FAIL: API schema is incomplete');
@@ -83,23 +83,15 @@ if ((int) $query->fetchColumn() !== 1243802669) {
 }
 echo "PASS: administrator storage\n";
 $referrerId = 999999999997;
-$pdo->prepare('UPDATE referral_settings SET enabled=1,percent=12.5 WHERE id=1')->execute();
-$pdo->prepare('INSERT INTO referrals (referred_id,referrer_id) VALUES (?,?)')->execute([$telegramId,$referrerId]);
-$pdo->prepare("INSERT INTO orders (buyer_id,beneficiary_id,payment_method,amount,currency,status) VALUES (?,?,'manual',100,'BYN','paid')")->execute([$telegramId,$telegramId]);
-$order=['id'=>(int)$pdo->lastInsertId(),'buyer_id'=>$telegramId,'amount'=>100,'currency'=>'BYN'];
-addReferralToOrder($pdo,$order);
-if (($order['_commission'] ?? 0) !== 12.5) throw new RuntimeException('FAIL: referral commission');
 $pdo->prepare("INSERT INTO referral_adjustments (telegram_id,amount,currency,note) VALUES (?,7.5,'BYN','test')")->execute([$referrerId]);
-$q=$pdo->prepare('SELECT SUM(value) FROM (SELECT commission value FROM referral_earnings WHERE referrer_id=? AND currency=\'BYN\' UNION ALL SELECT amount FROM referral_adjustments WHERE telegram_id=? AND currency=\'BYN\') rewards');$q->execute([$referrerId,$referrerId]);
-if((float)$q->fetchColumn()!==20.0)throw new RuntimeException('FAIL: manual referral adjustment');
-$pdo->prepare('UPDATE referral_settings SET enabled=0 WHERE id=1')->execute();$disabledOrder=$order;$disabledOrder['id']++;unset($disabledOrder['_referrer_id'],$disabledOrder['_commission']);
-addReferralToOrder($pdo,$disabledOrder);if(isset($disabledOrder['_commission']))throw new RuntimeException('FAIL: automatic referral switch');
-echo "PASS: automatic and manual referral rewards\n";
+$q=$pdo->prepare('SELECT SUM(amount) FROM referral_adjustments WHERE telegram_id=? AND currency=\'BYN\'');$q->execute([$referrerId]);
+if((float)$q->fetchColumn()!==7.5)throw new RuntimeException('FAIL: manual referral adjustment');
+echo "PASS: manual referral adjustment\n";
 $release=json_decode((string)file_get_contents(__DIR__.'/release.json'),true);
 if(($release['package']??'')!=='com.bygram.mobile'||!preg_match('/^BYgram-[0-9A-Za-z._-]+\.apk$/',(string)($release['apk_name']??'')))throw new RuntimeException('FAIL: release metadata');
 echo "PASS: release metadata\n";
 $badges=loadBadges();
-foreach($badges as $id=>$badge)if(!preg_match('/^(?:(?:user|chat):[1-9][0-9]*|[1-9][0-9]*)$/D',(string)$id)||($badge!==true&&(!is_array($badge)||(!isset($badge['bygram'])&&!isset($badge['extera'])))))throw new RuntimeException('FAIL: badges.json');
+foreach($badges as $id=>$badge)if(!preg_match('/^(?:(?:user|chat):[1-9][0-9]*|[1-9][0-9]*)$/D',(string)$id)||($badge!==true&&(!is_array($badge)||!isset($badge['bygram']))))throw new RuntimeException('FAIL: badges.json');
 echo "PASS: badge storage\n";
 } finally {
     $pdo->rollBack();

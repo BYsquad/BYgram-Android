@@ -6,17 +6,15 @@ import android.graphics.ColorFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.view.Gravity;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 
 public final class BygramBadgeDrawable extends Drawable {
-    private final Context context;
     private final boolean resource;
     private final Drawable image;
     private final Drawable leading;
@@ -28,7 +26,6 @@ public final class BygramBadgeDrawable extends Drawable {
     }
 
     public BygramBadgeDrawable(Context context, boolean resource, int sizeDp, Drawable leading) {
-        this.context = context;
         this.resource = resource;
         this.size = AndroidUtilities.dp(sizeDp);
         this.leading = leading instanceof BygramBadgeDrawable ? ((BygramBadgeDrawable) leading).leading : leading;
@@ -57,9 +54,8 @@ public final class BygramBadgeDrawable extends Drawable {
     }
 
     public void showNotice() {
-        Toast notice = Toast.makeText(context, resource ? R.string.BygramResourceBadgeNotice : R.string.BygramUserBadgeNotice, Toast.LENGTH_SHORT);
-        notice.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, AndroidUtilities.dp(64));
-        notice.show();
+        BulletinFactory.global().createSimpleBulletin(R.raw.chats_infotip,
+                LocaleController.getString(resource ? R.string.BygramResourceBadgeNotice : R.string.BygramUserBadgeNotice)).show();
     }
 
     @Override public void setAlpha(int alpha) { image.setAlpha(alpha); if (leading != null) leading.setAlpha(alpha); }

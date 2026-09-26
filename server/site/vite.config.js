@@ -11,6 +11,8 @@ export default defineConfig({
       input: {
         index: resolve('index.html'),
         download: resolve('download.html'),
+        features: resolve('features.html'),
+        editions: resolve('editions.html'),
         thanks: resolve('thanks.html'),
         admin: resolve('src/admin.jsx'),
       },

@@ -9,6 +9,7 @@ import static org.telegram.ui.ActionBar.Theme.multAlpha;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -28,6 +29,8 @@ import androidx.core.graphics.ColorUtils;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.FileLoader;
+import org.telegram.messenger.ImageLocation;
+import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
@@ -35,9 +38,12 @@ import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
+import org.telegram.messenger.audioinfo.AudioInfo;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ProfileActivity;
+
+import java.io.File;
 
 public class ProfileMusicView extends View {
 
@@ -45,6 +51,7 @@ public class ProfileMusicView extends View {
     private static final int MUSIC_CARD_HEIGHT = 100;
 
     private final Theme.ResourcesProvider resourcesProvider;
+    private final int account;
     private final PorterDuffColorFilter filterColorWhite = new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
     private final PorterDuffColorFilter filterColorBlack = new PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN);
 
@@ -55,6 +62,8 @@ public class ProfileMusicView extends View {
     private final Paint arrowPaint = new Paint();
     private final Path arrowPath = new Path();
     private final Drawable icon;
+    private final ImageReceiver coverImage;
+    private long coverDocumentId;
     private final Drawable activityIcon;
 
     private final RectF rect = new RectF();
@@ -64,11 +73,14 @@ public class ProfileMusicView extends View {
 
     private final ButtonBounce bounce = new ButtonBounce(this);
 
-    public ProfileMusicView(Context context, Theme.ResourcesProvider resourcesProvider) {
+    public ProfileMusicView(Context context, Theme.ResourcesProvider resourcesProvider, int account) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        this.account = account;
 
         icon = context.getResources().getDrawable(R.drawable.files_music).mutate();
+        coverImage = new ImageReceiver(this);
+        coverImage.setRoundRadius(dp(16));
         activityIcon = context.getResources().getDrawable(R.drawable.msg_message).mutate();
 
         arrowPaint.setStyle(Paint.Style.STROKE);
@@ -100,6 +112,12 @@ public class ProfileMusicView extends View {
         int height = hasMusicDocument ? (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? MUSIC_CARD_HEIGHT : 37) : 0;
         if (activity != null) height += (height == 0 ? 0 : 4) + ACTIVITY_CARD_HEIGHT;
         return dp(height);
+    }
+
+    public int getHeaderHeight() {
+        // The first profile section already supplies the lower gap. Reserve less header space
+        // while keeping the activity card's measured height and position intact.
+        return getContentHeight() - (activity != null && !hasMusicDocument ? dp(24) : 0);
     }
 
     private int textColor = Color.WHITE;
@@ -149,6 +167,28 @@ public class ProfileMusicView extends View {
 
     public void setMusicDocument(TLRPC.Document document) {
         hasMusicDocument = document != null;
+        long documentId = document == null ? 0 : document.id;
+        TLRPC.PhotoSize cover = document == null ? null : FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 144);
+        if (coverDocumentId != documentId || (cover == null && !coverImage.hasImageLoaded())) {
+            coverDocumentId = documentId;
+            if (cover instanceof TLRPC.TL_photoSize || cover instanceof TLRPC.TL_photoSizeProgressive) {
+                coverImage.setImage(ImageLocation.getForDocument(cover, document), "72_72", null, null, document, 0);
+            } else {
+                coverImage.setImageBitmap((Drawable) null);
+                if (document != null) {
+                    File file = FileLoader.getInstance(account).getPathToAttach(document);
+                    if (file.isFile()) {
+                        Utilities.globalQueue.postRunnable(() -> {
+                            AudioInfo info = AudioInfo.getAudioInfo(file);
+                            Bitmap bitmap = info == null ? null : info.getSmallCover();
+                            if (bitmap != null) AndroidUtilities.runOnUIThread(() -> {
+                                if (coverDocumentId == documentId) coverImage.setImageBitmap(bitmap);
+                            });
+                        });
+                    }
+                }
+            }
+        }
         CharSequence author = getAuthor(document);
         CharSequence title = getTitle(document);
         cardAuthor = new Text(TextUtils.isEmpty(author) ? getString(R.string.AudioUnknownArtist) : author, 14);
@@ -168,6 +208,19 @@ public class ProfileMusicView extends View {
         setText(author, title);
         setVisibility(hasMusicDocument || activity != null ? VISIBLE : GONE);
         requestLayout();
+        invalidate();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        coverImage.onAttachedToWindow();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        coverImage.onDetachedFromWindow();
+        super.onDetachedFromWindow();
     }
 
     public void setActivityText(CharSequence value) {
@@ -282,20 +335,30 @@ public class ProfileMusicView extends View {
     protected void onDraw(@NonNull Canvas canvas) {
         if (this.author == null || this.title == null) return;
 
+        // Match ProfileActionsView: the stack contracts with its available header height
+        // and fades out before the height reaches zero. A layer fades every drawable too.
+        float fraction = Utilities.clamp01(currentHeight / Math.max(1, getHeaderHeight()));
+        float collapseAlpha = Utilities.clamp01((fraction - 0.2f) / 0.8f);
+        if (collapseAlpha <= 0f) return;
+        int saveCount = canvas.save();
+        canvas.scale(1f, fraction, getWidth() / 2f, 0f);
+        canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (255 * collapseAlpha));
+
         if (!hasMusicDocument) {
             drawActivityCard(canvas);
+            canvas.restoreToCount(saveCount);
             return;
         }
 
         if (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
             drawCard(canvas);
             drawActivityCard(canvas);
+            canvas.restoreToCount(saveCount);
             return;
         }
 
-        final float alpha = Utilities.clamp01((currentHeight) / dp(21));
+        final float alpha = 1f;
         final float scale = bounce.getScale(0.02f);
-        if (alpha <= 0) return;
 
         final int padding = dp(12);
         final int maxWidth = getWidth() - padding * 2;
@@ -367,11 +430,12 @@ public class ProfileMusicView extends View {
         canvas.restore();
 
         drawActivityCard(canvas);
+        canvas.restoreToCount(saveCount);
     }
 
     private void drawActivityCard(Canvas canvas) {
         if (activity == null) return;
-        float alpha = Utilities.clamp01(currentHeight / dp(21));
+        float alpha = 1f;
         float top = hasMusicDocument ? dp(BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? 104 : 41) : dp(4);
         rect.set(dp(20), top, getWidth() - dp(20), top + dp(48));
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
@@ -390,8 +454,8 @@ public class ProfileMusicView extends View {
     }
 
     private void drawCard(Canvas canvas) {
-        final float alpha = Utilities.clamp01(currentHeight / dp(80));
-        if (alpha <= 0 || cardTitle == null || cardAuthor == null) return;
+        final float alpha = 1f;
+        if (cardTitle == null || cardAuthor == null) return;
 
         rect.set(dp(12), dp(4), getWidth() - dp(12), dp(96));
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
@@ -402,9 +466,14 @@ public class ProfileMusicView extends View {
         cover.set(dp(22), dp(14), dp(94), dp(86));
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundGray, resourcesProvider));
         canvas.drawRoundRect(cover, dp(16), dp(16), backgroundPaint);
-        icon.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.SRC_IN));
-        icon.setBounds(dp(44), dp(36), dp(72), dp(64));
-        icon.draw(canvas);
+        if (coverImage.hasImageLoaded()) {
+            coverImage.setImageCoords(cover);
+            coverImage.draw(canvas);
+        } else {
+            icon.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.SRC_IN));
+            icon.setBounds(dp(44), dp(36), dp(72), dp(64));
+            icon.draw(canvas);
+        }
 
         int textColor = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
         int subtextColor = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourcesProvider);

@@ -919,6 +919,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             }
             titleTextView.setRightDrawable2(mutedIcon);
         }
+        updateBygramBadge();
         checkActionBar(true);
     }
 
@@ -988,6 +989,11 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             titleTextView.setRightDrawable(null);
             rightDrawableContentDescription = null;
         }
+        updateBygramBadge();
+        checkActionBar(animated);
+    }
+
+    private void updateBygramBadge() {
         if (parentFragment != null) {
             TLRPC.User badgeUser = parentFragment.getCurrentUser();
             TLRPC.Chat badgeChat = parentFragment.getCurrentChat();
@@ -997,7 +1003,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 titleTextView.setRightDrawable2(new BygramBadgeDrawable(getContext(), true, 18, titleTextView.getRightDrawable2()));
             }
         }
-        checkActionBar(animated);
     }
 
     private Drawable emojiStatusDefaultDrawable;

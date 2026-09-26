@@ -18,21 +18,46 @@
     ],
     "assets": [
       "assets/bygram-logo.png",
-      "assets/bygram-chats.png",
-      "assets/bygram-settings.png"
+      "assets/settings.png",
+      "assets/ghost.png",
+      "assets/spy.png",
+      "assets/customization.png",
+      "assets/profile.png",
+      "assets/activity.png",
+      "assets/custom-menu.png"
     ]
   },
-  "assets/bygram-chats.png": {
-    "file": "assets/bygram-chats.png",
-    "src": "assets/bygram-chats.png"
+  "assets/activity.png": {
+    "file": "assets/activity.png",
+    "src": "assets/activity.png"
   },
   "assets/bygram-logo.png": {
     "file": "assets/bygram-logo.png",
     "src": "assets/bygram-logo.png"
   },
-  "assets/bygram-settings.png": {
-    "file": "assets/bygram-settings.png",
-    "src": "assets/bygram-settings.png"
+  "assets/custom-menu.png": {
+    "file": "assets/custom-menu.png",
+    "src": "assets/custom-menu.png"
+  },
+  "assets/customization.png": {
+    "file": "assets/customization.png",
+    "src": "assets/customization.png"
+  },
+  "assets/ghost.png": {
+    "file": "assets/ghost.png",
+    "src": "assets/ghost.png"
+  },
+  "assets/profile.png": {
+    "file": "assets/profile.png",
+    "src": "assets/profile.png"
+  },
+  "assets/settings.png": {
+    "file": "assets/settings.png",
+    "src": "assets/settings.png"
+  },
+  "assets/spy.png": {
+    "file": "assets/spy.png",
+    "src": "assets/spy.png"
   },
   "src/admin.jsx": {
     "file": "assets/admin.js",

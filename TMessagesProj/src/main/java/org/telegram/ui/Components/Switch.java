@@ -386,7 +386,7 @@ public class Switch extends View {
         int width = AndroidUtilities.dp(31);
         int thumb = AndroidUtilities.dp(20);
         int x = md3 ? 0 : (getMeasuredWidth() - width) / 2;
-        float trackHeight = AndroidUtilities.dpf2(md3 ? MD3_TRACK_HEIGHT_DP : 14);
+        float trackHeight = md3 ? Math.min(getMeasuredHeight(), AndroidUtilities.dpf2(MD3_TRACK_HEIGHT_DP)) : AndroidUtilities.dpf2(14);
         float y = (getMeasuredHeight() - trackHeight) / 2;
         int tx = md3
                 ? (getMeasuredWidth() - width) / 2 + AndroidUtilities.dp(8) + (int) (AndroidUtilities.dp(16) * Utilities.clamp01(progress))
@@ -455,8 +455,8 @@ public class Switch extends View {
             paint2.setColor(color);
 
             if (md3) {
-                rectF.set(-AndroidUtilities.dp(2), y, getMeasuredWidth() + AndroidUtilities.dp(3), y + trackHeight);
-                canvasToDraw.drawRoundRect(rectF, AndroidUtilities.dpf2(14), AndroidUtilities.dpf2(14), paint);
+                rectF.set(0, y, getMeasuredWidth(), y + trackHeight);
+                canvasToDraw.drawRoundRect(rectF, trackHeight / 2, trackHeight / 2, paint);
             } else {
                 rectF.set(x, y, x + width, y + trackHeight);
                 canvasToDraw.drawRoundRect(rectF, trackHeight / 2, trackHeight / 2, paint);

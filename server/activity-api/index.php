@@ -231,7 +231,7 @@ if ($action === 'typing_get') {
     $query = $pdo->prepare('SELECT statuses FROM typing_statuses WHERE telegram_id=?');
     $query->execute([$ownerId]);
     $statuses = json_decode((string) ($query->fetchColumn() ?: '{}'), true);
-    jsonResponse(['ok' => true, 'statuses' => is_array($statuses) ? $statuses : []]);
+    jsonResponse(['ok' => true, 'statuses' => (object) (is_array($statuses) ? $statuses : [])]);
 }
 if ($action === 'typing_register') {
     rateLimit($pdo, 'typing_register:' . $ip, 12);
@@ -264,7 +264,7 @@ if ($action === 'typing_put') {
     try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId,$nonce]); }
     catch (PDOException) { jsonResponse(['ok' => false], 409); }
     $pdo->prepare('INSERT INTO typing_statuses (telegram_id,statuses) VALUES (?,?) ON DUPLICATE KEY UPDATE statuses=VALUES(statuses)')
-        ->execute([$userId,json_encode($statuses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+        ->execute([$userId,json_encode((object)$statuses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
     jsonResponse(['ok' => true]);
 }
 

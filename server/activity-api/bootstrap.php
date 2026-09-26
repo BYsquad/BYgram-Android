@@ -27,16 +27,6 @@ function typingPublicKeys(PDO $pdo, int $telegramId): array {
     $query->execute([$telegramId, $telegramId]);
     return $query->fetchAll(PDO::FETCH_COLUMN);
 }
-function grantLicense(PDO $pdo, int $telegramId): void { $pdo->prepare("INSERT INTO licenses (telegram_id,status,valid_until) VALUES (?,'active',NULL) ON DUPLICATE KEY UPDATE status='active',valid_until=NULL")->execute([$telegramId]); }
-function addReferralToOrder(PDO $pdo, array &$order): void {
-    $q=$pdo->prepare('SELECT r.referrer_id,s.percent FROM referrals r JOIN referral_settings s ON s.id=1 AND s.enabled=1 WHERE r.referred_id=?');$q->execute([$order['buyer_id']]);$ref=$q->fetch();
-    if(!$ref||(float)$order['amount']<=0)return;
-    $commission=round((float)$order['amount']*(float)$ref['percent']/100,2);
-    if($commission<=0)return;
-    $q=$pdo->prepare('INSERT IGNORE INTO referral_earnings (order_id,referrer_id,referred_id,amount,percent,commission,currency) VALUES (?,?,?,?,?,?,?)');
-    $q->execute([$order['id'],$ref['referrer_id'],$order['buyer_id'],$order['amount'],$ref['percent'],$commission,$order['currency']]);
-    if($q->rowCount()){$order['_referrer_id']=(int)$ref['referrer_id'];$order['_commission']=$commission;}
-}
 function isOwner(int $id): bool { return $id === (int) (appConfig()['owner_id'] ?? 0); }
 function isAdmin(int $id): bool {
     if (isOwner($id)) return true;
@@ -86,26 +76,6 @@ function requireAdminSession(): int {
     return $id;
 }
 function jsonResponse(mixed $data, int $status = 200): never { http_response_code($status); header('Content-Type: application/json; charset=utf-8'); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; }
-function validateMiniApp(string $initData): int {
-    parse_str($initData, $values); $hash = (string) ($values['hash'] ?? ''); unset($values['hash']);
-    if ($hash === '' || abs(time() - (int) ($values['auth_date'] ?? 0)) > 3600) throw new RuntimeException('Недействительная сессия Telegram');
-    ksort($values); $pairs = []; foreach ($values as $key => $value) $pairs[] = $key . '=' . $value;
-    $token = (string) (appConfig()['bot_token'] ?? '');
-    if ($token === '') throw new RuntimeException('Telegram-авторизация не настроена');
-    $secret = hash_hmac('sha256', $token, 'WebAppData', true);
-    if (!hash_equals(hash_hmac('sha256', implode("\n", $pairs), $secret), $hash)) throw new RuntimeException('Неверная подпись Telegram');
-    $user = json_decode((string) ($values['user'] ?? ''), true); $id = (int) ($user['id'] ?? 0);
-    if ($id < 1 || !isAdmin($id)) throw new RuntimeException('Нет доступа');
-    return $id;
-}
-function hasExteraBadge(int $userId): bool {
-    $context = stream_context_create(['http' => ['timeout' => 6, 'ignore_errors' => true], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-    $body = @file_get_contents('https://api.exteragram.app/api/v1/profiles/' . $userId, false, $context);
-    if ($body === false) throw new RuntimeException('Не удалось проверить значок ExteraGram');
-    $profile = json_decode($body, true);
-    return is_array($profile) && ($profile['type'] ?? '') === 'USER' && (int) ($profile['id'] ?? 0) === $userId
-            && (int) ($profile['badge']['documentId'] ?? 0) > 0;
-}
 function loadBadges(): array {
     $badges = json_decode((string) @file_get_contents(__DIR__ . '/badges.json'), true);
     return is_array($badges) ? $badges : [];

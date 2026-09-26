@@ -405,12 +405,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     musicView.setActivityText(activity);
                     int headerHeightDelta = getHeaderExtraHeight() - previousHeaderHeight;
                     if (headerHeightDelta != 0) {
-                        extraHeight += getHeaderExtraHeight() - previousHeaderHeight;
-                        extraHeight = Math.max(0, extraHeight);
+                        adjustHeaderForMusicChange(headerHeightDelta);
                         updateRowsIds();
                         if (listAdapter != null) listAdapter.notifyDataSetChanged();
-                        if (avatarsBlurView != null) avatarsBlurView.setSize(getActionsExtraHeight());
-                        fixLayout();
                     } else if (wasVisible != (musicView.getVisibility() == View.VISIBLE)) {
                         fixLayout();
                     }
@@ -3867,7 +3864,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         sharedMediaLayout.initBlurCapture((ViewGroup) fragmentView);
 //        sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (userId == 0 || imageUpdater == null || myProfile) {
-            musicView = new ProfileMusicView(context, resourcesProvider);
+            musicView = new ProfileMusicView(context, resourcesProvider, currentAccount);
             if (avatarsBlurView != null) {
                 avatarsBlurView.setMusicView(musicView);
             }
@@ -5985,6 +5982,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
 
         ViewCompat.setOnApplyWindowInsetsListener(fragmentView, this::onApplyWindowInsets);
+        extraHeight = getHeaderExtraHeight();
         return fragmentView;
     }
 
@@ -6071,12 +6069,34 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private int getMusicExtraHeight() {
         return musicView != null && musicView.getVisibility() == View.VISIBLE
-                ? musicView.getContentHeight()
+                ? musicView.getHeaderHeight()
                 : 0;
     }
 
     private int getHeaderExtraHeight() {
         return getHeaderOnlyExtraHeight() + getActionsExtraHeight();
+    }
+
+    private void adjustHeaderForMusicChange(int delta) {
+        if (delta == 0) return;
+        if (openAnimationInProgress) {
+            if (initialAnimationExtraHeight > 0) {
+                initialAnimationExtraHeight += delta;
+                extraHeight = Math.max(0, initialAnimationExtraHeight * avatarAnimationProgress);
+            }
+        } else if (extraHeight > 0) {
+            extraHeight = Math.max(0, extraHeight + delta);
+            View header = layoutManager == null ? null : layoutManager.findViewByPosition(0);
+            if (header != null && header.getTop() >= 0) {
+                savedScrollPosition = 0;
+                savedScrollOffset = Math.max(0, header.getTop() + delta);
+            } else if (savedScrollPosition == 0) {
+                savedScrollOffset += delta;
+            }
+        }
+        if (avatarsBlurView != null) avatarsBlurView.setSize(getActionsExtraHeight());
+        if (fragmentView != null) fragmentView.requestLayout();
+        fixLayout();
     }
 
     private final BoolAnimator animatorBottomButtonVisibility = new BoolAnimator(0,
@@ -11103,7 +11123,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         if (musicView != null) {
             if (userInfo != null) {
+                int previousHeaderHeight = getHeaderExtraHeight();
                 musicView.setMusicDocument(userInfo.saved_music);
+                int headerHeightDelta = getHeaderExtraHeight() - previousHeaderHeight;
+                adjustHeaderForMusicChange(headerHeightDelta);
             }
         }
     }

@@ -17,6 +17,7 @@
     <string name="BygramTypingAudio">Надсилає аудіо</string>
     <string name="BygramTypingGame">Грає</string>
     <string name="BygramTypingPublish">Опублікувати статуси</string>
+    <string name="BygramTypingPublishSuccess">Статуси успішно збережено</string>
     <string name="BygramTypingVerify">Підтвердьте обліковий запис Telegram через бота, потім поверніться сюди та натисніть «Опублікувати статуси».</string>
     <string name="BygramTypingOpenBot">Відкрити бота</string>
     <string name="BygramTypingPublishFailed">Не вдалося опублікувати статуси. Перевірте мережу та повторіть спробу.</string>

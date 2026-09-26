@@ -1,5 +1,6 @@
-"""Fast regression check for the shared MD3 drawing geometry."""
+"""Fast regression check for BYgram appearance settings."""
 from pathlib import Path
+from xml.etree import ElementTree
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +27,6 @@ stories = source("TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesUti
 profile_stories = source("TMessagesProj/src/main/java/org/telegram/ui/Stories/ProfileStoriesView.java")
 badge = source("TMessagesProj/src/main/java/org/telegram/ui/Components/StatusBadgeComponent.java")
 api = source("server/activity-api/index.php")
-admin_api = source("server/activity-api/admin-api.php")
 admin = source("server/activity-api/admin.php")
 admin_ui = source("server/site/src/admin.jsx")
 bootstrap = source("server/activity-api/bootstrap.php")
@@ -35,20 +35,25 @@ main_site = source("server/site/src/main.jsx")
 config_example = source("server/activity-api/config.example.php")
 
 assert "new Slider(new ContextThemeWrapper" in seekbar, "MD3 slider is not backed by Material Slider"
-assert "setTrackHeight(AndroidUtilities.dp(8))" in seekbar and "setThumbWidth(AndroidUtilities.dp(3))" in seekbar and "setThumbHeight(AndroidUtilities.dp(24))" in seekbar, "MD3 slider geometry differs from ExteraGram"
-assert "MD3_TRACK_HEIGHT_DP = 26f" in switch and "drawRoundRect(rectF, radius, radius" in switch, "MD3 switch geometry differs from ExteraGram"
+assert "setTrackHeight(AndroidUtilities.dp(8))" in seekbar and "setThumbWidth(AndroidUtilities.dp(3))" in seekbar and "setThumbHeight(AndroidUtilities.dp(24))" in seekbar, "MD3 slider geometry changed"
+assert "MD3_TRACK_HEIGHT_DP = 26f" in switch and "drawRoundRect(rectF, radius, radius" in switch, "MD3 switch geometry changed"
+assert "md3 ? Math.min(getMeasuredHeight(), AndroidUtilities.dpf2(MD3_TRACK_HEIGHT_DP))" in switch and "rectF.set(0, y, getMeasuredWidth(), y + trackHeight)" in switch, "MD3 switch track is clipped by small switch views"
 assert "new LoadingIndicator(getContext())" in progress, "MD3 loading is not backed by Material LoadingIndicator"
 assert "new LoadingIndicator(context)" in circular_progress, "Drawable loading is not backed by Material LoadingIndicator"
 glass_sources = chat + dialogs + photo + popups
 for placement in ("GLASS_MEDIA", "GLASS_CONTEXT_PANELS", "GLASS_FLOATING_BUTTONS", "GLASS_SEARCH", "GLASS_SELECTION", "GLASS_POPUPS", "GLASS_MESSAGE_MENUS", "GLASS_BUTTON_MENUS"):
     assert placement in glass_sources, f"Liquid glass placement has no UI consumer: {placement}"
 assert "BygramLiquidGlassExamples" in settings, "Liquid-glass rows have no examples"
+assert "configuration.setLocale(LocaleController.getInstance().getCurrentLocale())" in settings and "resources.getStringArray(R.array.BygramLiquidGlassPlaces)" in settings and "resources.getStringArray(R.array.BygramLiquidGlassExamples)" in settings, "Liquid-glass arrays do not use the app locale"
+for name in ("BygramLiquidGlassPlaces", "BygramLiquidGlassExamples"):
+    arrays = [ElementTree.parse(ROOT / f"TMessagesProj/src/main/res/{folder}/bygram_preferences.xml").find(f"string-array[@name='{name}']") for folder in ("values", "values-ru")]
+    assert all(array is not None and len(array) == 8 for array in arrays), f"{name} has incomplete Russian translations"
+    assert all(any('\u0400' <= char <= '\u04ff' for char in ''.join(item.itertext())) for item in arrays[1]), f"{name} contains untranslated Russian entries"
 assert "bygram_uniform_avatars" not in image_receiver and "Arrays.fill(avatarRoundRadius" in image_receiver, "Visible avatar radius does not apply uniformly"
 assert "avatarRadius(" in config and "BygramConfig.avatarRadius" in image_receiver + profile + stories + profile_stories, "Profile avatars and story rings do not share the configured shape"
 assert "bygram_logo_new" not in badge and "getProfileBadgeInfo" not in activity_controller, "Profile badges are still present in the client"
 assert "setMultilineTextAndValue" in settings, "Long BYgram toggle labels are still ellipsized"
-assert "APP_VERSION_CODE=7089" in gradle and "APP_VERSION_NAME=12.10.3" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
+assert "APP_VERSION_CODE=7105" in gradle and "APP_VERSION_NAME=12.10.5" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
 assert "telegram-widget.js" in admin and "data-telegram-login" in admin and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
-assert "hasExteraBadge" in bootstrap and "hasExteraBadge($id)" in admin_api, "ExteraGram badge ownership is not verified"
 assert "BYxarek" + "_manager" not in activity_controller + api + bootstrap + main_site + config_example and "BYgram_manager" in activity_controller + api + main_site + config_example, "Manager username is outdated"
 print("PASS: MD3, liquid-glass examples, avatar endpoints and removed profile badges")

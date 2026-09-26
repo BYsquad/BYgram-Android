@@ -854,7 +854,7 @@ public class ChatActivity extends BaseFragment implements
                 BygramActivityController.get(currentAccount, currentUser.id, activity -> {
                     if (paused || avatarContainer == null) return;
                     if (activity != null && !activity.isEmpty()) {
-                        avatarContainer.setSubtitle(LocaleController.formatString(R.string.BygramViewingChat, activity));
+                        avatarContainer.setSubtitle(activity);
                     } else {
                         avatarContainer.updateSubtitle();
                     }

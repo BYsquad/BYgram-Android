@@ -3,6 +3,8 @@ package org.telegram.ui;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -27,6 +29,7 @@ import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.BackupImageView;
+import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
@@ -177,7 +180,12 @@ public class BygramSettingsActivity extends BaseFragment {
 
         private void publish() {
             BygramTypingController.publish(currentAccount, (ok, botUrl) -> {
-                if (getContext() == null || ok) return;
+                if (getContext() == null) return;
+                if (ok) {
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
+                            getString(R.string.BygramTypingPublishSuccess)).show();
+                    return;
+                }
                 if (!botUrl.isEmpty()) {
                     showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                             .setTitle(getString(R.string.BygramCustomTyping))
@@ -268,12 +276,15 @@ public class BygramSettingsActivity extends BaseFragment {
                         : LocaleController.formatString(R.string.BygramLiquidGlassSelected, Integer.bitCount(glass));
                 items.add(UItem.asButton(2, getString(R.string.BygramLiquidGlass), glassValue));
                 if (glassExpanded) {
-                    String[] places = getContext().getResources().getStringArray(R.array.BygramLiquidGlassPlaces);
+                    Configuration configuration = new Configuration(getContext().getResources().getConfiguration());
+                    configuration.setLocale(LocaleController.getInstance().getCurrentLocale());
+                    Resources resources = getContext().createConfigurationContext(configuration).getResources();
+                    String[] places = resources.getStringArray(R.array.BygramLiquidGlassPlaces);
                     int[] flags = {BygramConfig.GLASS_MEDIA, BygramConfig.GLASS_CONTEXT_PANELS,
                             BygramConfig.GLASS_FLOATING_BUTTONS, BygramConfig.GLASS_SEARCH,
                             BygramConfig.GLASS_SELECTION, BygramConfig.GLASS_POPUPS,
                             BygramConfig.GLASS_MESSAGE_MENUS, BygramConfig.GLASS_BUTTON_MENUS};
-                    String[] examples = getContext().getResources().getStringArray(R.array.BygramLiquidGlassExamples);
+                    String[] examples = resources.getStringArray(R.array.BygramLiquidGlassExamples);
                     for (int i = 0; i < flags.length && i < places.length && i < examples.length; i++) {
                         items.add(UItem.asButtonCheck(100 + i, places[i], examples[i]).setChecked((glass & flags[i]) != 0));
                     }

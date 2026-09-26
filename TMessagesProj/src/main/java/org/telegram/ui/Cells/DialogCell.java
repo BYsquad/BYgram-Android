@@ -1254,7 +1254,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
         if (isDialogCell) {
             boolean needUpdate = updateHelper.update();
-            if (!needUpdate && !forceBygramActivityLayout && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
+            boolean badgeChanged = (bygramNameBadge != null) != ((user != null && BygramBadgeController.hasBadge(user))
+                    || (chat != null && BygramBadgeController.hasBadge(chat)));
+            if (!needUpdate && !badgeChanged && !forceBygramActivityLayout && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
                 return;
             }
         }
@@ -1611,7 +1613,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             } else {
                 if (printingString != null) {
                     lastPrintString = printingString;
-                    printingStringType = MessagesController.getInstance(currentAccount).getPrintingStringType(currentDialogId, getTopicId());
+                    Integer statusType = MessagesController.getInstance(currentAccount).getPrintingStringType(currentDialogId, getTopicId());
+                    printingStringType = statusType != null ? statusType : -1;
                     StatusDrawable statusDrawable = Theme.getChatStatusDrawable(printingStringType);
                     int startPadding = 0;
                     if (statusDrawable != null) {

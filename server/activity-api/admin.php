@@ -12,7 +12,7 @@ $loginUrl = preg_replace('~/[^/]+$~', '/admin-login.php', $adminUrl);
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark">
 <title>BYgram — управление</title>
-<link rel="stylesheet" href="../assets/admin.css">
+<link rel="stylesheet" href="../assets/admin.css?v=20260925-redesign">
 </head>
 <body>
 <?php if ($currentUserId < 1): ?>
@@ -23,6 +23,6 @@ $loginUrl = preg_replace('~/[^/]+$~', '/admin-login.php', $adminUrl);
 <?php else: ?>
 <div id="admin-root"></div>
 <a class="admin-logout" href="admin-login.php?action=logout">Выйти</a>
-<script type="module" src="../assets/admin.js?v=20260923-badges"></script>
+<script type="module" src="../assets/admin.js?v=20260925-redesign"></script>
 <?php endif; ?>
 </body></html>
