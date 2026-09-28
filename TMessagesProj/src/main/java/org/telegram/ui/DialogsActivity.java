@@ -2810,8 +2810,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
             iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
-                    || BygramConfig.useAnyLiquidGlass());
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
         } else {
             scrollableViewNoiseSuppressor = null;
@@ -2824,8 +2823,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
     }
 
-    private BlurredBackgroundDrawableViewFactory glassFactory(int placement) {
-        return BygramConfig.useLiquidGlass(placement) ? iBlur3FactoryLiquidGlass : iBlur3FactoryBlur;
+    private BlurredBackgroundDrawableViewFactory glassFactory() {
+        return LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? iBlur3FactoryLiquidGlass : iBlur3FactoryBlur;
     }
 
     private MainTabsActivityController mainTabsActivityController;
@@ -3407,6 +3406,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
             @Override
             public void onSearchCollapse() {
+                if (searchViewPager != null) searchViewPager.hideHiddenChats();
                 if (fragmentSearchField != null) {
                     fragmentSearchField.clearSearchFiltersWithCallback();
                 }
@@ -3428,6 +3428,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             @Override
             public void onTextChanged(EditText editText) {
                 String text = editText.getText().toString();
+                if (text.matches("[0-9]{4,}") && org.telegram.messenger.BygramChatPrivacy.hasPin(currentAccount)
+                        && org.telegram.messenger.BygramChatPrivacy.verifyPin(currentAccount, text)) {
+                    editText.setText("");
+                    if (!searchIsShowed) showSearch(true, false, true);
+                    if (searchViewPager != null) searchViewPager.showHiddenChats();
+                    return;
+                }
                 if (!text.isEmpty() || (searchViewPager != null && searchViewPager.dialogsSearchAdapter != null && searchViewPager.dialogsSearchAdapter.hasRecentSearch()) || searchFiltersWasShowed || hasStories) {
                     searchWas = true;
                     if (!searchIsShowed) {
@@ -4743,7 +4750,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
         contentView.addView(searchTabsAndFiltersLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, SEARCH_TABS_HEIGHT, Gravity.TOP, 4, 0, 4, 0));
 
-        BlurredBackgroundDrawable searchTabsViewBackground = glassFactory(BygramConfig.GLASS_SEARCH).create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
+        BlurredBackgroundDrawable searchTabsViewBackground = glassFactory().create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
         searchTabsViewBackground.setRadius(dp(18));
         searchTabsViewBackground.setPadding(dp(6.666f));
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
@@ -4765,8 +4772,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         contentView.addView(floatingButtonStories, FragmentFloatingButton.createSubButtonLayoutParams());
 
         floatingButton3 = new FragmentFloatingButton(context, resourceProvider);
-        if (BygramConfig.useLiquidGlass(BygramConfig.GLASS_FLOATING_BUTTONS)) {
-            floatingButton3.setBlurredBackgroundDrawable(glassFactory(BygramConfig.GLASS_FLOATING_BUTTONS)
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            floatingButton3.setBlurredBackgroundDrawable(glassFactory()
                     .create(floatingButton3, BlurredBackgroundProviderImpl.mainTabs(resourceProvider))
                     .setRadius(dp(24)).setPadding(dp(7)));
         }
@@ -4833,7 +4840,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             });
 
-            BlurredBackgroundDrawable topPanelLayoutBackground = glassFactory(BygramConfig.GLASS_CONTEXT_PANELS).create(topPanelLayout)
+            BlurredBackgroundDrawable topPanelLayoutBackground = glassFactory().create(topPanelLayout)
                 .setColorProvider(BlurredBackgroundProviderImpl.topPanel(resourceProvider))
                 .setPadding(dp(7));
 
@@ -4903,7 +4910,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             chatInputViewsContainer.setClipChildren(false);
             chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
             chatInputViewsContainer.setInputIslandBubbleDrawable(
-                glassFactory(BygramConfig.GLASS_POPUPS).create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
+                glassFactory().create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
             chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
                 iBlur3FactoryFrostedLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
 
@@ -5180,7 +5187,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            BlurredBackgroundDrawable filterTabsViewBackground = glassFactory(BygramConfig.GLASS_SEARCH).create(filterTabsView, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
+            BlurredBackgroundDrawable filterTabsViewBackground = glassFactory().create(filterTabsView, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
             filterTabsViewBackground.setRadius(dp(18));
             filterTabsViewBackground.setPadding(dp(6.666f));
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
@@ -5189,7 +5196,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (fragmentSearchField != null) {
-            fragmentSearchField.setupBlurredBackground(glassFactory(BygramConfig.GLASS_SEARCH).create(fragmentSearchField, BlurredBackgroundProviderImpl.topPanel(resourceProvider)));
+            fragmentSearchField.setupBlurredBackground(glassFactory().create(fragmentSearchField, BlurredBackgroundProviderImpl.topPanel(resourceProvider)));
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {

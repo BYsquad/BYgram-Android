@@ -30,6 +30,20 @@ bootstrap = read("server/activity-api/bootstrap.php")
 schema = read("server/activity-api/schema.sql")
 self_test = read("server/activity-api/self-test.php")
 messages = read("TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java")
+storage = read("TMessagesProj/src/main/java/org/telegram/messenger/MessagesStorage.java")
+notifications = read("TMessagesProj/src/main/java/org/telegram/messenger/NotificationsController.java")
+privacy = read("TMessagesProj/src/main/java/org/telegram/messenger/BygramChatPrivacy.java")
+search_pager = read("TMessagesProj/src/main/java/org/telegram/ui/Components/SearchViewPager.java")
+dialogs_activity = read("TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java")
+chat = read("TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java")
+viewer = read("TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java")
+sender = read("TMessagesProj/src/main/java/org/telegram/messenger/SendMessagesHelper.java")
+message_object = read("TMessagesProj/src/main/java/org/telegram/messenger/MessageObject.java")
+message_cell = read("TMessagesProj/src/main/java/org/telegram/ui/Cells/ChatMessageCell.java")
+dialogs = read("TMessagesProj/src/main/java/org/telegram/ui/Adapters/DialogsAdapter.java")
+search = read("TMessagesProj/src/main/java/org/telegram/ui/Adapters/DialogsSearchAdapter.java")
+navigation = read("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/ActionBarLayout.java")
+lite_settings = read("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")
 stories = read("TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java")
 
 
@@ -64,6 +78,7 @@ checks = {
     "typing publish confirms server success": 'if (ok) {' in settings and 'BygramTypingPublishSuccess' in settings,
     "badge notice uses Telegram language and theme": 'LocaleController.getString(resource ? R.string.BygramResourceBadgeNotice' in badge and 'BulletinFactory.global().createSimpleBulletin' in badge,
     "chat title restores badge after title icons": title_icons.index('titleTextView.setRightDrawable2(mutedIcon)') < title_icons.index('updateBygramBadge();'),
+    "Saved Messages header does not inherit own BYgram badge": '!UserObject.isUserSelf(badgeUser)' in chat_header,
     "chat badges refresh users and chats": 'MessagesController.UPDATE_MASK_NAME | MessagesController.UPDATE_MASK_CHAT_NAME' in badge_controller,
     "chat row rebuilds when fetched badge changes": 'boolean badgeChanged = (bygramNameBadge != null)' in dialog_cell and '!needUpdate && !badgeChanged' in dialog_cell,
     "cached badges appear before network refresh": badge_controller.index('getStringSet("assigned"') < badge_controller.index('Entry entry = cache.get'),
@@ -80,6 +95,33 @@ checks = {
     < settings.index('"https://t.me/BYgram_community"'),
     "active settings use an allowlist": 'key.startsWith("bygram_ghost_")' not in config and 'key.startsWith("bygram_spy_")' not in config,
     "removed settings no longer select dead implementations": "getMicrosoftTranslatorKey" not in config + translate and "bygram_translation_provider" not in translate,
+    "native glass option replaces BYgram placements": "BygramLiquidGlass" not in settings and "LIQUID_GLASS_PLACEMENTS" not in config and "LiteOptionsLiquidGlass" in lite_settings,
+    "spy can physically remove previously saved messages": "getBygramDeletedMessageIdsSync" in storage and "locallyDeletedMessages.add(messageId)" in messages and "toSend.removeAll(locallyDeletedMessages)" in messages,
+    "private chats cover list, search, notification, navigation and accessibility": all((
+        "BygramChatPrivacy" in dialogs, "BygramChatPrivacy" in search,
+        "BygramChatPrivacy" in notifications, "requireBygramPassword" in navigation,
+        "consumeHiddenAllowed" in chat, "BygramProtectedPreview" in dialog_cell,
+    )),
+    "private notifications and inline hidden search stay private": all((
+        "return isHidden(account, dialogId) || isProtected(account, dialogId);" in privacy,
+        notifications.count("BygramChatPrivacy.hidesNotification(currentAccount, messageObject.getDialogId())") == 2,
+        "if (hiddenChatsVisible) items.add(new Item(HIDDEN_TYPE));" in search_pager,
+        "searchViewPager.showHiddenChats();" in dialogs_activity,
+        "presentFragment(new BygramSettingsActivity.PrivateChatsActivity(true, true))" not in dialogs_activity,
+    )),
+    "private chat settings select from dialogs and show only selected rows": 'args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_DEFAULT)' in settings and 'if (!selected) continue;' in settings and 'R.string.SelectChat' in settings,
+    "private chat pages use dialog rows and action bar add": 'setDialog((TLRPC.Dialog) item.object, DialogsActivity.DIALOGS_TYPE_DEFAULT, 0)' in settings and 'cell.showBygramProtectedMessage = true;' in settings and '!showBygramProtectedMessage && currentDialogFolderId == 0' in dialog_cell and 'actionBar.createMenu().addItemWithWidth(2, R.drawable.msg_add' in settings and 'UItem.asButton(2, getString(R.string.SelectChat))' not in settings,
+    "hidden search swaps its page back after closing": 'public void hideHiddenChats()' in search_pager and 'setPosition(0);\n        updateCurrent();\n        hiddenChats.clear();' in search_pager,
+    "local saving is independent of forwarding restrictions": 'allowShare = !noforwards;\n                galleryButton.setVisibility(View.VISIBLE);' in viewer and 'if (type == 4 && !selectedObject.needDrawBluredPreview())' in chat and 'else if (type == 6)' in chat,
+    "restricted forwards download and upload new copies": all((
+        'sendProtectedCopy(msgObj, peer' in sender,
+        'downloadProtectedCopy(fileName,' in sender,
+        'upload.attributes.addAll(media.document.attributes)' in sender,
+        'params.payStars = payStars;' in sender,
+        '!messageOwner.noforwards' not in message_object.split('public boolean canForwardMessage()', 1)[1].split('public boolean canEditMedia()', 1)[0],
+        '&& !noforwards && selectedObject.type != MessageObject.TYPE_SHARING_OFFER' not in chat,
+        'drawSideButton = 0;\n                if (isPinnedChat' not in message_cell,
+    )),
 }
 
 failed = [name for name, passed in checks.items() if not passed]

@@ -475,6 +475,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private ActionBarMenuItem videoCallItem;
     private ActionBarMenuItem editItem;
     private ActionBarMenuItem otherItem;
+    private ActionBarMenuItem profileViewsItem;
     private ActionBarMenuItem searchItem;
     private ActionBarMenuSubItem editColorItem;
     private ActionBarMenuSubItem linkItem;
@@ -2576,6 +2577,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         return;
                     }
                     finishFragment();
+                } else if (id == 94) {
+                    presentFragment(new BygramSettingsActivity.ProfileViewsActivity());
                 } else if (id == block_contact) {
                     onBlockContactClicked(false);
                 } else if (id == add_contact) {
@@ -3746,6 +3749,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 videoCallItem.setVisibility(expanded || !videoCallItemVisible ? GONE : INVISIBLE);
                 editItem.setVisibility(expanded || !editItemVisible ? GONE : INVISIBLE);
                 otherItem.setVisibility(expanded ? GONE : INVISIBLE);
+                if (profileViewsItem != null) profileViewsItem.setVisibility(expanded ? GONE : INVISIBLE);
                 updateStoriesViewBounds(false);
             }
 
@@ -4065,6 +4069,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         } else {
             editItem = menu.addItem(edit_channel, R.drawable.group_edit_profile);
             editItem.setContentDescription(LocaleController.getString(R.string.Edit));
+        }
+        if (myProfile) {
+            profileViewsItem = menu.addItem(94, R.drawable.bygram_footprints);
+            profileViewsItem.setContentDescription(LocaleController.getString(R.string.BygramProfileViews));
         }
         otherItem = menu.addItem(10, R.drawable.ic_ab_other, resourcesProvider);
 
@@ -7806,6 +7814,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             topView.invalidate();
             otherItem.setIconColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon));
+            if (profileViewsItem != null) profileViewsItem.setIconColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon));
             callItem.setIconColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon));
             videoCallItem.setIconColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon));
             editItem.setIconColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon));
@@ -7884,6 +7893,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 editItem.setVisibility(View.VISIBLE);
             }
             otherItem.setVisibility(View.VISIBLE);
+            if (profileViewsItem != null) profileViewsItem.setVisibility(View.VISIBLE);
             if (mediaOptionsItem != null) {
                 mediaOptionsItem.setVisibility(View.GONE);
             }
@@ -7916,10 +7926,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         animators.add(ObjectAnimator.ofFloat(callItem, View.ALPHA, visible ? 0.0f : 1.0f));
         animators.add(ObjectAnimator.ofFloat(videoCallItem, View.ALPHA, visible ? 0.0f : 1.0f));
         animators.add(ObjectAnimator.ofFloat(otherItem, View.ALPHA, visible ? 0.0f : 1.0f));
+        if (profileViewsItem != null) animators.add(ObjectAnimator.ofFloat(profileViewsItem, View.ALPHA, visible ? 0.0f : 1.0f));
         animators.add(ObjectAnimator.ofFloat(editItem, View.ALPHA, visible ? 0.0f : 1.0f));
         animators.add(ObjectAnimator.ofFloat(callItem, View.TRANSLATION_Y, visible ? -AndroidUtilities.dp(10) : 0.0f));
         animators.add(ObjectAnimator.ofFloat(videoCallItem, View.TRANSLATION_Y, visible ? -AndroidUtilities.dp(10) : 0.0f));
         animators.add(ObjectAnimator.ofFloat(otherItem, View.TRANSLATION_Y, visible ? -AndroidUtilities.dp(10) : 0.0f));
+        if (profileViewsItem != null) animators.add(ObjectAnimator.ofFloat(profileViewsItem, View.TRANSLATION_Y, visible ? -AndroidUtilities.dp(10) : 0.0f));
         animators.add(ObjectAnimator.ofFloat(editItem, View.TRANSLATION_Y, visible ? -AndroidUtilities.dp(10) : 0.0f));
         animators.add(ObjectAnimator.ofFloat(mediaSearchItem, View.ALPHA, visible ? 1.0f : 0.0f));
         animators.add(ObjectAnimator.ofFloat(mediaSearchItem, View.TRANSLATION_Y, visible ? 0.0f : AndroidUtilities.dp(10)));
@@ -7960,6 +7972,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             editItem.setVisibility(View.GONE);
                         }
                         otherItem.setVisibility(View.GONE);
+                        if (profileViewsItem != null) profileViewsItem.setVisibility(View.GONE);
                     } else {
                         if (sharedMediaLayout.isSearchItemVisible()) {
                             mediaSearchItem.setVisibility(View.VISIBLE);
@@ -9613,6 +9626,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         bygramProfilePaused = false;
         TLRPC.User viewedUser = userId == 0 ? null : getMessagesController().getUser(userId);
         BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_PROFILE, getDialogId(), viewedUser, currentChat);
+        if (userId > 0 && userId != getUserConfig().getClientUserId()
+                && viewedUser != null && !viewedUser.bot && org.telegram.messenger.BygramTypingController.profileViewsEnabled(currentAccount)) {
+            TLRPC.User self = getUserConfig().getCurrentUser();
+            if (self != null) {
+                org.json.JSONObject visit = new org.json.JSONObject();
+                try {
+                    visit.put("action", "profile_views_record");
+                    visit.put("owner_id", userId);
+                    visit.put("viewer_name", UserObject.getUserName(self));
+                    visit.put("viewer_username", UserObject.getPublicUsername(self) == null ? "" : UserObject.getPublicUsername(self));
+                    org.telegram.messenger.BygramTypingController.profileViewsRequest(currentAccount, visit, (response, botUrl) -> {});
+                } catch (org.json.JSONException e) { FileLog.e(e); }
+            }
+        }
         AndroidUtilities.cancelRunOnUIThread(bygramProfileActivityRunnable);
         bygramProfileActivityRunnable.run();
         if (sharedMediaLayout != null) {

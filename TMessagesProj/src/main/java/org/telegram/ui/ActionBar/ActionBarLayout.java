@@ -1949,7 +1949,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         boolean preview = params.preview;
         ActionBarPopupWindow.ActionBarPopupWindowLayout menu = params.menuView;
 
-        if (fragment == null || checkTransitionAnimation() || delegate != null && check && !delegate.needPresentFragment(this, params) || !fragment.onFragmentCreate()) {
+        if (fragment == null || checkTransitionAnimation() || delegate != null && check && !delegate.needPresentFragment(this, params)) {
+            return false;
+        }
+        if (ChatActivity.requireBygramPassword(fragment, parentActivity, () -> presentFragment(params)) || !fragment.onFragmentCreate()) {
             return false;
         }
         final EdgeToEdgeSupportMode edgeToEdgeSupportMode = fragment.getEdgeToEdgeSupportMode();
@@ -2330,7 +2333,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
 
     @Override
     public boolean addFragmentToStack(BaseFragment fragment, int position) {
-        if (delegate != null && !delegate.needAddFragmentToStack(fragment, this) || !fragment.onFragmentCreate()) {
+        if (delegate != null && !delegate.needAddFragmentToStack(fragment, this)) {
+            return false;
+        }
+        final int requestedPosition = position;
+        if (ChatActivity.requireBygramPassword(fragment, parentActivity, () -> addFragmentToStack(fragment, requestedPosition)) || !fragment.onFragmentCreate()) {
             return false;
         }
         if (fragmentsStack.contains(fragment)) {

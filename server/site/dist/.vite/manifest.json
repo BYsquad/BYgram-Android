@@ -24,7 +24,10 @@
       "assets/customization.png",
       "assets/profile.png",
       "assets/activity.png",
-      "assets/custom-menu.png"
+      "assets/custom-menu.png",
+      "assets/protected-chats-settings.png",
+      "assets/hidden-chats-settings.png",
+      "assets/hidden-chats-search.png"
     ]
   },
   "assets/activity.png": {
@@ -47,9 +50,21 @@
     "file": "assets/ghost.png",
     "src": "assets/ghost.png"
   },
+  "assets/hidden-chats-search.png": {
+    "file": "assets/hidden-chats-search.png",
+    "src": "assets/hidden-chats-search.png"
+  },
+  "assets/hidden-chats-settings.png": {
+    "file": "assets/hidden-chats-settings.png",
+    "src": "assets/hidden-chats-settings.png"
+  },
   "assets/profile.png": {
     "file": "assets/profile.png",
     "src": "assets/profile.png"
+  },
+  "assets/protected-chats-settings.png": {
+    "file": "assets/protected-chats-settings.png",
+    "src": "assets/protected-chats-settings.png"
   },
   "assets/settings.png": {
     "file": "assets/settings.png",

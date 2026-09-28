@@ -1325,10 +1325,10 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
 
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
             iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(
-                    org.telegram.messenger.BygramConfig.useLiquidGlass(org.telegram.messenger.BygramConfig.GLASS_POPUPS));
+                    org.telegram.messenger.LiteMode.isEnabled(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS));
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
             iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(
-                    org.telegram.messenger.BygramConfig.useLiquidGlass(org.telegram.messenger.BygramConfig.GLASS_POPUPS));
+                    org.telegram.messenger.LiteMode.isEnabled(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS));
         } else {
             scrollableViewNoiseSuppressor = null;
             iBlur3SourceGlassFrosted = null;

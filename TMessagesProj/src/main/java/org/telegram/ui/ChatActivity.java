@@ -2716,7 +2716,7 @@ public class ChatActivity extends BaseFragment implements
             glassBackgroundDrawableFactoryFrosted = new BlurredBackgroundDrawableViewFactory(glassBackgroundSourceFrostedRenderNode);
             glassBackgroundDrawableFactoryFrosted.setLiquidGlassEffectAllowed(false);
 
-            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || BygramConfig.useAnyLiquidGlass()) {
+            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
                 glassBackgroundSourceRenderNode = new BlurredBackgroundSourceRenderNode(navbarContentSourceWallpaper);
                 glassBackgroundSourceRenderNode.setOnDrawablesRelativePositionChangeListener(this::invalidateMergedVisibleBlurredPositionsAndSourcesPositions);
                 glassBackgroundSourceRenderNode.setScrollableNoiseSuppressor(scrollableViewNoiseSuppressor, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
@@ -2742,7 +2742,7 @@ public class ChatActivity extends BaseFragment implements
         glassBackgroundDrawableFactory.setLinkedViewsRef(glassAttachedViews);
         glassBackgroundDrawableFactoryFrosted.setLinkedViewsRef(glassAttachedViews);
         scrimBlur3Factory.setLinkedViewsRef(new ReferenceList<>());
-        scrimBlur3Factory.setLiquidGlassEffectAllowed(BygramConfig.useLiquidGlass(BygramConfig.GLASS_MESSAGE_MENUS));
+        scrimBlur3Factory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
 
         navbarContentDrawableFactory.setLinkedDrawablesRef(glassAttachedDrawables);
         glassBackgroundDrawableFactory.setLinkedDrawablesRef(glassAttachedDrawables);
@@ -2750,19 +2750,59 @@ public class ChatActivity extends BaseFragment implements
         scrimBlur3Factory.setLinkedDrawablesRef(glassAttachedDrawables);
     }
 
-    private BlurredBackgroundDrawableViewFactory glassFactory(int placement) {
-        boolean enabled = placement == 0 ? LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
-                : BygramConfig.useLiquidGlass(placement);
-        return enabled ? glassBackgroundDrawableFactory : glassBackgroundDrawableFactoryFrosted;
+    private BlurredBackgroundDrawableViewFactory glassFactory() {
+        return LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? glassBackgroundDrawableFactory : glassBackgroundDrawableFactoryFrosted;
     }
 
     private NotificationCenter.ObserversGroup observersGroup;
+
+    public static boolean requireBygramPassword(BaseFragment fragment, android.content.Context context, Runnable retry) {
+        if (!(fragment instanceof ChatActivity)) return false;
+        long userId = fragment.getArguments().getLong("user_id", 0);
+        long chatId = fragment.getArguments().getLong("chat_id", 0);
+        long dialogId = userId != 0 ? userId : chatId != 0 ? -chatId : 0;
+        int account = fragment.getCurrentAccount();
+        if (dialogId != 0 && org.telegram.messenger.BygramChatPrivacy.isHidden(account, dialogId)
+                && !org.telegram.messenger.BygramChatPrivacy.isHiddenAllowed(account, dialogId)) return true;
+        if (dialogId == 0 || !org.telegram.messenger.BygramChatPrivacy.isProtected(account, dialogId)
+                || org.telegram.messenger.BygramChatPrivacy.isAllowed(account, dialogId)) return false;
+        if (context == null) return true;
+        android.widget.EditText input = new android.widget.EditText(context);
+        input.setSingleLine(true);
+        input.setInputType(129);
+        org.telegram.ui.ActionBar.AlertDialog passwordDialog = new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
+                .setTitle(getString(R.string.BygramChatPassword)).setView(input)
+                .setNegativeButton(getString(R.string.Cancel), (dialog, which) ->
+                        org.telegram.messenger.BygramChatPrivacy.consumeHiddenAllowed(account, dialogId))
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
+                    if (org.telegram.messenger.BygramChatPrivacy.verifyPassword(account, dialogId, input.getText().toString())) {
+                        org.telegram.messenger.BygramChatPrivacy.allowOnce(account, dialogId);
+                        retry.run();
+                    } else {
+                        org.telegram.messenger.BygramChatPrivacy.consumeHiddenAllowed(account, dialogId);
+                        new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
+                                .setTitle(getString(R.string.BygramPrivacyError))
+                                .setPositiveButton(getString(R.string.OK), null).show();
+                    }
+                }).create();
+        passwordDialog.setOnCancelListener(dialog ->
+                org.telegram.messenger.BygramChatPrivacy.consumeHiddenAllowed(account, dialogId));
+        passwordDialog.show();
+        return true;
+    }
 
     @Override
     public boolean onFragmentCreate() {
         final long chatId = arguments.getLong("chat_id", 0);
         final long userId = arguments.getLong("user_id", 0);
         final int encId = arguments.getInt("enc_id", 0);
+        final long protectedDialogId = userId != 0 ? userId : chatId != 0 ? -chatId : 0;
+        if (protectedDialogId != 0 && org.telegram.messenger.BygramChatPrivacy.isHidden(currentAccount, protectedDialogId)
+                && !org.telegram.messenger.BygramChatPrivacy.consumeHiddenAllowed(currentAccount, protectedDialogId)) return false;
+        if (protectedDialogId != 0 && org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, protectedDialogId)
+                && !org.telegram.messenger.BygramChatPrivacy.consumeAllowed(currentAccount, protectedDialogId)) {
+            return false;
+        }
         dialogFolderId = arguments.getInt("dialog_folder_id", 0);
         dialogFilterId = arguments.getInt("dialog_filter_id", 0);
         chatMode = arguments.getInt("chatMode", 0);
@@ -3696,7 +3736,7 @@ public class ChatActivity extends BaseFragment implements
             Timer.Task t1 = Timer.start(t, "new ChatActivityTextSelectionHelper");
             textSelectionHelper = new ChatActivityTextSelectionHelper();
             textSelectionHelper.setChatActivity(this);
-            textSelectionHelper.setBlurredBackgroundDrawableViewFactory(glassFactory(BygramConfig.GLASS_SELECTION));
+            textSelectionHelper.setBlurredBackgroundDrawableViewFactory(glassFactory());
             Timer.done(t1);
         }
 
@@ -4663,11 +4703,11 @@ public class ChatActivity extends BaseFragment implements
         contentView.setOccupyStatusBar(!inBubbleMode && !isInsideContainer && !inPreviewMode);
 
         actionBar.setupGlass(
-            glassFactory(0),
+            glassFactory(),
             BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate),
             ChatObject.isForum(currentChat));
         actionBar.setPopupMenuBackgroundFactory(
-            glassFactory(BygramConfig.GLASS_BUTTON_MENUS),
+            glassFactory(),
             BlurredBackgroundProviderImpl.scrimMenuBackground(themeDelegate));
 
         if (chatMode == MODE_PINNED) {
@@ -4688,7 +4728,7 @@ public class ChatActivity extends BaseFragment implements
         chatInputViewsContainer.setClipChildren(false);
         chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
         chatInputViewsContainer.setInputIslandBubbleDrawable(
-            glassFactory(0).create(chatInputViewsContainer, blurredBackgroundColorProvider));
+            glassFactory().create(chatInputViewsContainer, blurredBackgroundColorProvider));
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
 
@@ -7252,7 +7292,7 @@ public class ChatActivity extends BaseFragment implements
         // topButtonsLayout.setGravity(Gravity.TOP | Gravity.RIGHT);
         // contentView.addView(topButtonsLayout, LayoutHelper.createFrame(57, 300, Gravity.RIGHT | Gravity.TOP));
 
-        sideControlsButtonsLayout = new ChatActivitySideControlsButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory(BygramConfig.GLASS_FLOATING_BUTTONS));
+        sideControlsButtonsLayout = new ChatActivitySideControlsButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory());
         sideControlsButtonsLayout.setOnClickListener(this::onSideControlButtonOnClick);
         sideControlsButtonsLayout.setOnLongClickListener(this::onSideControlButtonOnLongClick);
         {
@@ -7881,7 +7921,7 @@ public class ChatActivity extends BaseFragment implements
             hashtagSearchTabs.setVisibility(View.GONE);
             hashtagSearchTabs.setTabs(searchViewPager.createTabsView(true, ViewPagerFixed.SELECTOR_TYPE_BUBBLE_STYLE));
             hashtagSearchTabs.setPadding(0, dp(7.66f), 0, dp(7.66f));
-            hashtagSearchTabs.setBackground(glassFactory(BygramConfig.GLASS_SEARCH).create(hashtagSearchTabs)
+            hashtagSearchTabs.setBackground(glassFactory().create(hashtagSearchTabs)
                 .setColorProvider(BlurredBackgroundProviderImpl.topPanelChatActivity(resourceProvider))
                 .setRadius(dp(18)).setPadding(dp(7f)));
 
@@ -8192,7 +8232,7 @@ public class ChatActivity extends BaseFragment implements
             chatActivityEnterView.checkChannelRights();
         }
 
-        actionsButtonsLayout = new ChatActivityActionsButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory(BygramConfig.GLASS_FLOATING_BUTTONS));
+        actionsButtonsLayout = new ChatActivityActionsButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory());
         actionsButtonsLayout.setForwardButtonOnClickListener(v -> openForward(false));
         actionsButtonsLayout.setReplyButtonOnClickListener(v -> {
             MessageObject messageObject = null;
@@ -8456,7 +8496,7 @@ public class ChatActivity extends BaseFragment implements
         bottomOverlay.addView(bottomOverlayText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
         
         
-        bottomChannelButtonsLayout = new ChatActivityChannelButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory(BygramConfig.GLASS_FLOATING_BUTTONS)) {
+        bottomChannelButtonsLayout = new ChatActivityChannelButtonsLayout(context, resourceProvider, blurredBackgroundColorProvider, glassFactory()) {
             @Override
             public void setVisibility(int visibility) {
                 super.setVisibility(visibility);
@@ -9041,14 +9081,14 @@ public class ChatActivity extends BaseFragment implements
             };
             actionBarSearchTags.setVisibility(View.GONE);
             actionBarSearchTags.setBlurredFactory(
-                glassFactory(BygramConfig.GLASS_SEARCH),
+                glassFactory(),
                 BlurredBackgroundProviderImpl.topPanelChatActivityTags(resourceProvider)
             );
             contentView.addView(actionBarSearchTags, LayoutHelper.createFrameMarginPx(LayoutHelper.MATCH_PARENT, 38, Gravity.FILL_HORIZONTAL | Gravity.TOP, 0, -dp(3), 0, 0));
         }
 
         checkUi_topPanelLayoutWidth();
-        topPanelLayout.setBlurredBackground(glassFactory(BygramConfig.GLASS_CONTEXT_PANELS).create(topPanelLayout)
+        topPanelLayout.setBlurredBackground(glassFactory().create(topPanelLayout)
             .setColorProvider(BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate))
             .setRadius(dp(18))
             .setPadding(dp(7)));
@@ -10062,8 +10102,8 @@ public class ChatActivity extends BaseFragment implements
             checkUi_topFade();
         });
 
-        topicsTabs.setSideMenuBackgroundDrawable(glassFactory(0).create(topicsTabs, BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate)));
-        topicsTabs.setTopMenuBackgroundDrawable(glassFactory(0).create(topicsTabs, BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate)));
+        topicsTabs.setSideMenuBackgroundDrawable(glassFactory().create(topicsTabs, BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate)));
+        topicsTabs.setTopMenuBackgroundDrawable(glassFactory().create(topicsTabs, BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate)));
 
         int index = 8;
         topicsTabs.setCurrentTopic(getTopicId());
@@ -10845,7 +10885,7 @@ public class ChatActivity extends BaseFragment implements
                 }
         );
         instantCameraView.setClipToPadding(false);
-        instantCameraView.setButtonsBackground(glassFactory(BygramConfig.GLASS_FLOATING_BUTTONS), blurredBackgroundColorProvider);
+        instantCameraView.setButtonsBackground(glassFactory(), blurredBackgroundColorProvider);
 
         int index = contentView.indexOfChild(chatInputViewsContainer);
         if (index < 0) {
@@ -12348,53 +12388,6 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void openForward(boolean fromActionBar) {
-        if (isPeerNoForwards() || hasSelectedNoforwardsMessage()) {
-            // We should update text if user changed locale without re-opening chat activity
-            String str;
-            if (isPeerNoForwards()) {
-                if (getDialogId() > 0) {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoUser);
-                } else if (ChatObject.isChannel(currentChat) && !currentChat.megagroup) {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoChannel);
-                } else {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoGroup);
-                }
-            } else {
-                str = LocaleController.getString(R.string.ForwardsRestrictedInfoBot);
-            }
-            if (fromActionBar) {
-                if (fwdRestrictedTopHint == null) {
-                    SizeNotifierFrameLayout frameLayout = contentView;
-                    int index = frameLayout.indexOfChild(chatInputViewsContainer);
-                    if (index == -1) {
-                        return;
-                    }
-                    fwdRestrictedTopHint = new HintView(getParentActivity(), 7, true);
-                    frameLayout.addView(fwdRestrictedTopHint, index + 1, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 12, 0, 12, 0));
-                    fwdRestrictedTopHint.setAlpha(0.0f);
-                    fwdRestrictedTopHint.setVisibility(View.INVISIBLE);
-                }
-
-                fwdRestrictedTopHint.setText(str);
-                fwdRestrictedTopHint.showForView(actionBar.getActionMode().getItem(forward), true);
-            } else {
-                if (fwdRestrictedBottomHint == null) {
-                    SizeNotifierFrameLayout frameLayout = contentView;
-                    int index = frameLayout.indexOfChild(chatInputViewsContainer);
-                    if (index == -1) {
-                        return;
-                    }
-                    fwdRestrictedBottomHint = new HintView(getParentActivity(), 9);
-                    frameLayout.addView(fwdRestrictedBottomHint, index + 1, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 12, 0, 12, 0));
-                    fwdRestrictedBottomHint.setAlpha(0.0f);
-                    fwdRestrictedBottomHint.setVisibility(View.INVISIBLE);
-                }
-
-                fwdRestrictedBottomHint.setText(str);
-                fwdRestrictedBottomHint.showForView(actionsButtonsLayout.getForwardButton(), true);
-            }
-            return;
-        }
         int hasPoll = 0;
         boolean hasInvoice = false;
         for (int a = 0; a < 2; a++) {
@@ -17457,11 +17450,11 @@ public class ChatActivity extends BaseFragment implements
             }
             if (chatActivityEnterView != null && child == chatActivityEnterView.botCommandsMenuContainer) {
                 BotCommandsMenuContainer botCommandsMenuContainer = (BotCommandsMenuContainer) child;
-                final BlurredBackgroundDrawable drawable = glassFactory(BygramConfig.GLASS_POPUPS).create(botCommandsMenuContainer.listView, blurredBackgroundColorProviderWhite);
+                final BlurredBackgroundDrawable drawable = glassFactory().create(botCommandsMenuContainer.listView, blurredBackgroundColorProviderWhite);
                 botCommandsMenuContainer.setBackgroundDrawable(drawable);
             }
             if (chatActivityEnterView != null && child == chatActivityEnterView.controlsView) {
-                chatActivityEnterView.controlsView.setBlurredBackgroundFactory(glassFactory(BygramConfig.GLASS_POPUPS));
+                chatActivityEnterView.controlsView.setBlurredBackgroundFactory(glassFactory());
             }
         }
 
@@ -19219,14 +19212,14 @@ public class ChatActivity extends BaseFragment implements
                         cantDeleteMessagesCount--;
                     }
                     boolean noforwards = isPeerNoForwards();
-                    if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage() || noforwards) {
+                    if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage()) {
                         cantForwardMessagesCount--;
                     } else {
                         canForwardMessagesCount--;
                     }
-                    if (messageObject.isMusic() && !noforwards) {
+                    if (messageObject.isMusic()) {
                         canSaveMusicCount--;
-                    } else if (messageObject.isDocument() && !noforwards) {
+                    } else if (messageObject.isDocument()) {
                         canSaveDocumentsCount--;
                     } else {
                         cantSaveMessagesCount--;
@@ -19256,14 +19249,14 @@ public class ChatActivity extends BaseFragment implements
                         cantDeleteMessagesCount++;
                     }
                     boolean noforwards = isPeerNoForwards();
-                    if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage() || noforwards) {
+                    if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage()) {
                         cantForwardMessagesCount++;
                     } else {
                         canForwardMessagesCount++;
                     }
-                    if (messageObject.isMusic() && !noforwards) {
+                    if (messageObject.isMusic()) {
                         canSaveMusicCount++;
-                    } else if (messageObject.isDocument() && !messageObject.isRoundOnce() && !messageObject.isVoiceOnce() && !noforwards) {
+                    } else if (messageObject.isDocument() && !messageObject.isRoundOnce() && !messageObject.isVoiceOnce()) {
                         canSaveDocumentsCount++;
                     } else {
                         cantSaveMessagesCount++;
@@ -19295,17 +19288,15 @@ public class ChatActivity extends BaseFragment implements
                     forwardButtonAnimation = new AnimatorSet();
                     ArrayList<Animator> animators = new ArrayList<>();
                     if (forwardItem != null) {
-                        forwardItem.setEnabled(cantForwardMessagesCount == 0 || noforwards);
+                        forwardItem.setEnabled(cantForwardMessagesCount == 0);
                         animators.add(ObjectAnimator.ofFloat(forwardItem, View.ALPHA, cantForwardMessagesCount == 0 ? 1.0f : 0.5f));
 
-                        if (noforwards && forwardItem.getBackground() != null) {
-                            forwardItem.setBackground(null);
-                        } else if (forwardItem.getBackground() == null) {
+                        if (forwardItem.getBackground() == null) {
                             forwardItem.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_actionBarActionModeDefaultSelector), 5));
                         }
                     }
                     if (actionsButtonsLayout != null) {
-                        actionsButtonsLayout.setForwardButtonEnabled(cantForwardMessagesCount == 0 || noforwards, true);
+                        actionsButtonsLayout.setForwardButtonEnabled(cantForwardMessagesCount == 0, true);
                     }
                     forwardButtonAnimation.playTogether(animators);
                     forwardButtonAnimation.setDuration(100);
@@ -19318,15 +19309,14 @@ public class ChatActivity extends BaseFragment implements
                     forwardButtonAnimation.start();
                 } else {
                     if (forwardItem != null) {
-                        forwardItem.setEnabled(cantForwardMessagesCount == 0 || noforwards);
+                        forwardItem.setEnabled(cantForwardMessagesCount == 0);
                         forwardItem.setAlpha(cantForwardMessagesCount == 0 ? 1.0f : 0.5f);
-                        if (noforwards) {
-                        } else if (forwardItem.getBackground() == null) {
+                        if (forwardItem.getBackground() == null) {
                             forwardItem.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_actionBarActionModeDefaultSelector), 3));
                         }
                     }
                     if (actionsButtonsLayout != null) {
-                        actionsButtonsLayout.setForwardButtonEnabled(cantForwardMessagesCount == 0 || noforwards, false);
+                        actionsButtonsLayout.setForwardButtonEnabled(cantForwardMessagesCount == 0, false);
                     }
                 }
                 if (saveItem != null) {
@@ -29939,7 +29929,7 @@ public class ChatActivity extends BaseFragment implements
 
             @Override
             public void onShow(Bulletin bulletin) {
-                bulletin.getLayout().setCustomBackground(glassFactory(BygramConfig.GLASS_CONTEXT_PANELS)
+                bulletin.getLayout().setCustomBackground(glassFactory()
                     // fake multiwindow flag because bulleting parent is not child of fragment
                     // todo: fix?
                     .create(bulletin.getLayout(), true)
@@ -46193,23 +46183,27 @@ public class ChatActivity extends BaseFragment implements
                         icons.add(R.drawable.msg_gif);
                     }
                 } else if (type == 4) {
-                    if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                    if (!selectedObject.needDrawBluredPreview()) {
                         if (selectedObject.isVideo()) {
                             if (!selectedObject.needDrawBluredPreview()) {
                                 items.add(LocaleController.getString(R.string.SaveToGallery));
                                 options.add(OPTION_SAVE_TO_GALLERY);
                                 icons.add(R.drawable.msg_gallery);
-                                items.add(LocaleController.getString(R.string.ShareFile));
-                                options.add(OPTION_SHARE);
-                                icons.add(R.drawable.msg_shareout);
+                                if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                                    items.add(LocaleController.getString(R.string.ShareFile));
+                                    options.add(OPTION_SHARE);
+                                    icons.add(R.drawable.msg_shareout);
+                                }
                             }
                         } else if (selectedObject.isMusic() && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                             items.add(LocaleController.getString(R.string.SaveToMusic));
                             options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                             icons.add(R.drawable.msg_download);
-                            items.add(LocaleController.getString(R.string.ShareFile));
-                            options.add(OPTION_SHARE);
-                            icons.add(R.drawable.msg_shareout);
+                            if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                                items.add(LocaleController.getString(R.string.ShareFile));
+                                options.add(OPTION_SHARE);
+                                icons.add(R.drawable.msg_shareout);
+                            }
                         } else if (selectedObject.getDocument() != null && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                             if (MessageObject.isNewGifDocument(selectedObject.getDocument())) {
                                 items.add(LocaleController.getString(R.string.SaveToGIFs));
@@ -46219,9 +46213,11 @@ public class ChatActivity extends BaseFragment implements
                             items.add(LocaleController.getString(R.string.SaveToDownloads));
                             options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                             icons.add(R.drawable.msg_download);
-                            items.add(LocaleController.getString(R.string.ShareFile));
-                            options.add(OPTION_SHARE);
-                            icons.add(R.drawable.msg_shareout);
+                            if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                                items.add(LocaleController.getString(R.string.ShareFile));
+                                options.add(OPTION_SHARE);
+                                icons.add(R.drawable.msg_shareout);
+                            }
                         } else {
                             if (!selectedObject.needDrawBluredPreview()) {
                                 items.add(LocaleController.getString(R.string.SaveToGallery));
@@ -46254,7 +46250,7 @@ public class ChatActivity extends BaseFragment implements
                         options.add(OPTION_SHARE);
                         icons.add(R.drawable.msg_shareout);
                     }
-                } else if (type == 6 && !noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                } else if (type == 6) {
                     if (!selectedObject.needDrawBluredPreview() && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToGallery));
                         options.add(OPTION_SAVE_TO_GALLERY2);
@@ -46262,9 +46258,11 @@ public class ChatActivity extends BaseFragment implements
                         items.add(LocaleController.getString(R.string.SaveToDownloads));
                         options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                         icons.add(R.drawable.msg_download);
-                        items.add(LocaleController.getString(R.string.ShareFile));
-                        options.add(OPTION_SHARE);
-                        icons.add(R.drawable.msg_shareout);
+                        if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                            items.add(LocaleController.getString(R.string.ShareFile));
+                            options.add(OPTION_SHARE);
+                            icons.add(R.drawable.msg_shareout);
+                        }
                     }
                 } else if (type == 7) {
                     if (selectedObject.isMask()) {
@@ -46327,10 +46325,10 @@ public class ChatActivity extends BaseFragment implements
                 final boolean canForward = !selectedObject.isSponsored()
                     && !isQuickRepliesOrWelcomeMessagesMode()
                     && chatMode != MODE_SCHEDULED
-                    && (!selectedObject.needDrawBluredPreview() || selectedObject.hasExtendedMediaPreview())
+                    && !selectedObject.needDrawBluredPreview()
                     && !selectedObject.isLiveLocation()
                     && selectedObject.type != MessageObject.TYPE_PHONE_CALL
-                    && !noforwards && selectedObject.type != MessageObject.TYPE_SHARING_OFFER
+                    && selectedObject.type != MessageObject.TYPE_SHARING_OFFER
                     && selectedObject.type != MessageObject.TYPE_GIFT_PREMIUM
                     && selectedObject.type != MessageObject.TYPE_GIFT_OFFER
                     && selectedObject.type != MessageObject.TYPE_COMMUNITY_CHANGED
@@ -46422,28 +46420,34 @@ public class ChatActivity extends BaseFragment implements
                     options.add(OPTION_VIEW_IN_TOPIC);
                     icons.add(R.drawable.msg_viewintopic);
                 }
-                if (type == 4 && !noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia() && !selectedObject.needDrawBluredPreview()) {
+                if (type == 4 && !selectedObject.needDrawBluredPreview()) {
                     if (selectedObject.isVideo()) {
                         items.add(LocaleController.getString(R.string.SaveToGallery));
                         options.add(OPTION_SAVE_TO_GALLERY);
                         icons.add(R.drawable.msg_gallery);
-                        items.add(LocaleController.getString(R.string.ShareFile));
-                        options.add(OPTION_SHARE);
-                        icons.add(R.drawable.msg_shareout);
+                        if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                            items.add(LocaleController.getString(R.string.ShareFile));
+                            options.add(OPTION_SHARE);
+                            icons.add(R.drawable.msg_shareout);
+                        }
                     } else if (selectedObject.isMusic() && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToMusic));
                         options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                         icons.add(R.drawable.msg_download);
-                        items.add(LocaleController.getString(R.string.ShareFile));
-                        options.add(OPTION_SHARE);
-                        icons.add(R.drawable.msg_shareout);
+                        if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                            items.add(LocaleController.getString(R.string.ShareFile));
+                            options.add(OPTION_SHARE);
+                            icons.add(R.drawable.msg_shareout);
+                        }
                     } else if (!selectedObject.isVideo() && selectedObject.getDocument() != null && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToDownloads));
                         options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                         icons.add(R.drawable.msg_download);
-                        items.add(LocaleController.getString(R.string.ShareFile));
-                        options.add(OPTION_SHARE);
-                        icons.add(R.drawable.msg_shareout);
+                        if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                            items.add(LocaleController.getString(R.string.ShareFile));
+                            options.add(OPTION_SHARE);
+                            icons.add(R.drawable.msg_shareout);
+                        }
                     } else {
                         items.add(LocaleController.getString(R.string.SaveToGallery));
                         options.add(OPTION_SAVE_TO_GALLERY);

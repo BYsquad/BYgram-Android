@@ -997,7 +997,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         if (parentFragment != null) {
             TLRPC.User badgeUser = parentFragment.getCurrentUser();
             TLRPC.Chat badgeChat = parentFragment.getCurrentChat();
-            if (badgeUser != null && org.telegram.messenger.BygramBadgeController.hasBadge(badgeUser)) {
+            if (badgeUser != null && !UserObject.isUserSelf(badgeUser) && org.telegram.messenger.BygramBadgeController.hasBadge(badgeUser)) {
                 titleTextView.setRightDrawable2(new BygramBadgeDrawable(getContext(), false, 18, titleTextView.getRightDrawable2()));
             } else if (badgeChat != null && org.telegram.messenger.BygramBadgeController.hasBadge(badgeChat)) {
                 titleTextView.setRightDrawable2(new BygramBadgeDrawable(getContext(), true, 18, titleTextView.getRightDrawable2()));

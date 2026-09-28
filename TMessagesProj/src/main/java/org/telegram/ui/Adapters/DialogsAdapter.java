@@ -1641,6 +1641,12 @@ public class DialogsAdapter extends RecyclerListView.SelectionAdapter implements
             array.removeIf(dialog -> dialog instanceof TLRPC.TL_dialogFolder && ((TLRPC.TL_dialogFolder) dialog).folder.id == 1);
             archiveFiltered = array.size() != count;
         }
+        java.util.Set<String> hiddenIds = org.telegram.messenger.BygramChatPrivacy.hiddenIds(currentAccount);
+        if ((dialogsType == DialogsActivity.DIALOGS_TYPE_DEFAULT || dialogsType == 7 || dialogsType == 8)
+                && !hiddenIds.isEmpty()) {
+            array = new ArrayList<>(array);
+            array.removeIf(dialog -> hiddenIds.contains(Long.toString(dialog.id)));
+        }
         dialogsCount = array.size();
         isEmpty = false;
         if (dialogsCount == 0 && parentFragment.isArchive()) {

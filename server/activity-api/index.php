@@ -267,6 +267,73 @@ if ($action === 'typing_put') {
         ->execute([$userId,json_encode((object)$statuses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
     jsonResponse(['ok' => true]);
 }
+if (str_starts_with($action, 'profile_views_')) {
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$userId || $userId < 1) jsonResponse(['ok' => false], 400);
+    rateLimit($pdo, 'profile_views:' . $userId, 120);
+    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0);
+    $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
+    $authorized = false;
+    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
+        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
+    }
+    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
+    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId, $nonce]); }
+    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    $pdo->prepare('DELETE FROM profile_views WHERE visited_at<UTC_TIMESTAMP()-INTERVAL 7 DAY')->execute();
+    if ($action === 'profile_views_set') {
+        if (!is_bool($request['enabled'] ?? null)) jsonResponse(['ok' => false], 400);
+        $enabled = $request['enabled'] ? 1 : 0;
+        $pdo->beginTransaction();
+        $old = $pdo->prepare('SELECT enabled FROM profile_view_settings WHERE telegram_id=? FOR UPDATE');
+        $old->execute([$userId]); $wasEnabled = (bool) $old->fetchColumn();
+        $pdo->prepare('INSERT INTO profile_view_settings (telegram_id,enabled) VALUES (?,?) ON DUPLICATE KEY UPDATE enabled=VALUES(enabled)')->execute([$userId, $enabled]);
+        if (!$enabled || !$wasEnabled) $pdo->prepare('DELETE FROM profile_views WHERE owner_id=? OR viewer_id=?')->execute([$userId, $userId]);
+        $pdo->commit();
+        jsonResponse(['ok' => true, 'enabled' => (bool) $enabled]);
+    }
+    $q = $pdo->prepare('SELECT enabled FROM profile_view_settings WHERE telegram_id=?');
+    $q->execute([$userId]);
+    $enabled = (bool) $q->fetchColumn();
+    if ($action === 'profile_views_record') {
+        $ownerId = filter_var($request['owner_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$ownerId || $ownerId < 1 || $ownerId === $userId) jsonResponse(['ok' => false], 400);
+        if (!$enabled) jsonResponse(['ok' => true, 'recorded' => false]);
+        $q->execute([$ownerId]);
+        if (!(bool) $q->fetchColumn()) jsonResponse(['ok' => true, 'recorded' => false]);
+        $name = mb_substr(trim(strip_tags((string) ($request['viewer_name'] ?? ''))), 0, 128);
+        $username = (string) ($request['viewer_username'] ?? '');
+        if ($name === '' || ($username !== '' && !preg_match('/^[A-Za-z0-9_]{5,64}$/D', $username))) jsonResponse(['ok' => false], 400);
+        $identity = $pdo->prepare('SELECT username,first_name,last_name FROM users WHERE telegram_id=?');
+        $identity->execute([$userId]); $known = $identity->fetch();
+        if ($known) {
+            $name = mb_substr(trim((string) $known['first_name'] . ' ' . (string) $known['last_name']), 0, 128) ?: $name;
+            $username = (string) ($known['username'] ?? '');
+        }
+        $pdo->prepare('INSERT INTO profile_views (owner_id,viewer_id,viewer_name,viewer_username,visited_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE viewer_name=VALUES(viewer_name),viewer_username=VALUES(viewer_username),notified_at=IF(visited_at<UTC_TIMESTAMP()-INTERVAL 7 DAY,NULL,notified_at),visited_at=UTC_TIMESTAMP()')->execute([$ownerId, $userId, $name, $username]);
+        jsonResponse(['ok' => true, 'recorded' => true]);
+    }
+    if ($action === 'profile_views_list' || $action === 'profile_views_poll') {
+        if (!$enabled) jsonResponse(['ok' => true, 'enabled' => false, 'views' => []]);
+        $extra = $action === 'profile_views_poll' ? ' AND v.notified_at IS NULL' : '';
+        $query = $pdo->prepare("SELECT v.viewer_id,v.viewer_name,v.viewer_username FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY$extra ORDER BY v.visited_at DESC LIMIT 100");
+        $query->execute([$userId]); $views = $query->fetchAll();
+        $expires = time() + 3600;
+        foreach ($views as &$view) {
+            $viewerId = (int) $view['viewer_id'];
+            $signature = hash_hmac('sha256', "$userId:$viewerId:$expires", (string) appConfig()['bot_token']);
+            $view['avatar_url'] = "https://byxarek.site/TEST-PROJECT/BYgram/api/avatar.php?owner=$userId&viewer=$viewerId&expires=$expires&sig=$signature";
+        }
+        unset($view);
+        if ($action === 'profile_views_poll' && $views) {
+            $ids = array_column($views, 'viewer_id');
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $pdo->prepare("UPDATE profile_views SET notified_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id IN ($marks)")->execute(array_merge([$userId], $ids));
+        }
+        jsonResponse(['ok' => true, 'enabled' => true, 'views' => $views]);
+    }
+    jsonResponse(['ok' => false], 400);
+}
 
 $session = authenticatedSession($pdo, $raw); $userId = (int) $session['telegram_id'];
 rateLimit($pdo, 'session:' . $session['id'], 120);

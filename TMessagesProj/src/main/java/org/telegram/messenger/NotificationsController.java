@@ -1802,6 +1802,10 @@ public class NotificationsController extends BaseController implements Notificat
         if (AndroidUtilities.needShowPasscode() || SharedConfig.isWaitingForPasscodeEnter) {
             return LocaleController.getString(R.string.NotificationHiddenMessage);
         }
+        if (BygramChatPrivacy.hidesNotification(currentAccount, messageObject.getDialogId())) {
+            if (preview != null) preview[0] = false;
+            return LocaleController.getString(R.string.BygramOpenToRead);
+        }
         long dialogId = messageObject.messageOwner.dialog_id;
         long chat_id = messageObject.messageOwner.peer_id.chat_id != 0 ? messageObject.messageOwner.peer_id.chat_id : messageObject.messageOwner.peer_id.channel_id;
         long fromId = messageObject.messageOwner.peer_id.user_id;
@@ -2487,6 +2491,11 @@ public class NotificationsController extends BaseController implements Notificat
     private String getStringForMessage(MessageObject messageObject, boolean shortMessage, boolean[] text, boolean[] preview) {
         if (AndroidUtilities.needShowPasscode() || SharedConfig.isWaitingForPasscodeEnter) {
             return LocaleController.getString(R.string.YouHaveNewMessage);
+        }
+        if (BygramChatPrivacy.hidesNotification(currentAccount, messageObject.getDialogId())) {
+            if (text != null) text[0] = false;
+            if (preview != null) preview[0] = false;
+            return LocaleController.getString(R.string.BygramOpenToRead);
         }
         if (messageObject.isStoryPush || messageObject.isStoryMentionPush) {
             return "!" + messageObject.messageOwner.message;
@@ -4549,6 +4558,8 @@ public class NotificationsController extends BaseController implements Notificat
                     peerIds[i] = storyPushMessages.get(i).dialogId;
                 }
                 intent.putExtra("storyDialogIds", peerIds);
+            } else if (BygramChatPrivacy.isHidden(currentAccount, dialog_id)) {
+                // Open the chat list without exposing the hidden conversation.
             } else if (!DialogObject.isEncryptedDialog(dialog_id)) {
                 if (pushDialogs.size() == 1) {
                     if (chatId != 0) {
@@ -5520,6 +5531,8 @@ public class NotificationsController extends BaseController implements Notificat
                     peerIds[i] = storyPushMessages.get(i).dialogId;
                 }
                 intent.putExtra("storyDialogIds", peerIds);
+            } else if (BygramChatPrivacy.isHidden(currentAccount, dialogId)) {
+                // Open the chat list without exposing the hidden conversation.
             } else if (DialogObject.isEncryptedDialog(dialogId)) {
                 intent.putExtra("encId", DialogObject.getEncryptedChatId(dialogId));
             } else if (DialogObject.isUserDialog(dialogId)) {
@@ -5535,7 +5548,7 @@ public class NotificationsController extends BaseController implements Notificat
             PendingIntent contentIntent = PendingIntent.getActivity(ApplicationLoader.applicationContext, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
 
             NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender();
-            if (wearReplyAction != null) {
+            if (wearReplyAction != null && !BygramChatPrivacy.hidesNotification(currentAccount, dialogId)) {
                 wearableExtender.addAction(wearReplyAction);
             }
             Intent msgHeardIntent = new Intent(ApplicationLoader.applicationContext, AutoMessageHeardReceiver.class);
@@ -5634,7 +5647,7 @@ public class NotificationsController extends BaseController implements Notificat
                     if (copybutton != null) break;
                 }
             }
-            if (copybutton != null) {
+            if (copybutton != null && !BygramChatPrivacy.hidesNotification(currentAccount, dialogId)) {
                 Intent copyIntent = new Intent(ApplicationLoader.applicationContext, CopyCodeReceiver.class);
                 copyIntent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
                 copyIntent.setAction("org.telegram.messenger.ACTION_COPY_CODE");
@@ -5645,7 +5658,8 @@ public class NotificationsController extends BaseController implements Notificat
                         .build();
                 builder.addAction(copyAction);
             }
-            if (dialogKey.dialogId != UserObject.VERIFY && dialogKey.dialogId != UserObject.OAUTH) {
+            if (!BygramChatPrivacy.hidesNotification(currentAccount, dialogId)
+                    && dialogKey.dialogId != UserObject.VERIFY && dialogKey.dialogId != UserObject.OAUTH) {
                 if (wearReplyAction != null) {
                     builder.addAction(wearReplyAction);
                 }
@@ -5663,7 +5677,8 @@ public class NotificationsController extends BaseController implements Notificat
                 builder.setLargeIcon(avatarBitmap);
             }
 
-            if (!AndroidUtilities.needShowPasscode(false) && !SharedConfig.isWaitingForPasscodeEnter) {
+            if (!BygramChatPrivacy.hidesNotification(currentAccount, dialogId)
+                    && !AndroidUtilities.needShowPasscode(false) && !SharedConfig.isWaitingForPasscodeEnter) {
                 if (rows != null) {
                     for (int r = 0, rc = rows.size(); r < rc; r++) {
                         TL_keyboard.KeyboardInlineButtonRow row = rows.get(r);

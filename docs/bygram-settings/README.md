@@ -1,6 +1,6 @@
 # Настройки BYgram: документация разработчика
 
-Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Кастомные статусы печати работают в Lite и Full через `BygramTypingController`, значки — через `BygramBadgeController`.
+Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Кастомные статусы печати работают только в Full через `BygramTypingController`, значки — через `BygramBadgeController`.
 
 ## Карта экранов
 
@@ -9,11 +9,13 @@
 ├─ Кастомизация
 │  ├─ Профиль
 │  ├─ Общие
-│  └─ Кастомный статус печати
-├─ Другое
 ├─ Режим призрака
 ├─ Шпион
-├─ Кто с кем общается?
+├─ Система активности (Full)
+├─ Кастомные статусы печати (Full)
+├─ Скрытые чаты
+├─ Запароленные чаты
+├─ Другое
 └─ Канал / Чат / Переводы (GitHub)
 ```
 
@@ -33,6 +35,7 @@
 |---|---|
 | Экран и вложенные screens | `TMessagesProj/src/main/java/org/telegram/ui/BygramSettingsActivity.java` |
 | Ключи, defaults, Ghost/Spy helpers | `TMessagesProj/src/main/java/org/telegram/messenger/BygramConfig.java` |
+| Локальные скрытые и запароленные чаты | `TMessagesProj/src/main/java/org/telegram/messenger/BygramChatPrivacy.java` |
 | Лицензия, activity, badges | `TMessagesProj/src/main/java/org/telegram/messenger/BygramActivityController.java` |
 | Точка входа | `TMessagesProj/src/main/java/org/telegram/ui/SettingsActivity.java` |
 | Строки | `TMessagesProj/src/main/res/values/bygram_*.xml`, `values-ru/...` |

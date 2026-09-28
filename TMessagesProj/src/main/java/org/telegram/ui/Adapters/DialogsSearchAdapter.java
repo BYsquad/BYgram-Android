@@ -283,6 +283,14 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
     }
 
     private boolean filter(Object obj) {
+        if (dialogsType == DialogsActivity.DIALOGS_TYPE_DEFAULT) {
+            long id = 0;
+            if (obj instanceof TLRPC.User) id = ((TLRPC.User) obj).id;
+            else if (obj instanceof TLRPC.Chat) id = -((TLRPC.Chat) obj).id;
+            else if (obj instanceof TLRPC.Dialog) id = ((TLRPC.Dialog) obj).id;
+            else if (obj instanceof MessageObject) id = ((MessageObject) obj).getDialogId();
+            if (id != 0 && org.telegram.messenger.BygramChatPrivacy.isHidden(currentAccount, id)) return false;
+        }
         if (dialogsType != DialogsActivity.DIALOGS_TYPE_START_ATTACH_BOT) {
             return true;
         }
@@ -470,7 +478,9 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
                             if (maxId != 0 && message.id <= maxId) {
                                 continue;
                             }
-                            searchForumResultMessages.add(messageObjects.get(a));
+                            if (!org.telegram.messenger.BygramChatPrivacy.isHidden(currentAccount, did)) {
+                                searchForumResultMessages.add(messageObjects.get(a));
+                            }
                         }
                         searchWas = true;
                         localMessagesSearchEndReached = res.messages.size() != 20;
@@ -642,6 +652,7 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
                                     continue;
                                 }
                             }
+                            if (org.telegram.messenger.BygramChatPrivacy.isHidden(currentAccount, msg.getDialogId())) continue;
                             searchResultMessages.add(msg);
                             long dialog_id = MessageObject.getDialogId(message);
                             ConcurrentHashMap<Long, Integer> read_max = message.out ? MessagesController.getInstance(currentAccount).dialogs_read_outbox_max : MessagesController.getInstance(currentAccount).dialogs_read_inbox_max;
@@ -992,6 +1003,7 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             for (int i = 0; i < result.size(); ++i) {
                 if (!filter(result.get(i))) {
                     result.remove(i);
+                    names.remove(i);
                     i--;
                 }
             }
@@ -1705,7 +1717,9 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
     }
 
     private boolean hasHints() {
-        return !searchWas && !MediaDataController.getInstance(currentAccount).hints.isEmpty() && (dialogsType != DialogsActivity.DIALOGS_TYPE_START_ATTACH_BOT || dialogsActivity.allowUsers);
+        return !searchWas && org.telegram.messenger.BygramChatPrivacy.hiddenIds(currentAccount).isEmpty()
+                && !MediaDataController.getInstance(currentAccount).hints.isEmpty()
+                && (dialogsType != DialogsActivity.DIALOGS_TYPE_START_ATTACH_BOT || dialogsActivity.allowUsers);
     }
 
     private int messagesSectionPosition = -1;

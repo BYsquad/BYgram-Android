@@ -40,21 +40,10 @@ public final class BygramConfig {
     private static final String CUSTOM_TYPING_PREFIX = "bygram_custom_typing_";
     public static final String FILTER_ZALGO = "bygram_filter_zalgo";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
-    public static final String LIQUID_GLASS_PLACEMENTS = "bygram_liquid_glass_placements";
     public static final String MD3_LOADING = "bygram_md3_loading";
     public static final String MD3_SLIDERS = "bygram_md3_sliders";
     public static final String MD3_SWITCHES = "bygram_md3_switches";
     public static final String AVATAR_CORNERS = "bygram_avatar_corners";
-    public static final int GLASS_MEDIA = 1;
-    public static final int GLASS_CONTEXT_PANELS = 1 << 1;
-    public static final int GLASS_FLOATING_BUTTONS = 1 << 2;
-    public static final int GLASS_SEARCH = 1 << 3;
-    public static final int GLASS_SELECTION = 1 << 4;
-    public static final int GLASS_POPUPS = 1 << 5;
-    public static final int GLASS_MESSAGE_MENUS = 1 << 6;
-    public static final int GLASS_BUTTON_MENUS = 1 << 7;
-    public static final int GLASS_ALL = GLASS_MEDIA | GLASS_CONTEXT_PANELS | GLASS_FLOATING_BUTTONS
-            | GLASS_SEARCH | GLASS_SELECTION | GLASS_POPUPS | GLASS_MESSAGE_MENUS | GLASS_BUTTON_MENUS;
     private static final int DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
     private static final String LEGACY_ACTIVITY_ENABLED = "bygram_activity_enabled";
     public static final int ACTIVITY_DIALOGS = 1;
@@ -165,7 +154,6 @@ public final class BygramConfig {
             case CUSTOM_PROFILE_MUSIC:
             case FILTER_ZALGO:
             case PROFILE_ID_MODE:
-            case LIQUID_GLASS_PLACEMENTS:
             case MD3_LOADING:
             case MD3_SLIDERS:
             case MD3_SWITCHES:
@@ -221,22 +209,14 @@ public final class BygramConfig {
     }
 
     public static int getInt(String key, int fallback) {
-        return PROFILE_ID_MODE.equals(key) || LIQUID_GLASS_PLACEMENTS.equals(key) || AVATAR_CORNERS.equals(key)
+        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key)
                 ? preferences().getInt(key, fallback) : fallback;
     }
 
     public static void setInt(String key, int value) {
-        if (PROFILE_ID_MODE.equals(key) || LIQUID_GLASS_PLACEMENTS.equals(key) || AVATAR_CORNERS.equals(key)) {
+        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key)) {
             preferences().edit().putInt(key, value).apply();
         }
-    }
-
-    public static boolean useLiquidGlass(int placement) {
-        return (getInt(LIQUID_GLASS_PLACEMENTS, GLASS_ALL) & placement) != 0;
-    }
-
-    public static boolean useAnyLiquidGlass() {
-        return getInt(LIQUID_GLASS_PLACEMENTS, GLASS_ALL) != 0;
     }
 
     public static float avatarRadius(float size) {
@@ -257,6 +237,7 @@ public final class BygramConfig {
     }
 
     public static void resetSettings() {
+        BygramChatPrivacy.reset();
         SharedPreferences.Editor editor = preferences().edit();
         for (String key : preferences().getAll().keySet()) {
             if (isExportableSetting(key) || key.equals("bygram_microsoft_translator_key")) editor.remove(key);
@@ -265,8 +246,10 @@ public final class BygramConfig {
         clearActivitySettings();
         BygramActivityController.clearSettings();
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
-            if (UserConfig.getInstance(account).getClientUserId() > 0)
+            if (UserConfig.getInstance(account).getClientUserId() > 0) {
                 BygramTypingController.clear(account);
+                BygramTypingController.clearProfileViews(account);
+            }
         }
         applyTelemetrySettings();
     }

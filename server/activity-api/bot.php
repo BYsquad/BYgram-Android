@@ -24,7 +24,10 @@ if (preg_match('/^\/start(?:@\w+)?\s+typing_([A-Za-z0-9_-]{43})$/D', $text, $typ
     $fingerprint = hash('sha256', base64_decode((string) $attempt['public_key'], true));
     $pdo->prepare('INSERT IGNORE INTO typing_devices (telegram_id,key_fingerprint,public_key) VALUES (?,?,?)')->execute([$fromId,$fingerprint,$attempt['public_key']]);
     $pdo->prepare('UPDATE typing_activations SET confirmed_at=UTC_TIMESTAMP() WHERE token_hash=?')->execute([hash('sha256', $typingMatch[1])]);
-    botReply($chatId, 'BYgram подтверждён. Вернитесь в настройки кастомных статусов и нажмите «Сохранить».');
+    $user = $message['from'];
+    $pdo->prepare('INSERT INTO users (telegram_id,username,first_name,last_name,last_seen_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE username=VALUES(username),first_name=VALUES(first_name),last_name=VALUES(last_name),last_seen_at=UTC_TIMESTAMP()')
+        ->execute([$fromId, $user['username'] ?? null, $user['first_name'] ?? null, $user['last_name'] ?? null]);
+    botReply($chatId, 'BYgram подтверждён. Вернитесь в приложение и повторите действие.');
     http_response_code(204); exit;
 }
 if (!preg_match('/^\/start(?:@\w+)?\s+bind_([A-Za-z0-9_-]{43})$/D', $text, $match)) { http_response_code(204); exit; }

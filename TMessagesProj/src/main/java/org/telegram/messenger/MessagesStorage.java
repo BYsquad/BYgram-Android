@@ -5691,6 +5691,34 @@ public class MessagesStorage extends BaseController {
         storageQueue.postRunnable(() -> markMessageAsBygramDeletedInternal(dialogId, messageId));
     }
 
+    public java.util.Set<Integer> getBygramDeletedMessageIdsSync(long dialogId, ArrayList<Integer> ids) {
+        java.util.Set<Integer> result = new java.util.HashSet<>();
+        CountDownLatch latch = new CountDownLatch(1);
+        storageQueue.postRunnable(() -> {
+            try {
+                for (int id : ids) {
+                    long resolvedDialogId = dialogId;
+                    if (resolvedDialogId == 0) {
+                        SQLiteCursor cursor = database.queryFinalized("SELECT uid FROM messages_v2 WHERE mid = ? LIMIT 1", id);
+                        if (cursor.next()) resolvedDialogId = cursor.longValue(0);
+                        cursor.dispose();
+                    }
+                    if (resolvedDialogId != 0 && getMessageWithCustomParamsOnlyInternal(id, resolvedDialogId).bygramDeleted) result.add(id);
+                }
+            } catch (Exception e) {
+                checkSQLException(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return result;
+    }
+
     private void markMessageAsBygramDeletedInternal(long dialogId, int messageId) {
         long resolvedDialogId = dialogId;
         SQLiteCursor cursor = null;

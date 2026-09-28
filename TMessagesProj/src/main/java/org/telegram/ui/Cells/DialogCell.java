@@ -42,6 +42,7 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
+import android.text.style.ForegroundColorSpan;
 import android.text.style.ImageSpan;
 import android.text.style.ReplacementSpan;
 import android.text.style.StyleSpan;
@@ -530,6 +531,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     protected CheckBox2 checkBox;
 
     public boolean useForceThreeLines;
+    public boolean showBygramProtectedMessage;
     public boolean useSeparator;
     public boolean fullSeparator;
     public boolean fullSeparator2;
@@ -2696,6 +2698,15 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     messageString = s;
                 }
             }
+        }
+        if (!showBygramProtectedMessage && currentDialogFolderId == 0 && currentDialogId != 0
+                && org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
+            SpannableString protectedPreview = new SpannableString(getString(R.string.BygramProtectedPreview));
+            protectedPreview.setSpan(new ForegroundColorSpan(0xffd32f2f), 0, protectedPreview.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            messageString = protectedPreview;
+            messageNameString = null;
+            typingString = "";
+            thumbsCount = 0;
         }
         messageWidth = Math.max(dp(12), messageWidth);
         buttonTop = dp(useForceThreeLines || SharedConfig.useThreeLinesLayout ? 58 : 62);
@@ -5516,6 +5527,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public boolean performAccessibilityAction(int action, Bundle arguments) {
+        if (action == R.id.acc_action_chat_preview && org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
+            return false;
+        }
         if (action == R.id.acc_action_chat_preview && parentFragment != null) {
             parentFragment.showChatPreview(this);
             return true;
@@ -5531,7 +5545,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         } else {
             info.addAction(AccessibilityNodeInfo.ACTION_CLICK);
             info.addAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
-            if (!isFolderCell() && parentFragment != null) {
+            if (!isFolderCell() && parentFragment != null
+                    && !org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
                 info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.acc_action_chat_preview, getString(R.string.AccActionChatPreview)));
             }
         }
@@ -5613,6 +5628,12 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         if (reactionMentionCount > 0) {
             sb.append(getString(R.string.AccDescrMentionReaction));
             sb.append(". ");
+        }
+        if (!showBygramProtectedMessage && currentDialogFolderId == 0 && org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
+            sb.append(getString(R.string.BygramProtectedPreview));
+            event.setContentDescription(sb);
+            setContentDescription(sb);
+            return;
         }
         if (message == null || currentDialogFolderId != 0) {
             event.setContentDescription(sb);

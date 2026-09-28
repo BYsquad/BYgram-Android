@@ -9348,6 +9348,7 @@ public class MessagesController extends BaseController implements NotificationCe
             if (!scheduled && !quickReplies && !welcomeMessages && BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
                 locallyDeletedMessages = new ArrayList<>();
                 bygramDeletedMessages = new ArrayList<>();
+                java.util.Set<Integer> alreadySaved = getMessagesStorage().getBygramDeletedMessageIdsSync(dialogId, messages);
                 ArrayList<MessageObject> dialogMessages = dialogMessage.get(dialogId);
                 for (int messageId : messages) {
                     MessageObject messageObject = dialogMessagesByIds.get(messageId);
@@ -9359,11 +9360,14 @@ public class MessagesController extends BaseController implements NotificationCe
                             }
                         }
                     }
-                    if (messageObject == null || !messageObject.isBygramDeleted()) {
+                    if (alreadySaved.contains(messageId) || messageObject != null && messageObject.isBygramDeleted()) {
+                        locallyDeletedMessages.add(messageId);
+                    } else {
                         bygramDeletedMessages.add(messageId);
                         getMessagesStorage().markMessageAsBygramDeleted(dialogId, messageId);
                     }
                 }
+                if (toSend != null) toSend.removeAll(locallyDeletedMessages);
             }
             if (scheduled) {
                 getMessagesStorage().markMessagesAsDeleted(dialogId, messages, true, false, ChatActivity.MODE_SCHEDULED, 0);
@@ -9406,6 +9410,9 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         if (cacheOnly) {
+            return;
+        }
+        if (toSend != null && toSend.isEmpty() && (randoms == null || randoms.isEmpty())) {
             return;
         }
 

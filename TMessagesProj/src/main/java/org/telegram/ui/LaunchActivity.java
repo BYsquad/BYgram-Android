@@ -258,6 +258,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class LaunchActivity extends BasePermissionsActivity implements INavigationLayout.INavigationLayoutDelegate, NotificationCenter.NotificationCenterDelegate, DialogsActivity.DialogsActivityDelegate, IPipActivity {
+    private final Runnable profileViewsPoll = new Runnable() {
+        @Override public void run() {
+            org.telegram.messenger.BygramTypingController.pollProfileViews(currentAccount);
+            AndroidUtilities.runOnUIThread(this, 60_000);
+        }
+    };
     public final static String EXTRA_FORCE_NOT_INTERNAL_APPS = "force_not_internal_apps";
     public final static String EXTRA_FORCE_REQUEST = "force_request";
     public final static Pattern PREFIX_T_ME_PATTERN = Pattern.compile("^(?:http(?:s|)://|)([A-z0-9-]+?)\\.t\\.me");
@@ -3343,6 +3349,11 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             GroupCallActivity.groupCallInstance.dismiss();
         }
 
+        if (intent.getBooleanExtra("bygram_profile_views", false)) {
+            intent.removeExtra("bygram_profile_views");
+            AndroidUtilities.runOnUIThread(() -> presentFragment(new BygramSettingsActivity.ProfileViewsActivity()));
+            pushOpened = true;
+        }
         intent.setAction(null);
         return pushOpened;
     }
@@ -6727,6 +6738,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onPause() {
         super.onPause();
+        AndroidUtilities.cancelRunOnUIThread(profileViewsPoll);
         isResumed = false;
         pipActivityHandler.onPause();
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.stopAllHeavyOperations, 4096);
@@ -6968,6 +6980,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onResume() {
         super.onResume();
+        AndroidUtilities.cancelRunOnUIThread(profileViewsPoll);
+        profileViewsPoll.run();
         isResumed = true;
         pipActivityHandler.onResume();
         if (onResumeStaticCallback != null) {

@@ -3,16 +3,17 @@ package org.telegram.ui;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.graphics.drawable.Drawable;
 
 import org.telegram.messenger.BygramConfig;
+import org.telegram.messenger.BygramChatPrivacy;
 import org.telegram.messenger.BygramActivityController;
 import org.telegram.messenger.BygramTypingController;
 import org.telegram.messenger.AndroidUtilities;
@@ -34,6 +35,7 @@ import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalRecyclerView;
+import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Cells.AppIconsSelectorCell;
 import org.telegram.ui.Cells.SlideIntChooseView;
 import org.telegram.ui.Cells.TextCheckCell;
@@ -79,12 +81,18 @@ public class BygramSettingsActivity extends BaseFragment {
         items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
-        items.add(UItem.asButton(8, R.drawable.settings_account, getString(R.string.BygramOther)));
         items.add(UItem.asButton(1, R.drawable.settings_privacy, getString(R.string.BygramGhostMode)));
         items.add(UItem.asButton(2, R.drawable.settings_devices, getString(R.string.BygramSpyMode)));
         if (BuildConfig.BYGRAM_FULL) {
             items.add(UItem.asButton(3, R.drawable.msg_location, getString(R.string.BygramShareActivity)));
         }
+        if (BuildConfig.BYGRAM_FULL) {
+            items.add(UItem.asButton(4, R.drawable.settings_chat, getString(R.string.BygramCustomTyping)));
+        }
+        items.add(UItem.asButton(5, R.drawable.settings_privacy, getString(R.string.BygramHiddenChats)));
+        items.add(UItem.asButton(6, R.drawable.settings_privacy, getString(R.string.BygramProtectedChats)));
+        items.add(UItem.asButton(13, R.drawable.bygram_footprints, getString(R.string.BygramProfileViews)));
+        items.add(UItem.asButton(8, R.drawable.settings_account, getString(R.string.BygramOther)));
         items.add(UItem.asShadow(null));
         items.add(UItem.asHeader(getString(R.string.BygramLinks)));
         items.add(UItem.asButton(10, R.drawable.msg_channel, getString(R.string.BygramChannel)));
@@ -104,12 +112,388 @@ public class BygramSettingsActivity extends BaseFragment {
             presentFragment(new SpySettingsActivity());
         } else if (item.id == 3) {
             openActivitySharing();
+        } else if (item.id == 4) {
+            presentFragment(new TypingCustomizationActivity());
+        } else if (item.id == 5) {
+            if (BygramChatPrivacy.hasPin(currentAccount)) {
+                askSecret(getString(R.string.BygramHiddenPin), true, secret -> {
+                    if (BygramChatPrivacy.verifyPin(currentAccount, secret)) presentFragment(new PrivateChatsActivity(true));
+                    else privacyError();
+                });
+            } else {
+                presentFragment(new PrivateChatsActivity(true));
+            }
+        } else if (item.id == 6) {
+            presentFragment(new PrivateChatsActivity(false));
+        } else if (item.id == 13) {
+            presentFragment(new ProfileViewsActivity());
         } else if (item.id == 10) {
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://t.me/BYgram_official");
         } else if (item.id == 11) {
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://t.me/BYgram_community");
         } else if (item.id == 12) {
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://github.com/BYxarek/BYgram-translations");
+        }
+    }
+
+    private interface SecretCallback { void accept(String secret); }
+
+    private void askSecret(String title, boolean numeric, SecretCallback callback) {
+        EditText input = new EditText(getContext());
+        input.setSingleLine(true);
+        input.setInputType(numeric ? 18 : 129);
+        showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                .setTitle(title).setView(input)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> callback.accept(input.getText().toString()))
+                .create());
+    }
+
+    private void privacyError() {
+        showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                .setTitle(getString(R.string.BygramPrivacyError))
+                .setPositiveButton(getString(R.string.OK), null).create());
+    }
+
+    public static class ProfileViewsActivity extends BaseFragment {
+        private UniversalRecyclerView listView;
+        private JSONArray views = new JSONArray();
+
+        @Override public View createView(Context context) {
+            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            actionBar.setTitle(getString(R.string.BygramProfileViews));
+            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+            });
+            FrameLayout content = new FrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            listView = new UniversalRecyclerView(this, this::fillItems, (item, view, position, x, y) -> {
+                if (item.id != 1) return;
+                boolean enabled = !BygramTypingController.profileViewsEnabled(currentAccount);
+                JSONObject data = new JSONObject();
+                try { data.put("action", "profile_views_set"); data.put("enabled", enabled); }
+                catch (Exception error) { org.telegram.messenger.FileLog.e(error); return; }
+                BygramTypingController.profileViewsRequest(currentAccount, data, (response, botUrl) -> {
+                    if (!botUrl.isEmpty()) {
+                        showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                                .setTitle(getString(R.string.BygramProfileViews))
+                                .setMessage(getString(R.string.BygramProfileViewsVerify))
+                                .setPositiveButton(getString(R.string.OK), (dialog, which) -> org.telegram.messenger.browser.Browser.openUrl(getContext(), botUrl))
+                                .setNegativeButton(getString(R.string.Cancel), null).create());
+                    } else if (response == null || !response.optBoolean("ok")) {
+                        showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                                .setTitle(getString(R.string.ErrorOccurred)).setPositiveButton(getString(R.string.OK), null).create());
+                    } else if (listView != null) { listView.adapter.update(true); load(); }
+                });
+            }, null);
+            listView.setSections();
+            listView.adapter.setApplyBackground(false);
+            content.addView(listView, LayoutHelper.createFrame(-1, -1));
+            load();
+            return fragmentView = content;
+        }
+
+        @Override public void onResume() { super.onResume(); load(); }
+
+        private void load() {
+            if (listView == null) return;
+            JSONObject data = new JSONObject();
+            try { data.put("action", "profile_views_list"); }
+            catch (Exception error) { org.telegram.messenger.FileLog.e(error); return; }
+            BygramTypingController.profileViewsRequest(currentAccount, data, (response, botUrl) -> {
+                if (response != null && response.optBoolean("ok") && listView != null) {
+                    views = response.optJSONArray("views");
+                    if (views == null) views = new JSONArray();
+                    listView.adapter.update(true);
+                }
+            });
+        }
+
+        private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asCheck(1, getString(R.string.BygramProfileViews))
+                    .setChecked(BygramTypingController.profileViewsEnabled(currentAccount)));
+            items.add(UItem.asShadow(getString(R.string.BygramProfileViewsInfo)));
+            if (!BygramTypingController.profileViewsEnabled(currentAccount)) return;
+            items.add(UItem.asHeader(getString(R.string.BygramProfileViewsRecent)));
+            if (views.length() == 0) items.add(UItem.asShadow(getString(R.string.BygramProfileViewsEmpty)));
+            for (int i = 0; i < views.length(); i++) {
+                JSONObject value = views.optJSONObject(i);
+                if (value == null) continue;
+                long id = value.optLong("viewer_id");
+                String name = value.optString("viewer_name", "");
+                String username = value.optString("viewer_username", "");
+                String avatarUrl = value.optString("avatar_url", "");
+                TLRPC.User user = getMessagesController().getUser(id);
+                FrameLayout row = new FrameLayout(getContext());
+                BackupImageView avatar = new BackupImageView(getContext());
+                avatar.setRoundRadius(AndroidUtilities.dp(24));
+                AvatarDrawable placeholder = new AvatarDrawable();
+                if (user != null) {
+                    placeholder.setInfo(user);
+                } else {
+                    placeholder.setInfo(id, name, "");
+                }
+                if (user != null && user.photo != null) {
+                    avatar.setForUserOrChat(user, placeholder);
+                } else if (avatarUrl.startsWith("https://byxarek.site/TEST-PROJECT/BYgram/api/avatar.php?")) {
+                    avatar.setImage(avatarUrl, "48_48", placeholder);
+                } else {
+                    avatar.setImage((org.telegram.messenger.ImageLocation) null, null, placeholder, null);
+                }
+                row.addView(avatar, LayoutHelper.createFrame(48, 48, Gravity.LEFT | Gravity.CENTER_VERTICAL, 16, 0, 0, 0));
+                TextView title = new TextView(getContext());
+                title.setTextSize(16);
+                title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                title.setText(name + (username.isEmpty() ? "" : "  @" + username));
+                title.setGravity(Gravity.CENTER_VERTICAL);
+                row.addView(title, LayoutHelper.createFrame(-1, 64, Gravity.LEFT | Gravity.TOP, 76, 0, 16, 0));
+                row.setOnClickListener(v -> {
+                    if (user == null && !username.isEmpty()) getMessagesController().openByUserName(username, this, 0, null);
+                    else if (user == null) presentFragment(new ProfileViewUserActivity(id, name, avatarUrl));
+                    else {
+                        android.os.Bundle args = new android.os.Bundle(); args.putLong("user_id", id);
+                        presentFragment(new ProfileActivity(args));
+                    }
+                });
+                items.add(UItem.asCustom(row, 64));
+            }
+        }
+    }
+
+    private static class ProfileViewUserActivity extends BaseFragment {
+        private final long userId;
+        private final String name;
+        private final String avatarUrl;
+
+        ProfileViewUserActivity(long userId, String name, String avatarUrl) {
+            this.userId = userId; this.name = name; this.avatarUrl = avatarUrl;
+        }
+
+        @Override public View createView(Context context) {
+            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            actionBar.setTitle(name);
+            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+            });
+            FrameLayout content = new FrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            LinearLayout details = new LinearLayout(context);
+            details.setGravity(Gravity.CENTER);
+            details.setOrientation(LinearLayout.VERTICAL);
+            BackupImageView avatar = new BackupImageView(context);
+            avatar.setRoundRadius(AndroidUtilities.dp(48));
+            AvatarDrawable placeholder = new AvatarDrawable(); placeholder.setInfo(userId, name, "");
+            if (avatarUrl.startsWith("https://byxarek.site/TEST-PROJECT/BYgram/api/avatar.php?")) avatar.setImage(avatarUrl, "96_96", placeholder);
+            else avatar.setImage((org.telegram.messenger.ImageLocation) null, null, placeholder, null);
+            details.addView(avatar, new LinearLayout.LayoutParams(AndroidUtilities.dp(96), AndroidUtilities.dp(96)));
+            TextView title = new TextView(context);
+            title.setText(name);
+            title.setTextSize(22);
+            title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            title.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+            titleParams.topMargin = AndroidUtilities.dp(16);
+            details.addView(title, titleParams);
+            TextView id = new TextView(context);
+            id.setText("ID " + userId);
+            id.setGravity(Gravity.CENTER);
+            details.addView(id, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(details, LayoutHelper.createFrame(-1, -1));
+            return fragmentView = content;
+        }
+    }
+
+    public static class PrivateChatsActivity extends BaseFragment {
+        private static class PrivateDialogCellFactory extends UItem.UItemFactory<FrameLayout> {
+            @Override public FrameLayout createView(Context context, org.telegram.ui.Components.RecyclerListView listView,
+                                                    int account, int classGuid, Theme.ResourcesProvider resourcesProvider) {
+                DialogCell cell = new DialogCell(null, context, true, false, account, resourcesProvider);
+                cell.showBygramProtectedMessage = true;
+                FrameLayout row = new FrameLayout(context);
+                row.addView(cell, LayoutHelper.createFrame(-1, -2, Gravity.TOP | Gravity.LEFT, 0, 0, 48, 0));
+                ImageView remove = new ImageView(context);
+                remove.setImageResource(R.drawable.msg_delete);
+                remove.setColorFilter(0xffe53935);
+                remove.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12));
+                remove.setContentDescription(getString(R.string.Delete));
+                row.addView(remove, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL));
+                return row;
+            }
+
+            @Override public void bindView(View view, UItem item, boolean divider, UniversalAdapter adapter,
+                                           UniversalRecyclerView listView) {
+                ((DialogCell) ((FrameLayout) view).getChildAt(0)).setDialog((TLRPC.Dialog) item.object, DialogsActivity.DIALOGS_TYPE_DEFAULT, 0);
+            }
+        }
+        static { UItem.UItemFactory.setup(new PrivateDialogCellFactory()); }
+
+        private final boolean hidden;
+        private final boolean revealOnly;
+        private final ArrayList<Long> ids = new ArrayList<>();
+        private UniversalRecyclerView listView;
+
+        public PrivateChatsActivity(boolean hidden) { this(hidden, false); }
+        public PrivateChatsActivity(boolean hidden, boolean revealOnly) {
+            this.hidden = hidden;
+            this.revealOnly = revealOnly;
+        }
+
+        @Override public View createView(Context context) {
+            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            actionBar.setTitle(getString(hidden ? R.string.BygramHiddenChats : R.string.BygramProtectedChats));
+            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                @Override public void onItemClick(int id) {
+                    if (id == -1) finishFragment();
+                    else if (id == 2) openChatPicker();
+                }
+            });
+            if (!revealOnly) {
+                actionBar.createMenu().addItemWithWidth(2, R.drawable.msg_add, AndroidUtilities.dp(54), getString(R.string.SelectChat));
+            }
+            FrameLayout content = new FrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, null);
+            listView.setSections();
+            listView.adapter.setApplyBackground(false);
+            content.addView(listView, LayoutHelper.createFrame(-1, -1));
+            return fragmentView = content;
+        }
+
+        private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            ids.clear();
+            items.add(UItem.asHeader(getString(hidden ? R.string.BygramHiddenChats : R.string.BygramProtectedChats)));
+            for (TLRPC.Dialog dialog : getMessagesController().getAllDialogs()) {
+                long id = dialog.id;
+                boolean selected = hidden ? BygramChatPrivacy.isHidden(currentAccount, id)
+                        : BygramChatPrivacy.isProtected(currentAccount, id);
+                if (!selected) continue;
+                if (id > 0) {
+                    TLRPC.User user = getMessagesController().getUser(id);
+                    if (user == null) continue;
+                } else if (id < 0 && !DialogObject.isEncryptedDialog(id)) {
+                    TLRPC.Chat chat = getMessagesController().getChat(-id);
+                    if (chat == null) continue;
+                } else continue;
+                int index = ids.size();
+                ids.add(id);
+                UItem item = UItem.ofFactory(PrivateDialogCellFactory.class);
+                item.id = 100 + index;
+                item.object = dialog;
+                item.onBind(view -> ((FrameLayout) view).getChildAt(1).setOnClickListener(v -> {
+                    if (hidden) BygramChatPrivacy.setHidden(currentAccount, id, false);
+                    else BygramChatPrivacy.removePassword(currentAccount, id);
+                    listView.adapter.update(true);
+                }));
+                items.add(item);
+            }
+            if (!revealOnly) {
+                if (hidden) {
+                    items.add(UItem.asButton(1, getString(BygramChatPrivacy.hasPin(currentAccount)
+                            ? R.string.BygramChangePin : R.string.BygramSetPin)));
+                }
+                items.add(UItem.asShadow(getString(hidden ? R.string.BygramHiddenChatsInfo : R.string.BygramProtectedChatsInfo)));
+            }
+        }
+
+        private void onClick(UItem item, View view, int position, float x, float y) {
+            if (item.id == 1 && hidden) {
+                if (BygramChatPrivacy.hasPin(currentAccount)) {
+                    askSecret(getString(R.string.BygramHiddenPin), true, old -> {
+                        if (BygramChatPrivacy.verifyPin(currentAccount, old)) setPin();
+                        else privacyError();
+                    });
+                } else setPin();
+                return;
+            }
+            int index = item.id - 100;
+            if (index < 0 || index >= ids.size()) return;
+            long id = ids.get(index);
+            if (hidden && !BygramChatPrivacy.hasPin(currentAccount)) { setPin(); return; }
+            if (revealOnly || !hidden && !BygramChatPrivacy.isProtected(currentAccount, id)) {
+                android.os.Bundle args = new android.os.Bundle();
+                if (id > 0) args.putLong("user_id", id); else args.putLong("chat_id", -id);
+                if (hidden) BygramChatPrivacy.allowHiddenOnce(currentAccount, id);
+                presentFragment(new ChatActivity(args));
+                return;
+            }
+            if (hidden) {
+                android.os.Bundle args = new android.os.Bundle();
+                if (id > 0) args.putLong("user_id", id); else args.putLong("chat_id", -id);
+                BygramChatPrivacy.allowHiddenOnce(currentAccount, id);
+                presentFragment(new ChatActivity(args));
+            } else if (BygramChatPrivacy.isProtected(currentAccount, id)) {
+                askSecret(getString(R.string.BygramChatPassword), false, old -> {
+                    if (!BygramChatPrivacy.verifyPassword(currentAccount, id, old)) { privacyError(); return; }
+                    android.os.Bundle args = new android.os.Bundle();
+                    if (id > 0) args.putLong("user_id", id); else args.putLong("chat_id", -id);
+                    presentFragment(new ChatActivity(args));
+                });
+            } else setPassword(id);
+        }
+
+        private void openChatPicker() {
+            if (revealOnly) return;
+            android.os.Bundle args = new android.os.Bundle();
+            args.putBoolean("onlySelect", true);
+            args.putBoolean("checkCanWrite", false);
+            args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_DEFAULT);
+            DialogsActivity picker = new DialogsActivity(args);
+            picker.setDelegate((fragment, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
+                if (dids.isEmpty()) return false;
+                long id = dids.get(0).dialogId;
+                if (id == 0 || DialogObject.isEncryptedDialog(id)) return false;
+                fragment.finishFragment();
+                if (hidden) {
+                    if (BygramChatPrivacy.hasPin(currentAccount)) {
+                        BygramChatPrivacy.setHidden(currentAccount, id, true);
+                        listView.adapter.update(true);
+                    } else {
+                        AndroidUtilities.runOnUIThread(() -> setPin(() -> {
+                            BygramChatPrivacy.setHidden(currentAccount, id, true);
+                            listView.adapter.update(true);
+                        }), 300);
+                    }
+                } else if (!BygramChatPrivacy.isProtected(currentAccount, id)) {
+                    AndroidUtilities.runOnUIThread(() -> setPassword(id), 300);
+                }
+                return true;
+            });
+            presentFragment(picker);
+        }
+
+        private void setPin() { setPin(null); }
+
+        private void setPin(Runnable onSuccess) {
+            askSecret(getString(R.string.BygramSetPin), true, pin -> {
+                if (!pin.matches("[0-9]{4,}")) { privacyError(); return; }
+                BygramChatPrivacy.setPin(currentAccount, pin);
+                if (onSuccess != null) onSuccess.run();
+                listView.adapter.update(true);
+            });
+        }
+
+        private void setPassword(long id) {
+            askSecret(getString(R.string.BygramChatPassword), false, password -> {
+                if (password.length() < 4) { privacyError(); return; }
+                BygramChatPrivacy.setPassword(currentAccount, id, password);
+                listView.adapter.update(true);
+            });
+        }
+
+        private void askSecret(String title, boolean numeric, SecretCallback callback) {
+            EditText input = new EditText(getContext());
+            input.setSingleLine(true);
+            input.setInputType(numeric ? 18 : 129);
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                    .setTitle(title).setView(input)
+                    .setNegativeButton(getString(R.string.Cancel), null)
+                    .setPositiveButton(getString(R.string.OK), (dialog, which) -> callback.accept(input.getText().toString())).create());
+        }
+
+        private void privacyError() {
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                    .setTitle(getString(R.string.BygramPrivacyError))
+                    .setPositiveButton(getString(R.string.OK), null).create());
         }
     }
 
@@ -120,7 +504,6 @@ public class BygramSettingsActivity extends BaseFragment {
             items.add(UItem.asHeader(getString(R.string.BygramCustomization)));
             items.add(UItem.asButton(1, R.drawable.settings_account, getString(R.string.BygramProfile)));
             items.add(UItem.asButton(2, R.drawable.settings_chat, getString(R.string.BygramGeneral)));
-            items.add(UItem.asButton(3, R.drawable.settings_chat, getString(R.string.BygramCustomTyping)));
             items.add(UItem.asShadow(null));
         }
 
@@ -129,7 +512,6 @@ public class BygramSettingsActivity extends BaseFragment {
         @Override void onCustomClick(int id) {
             if (id == 1) presentFragment(new ProfileCustomizationActivity());
             else if (id == 2) presentFragment(new GeneralCustomizationActivity());
-            else if (id == 3) presentFragment(new TypingCustomizationActivity());
         }
     }
 
@@ -205,7 +587,6 @@ public class BygramSettingsActivity extends BaseFragment {
 
     public static class GeneralCustomizationActivity extends BaseFragment {
         private UniversalRecyclerView listView;
-        private boolean glassExpanded;
         private boolean md3Expanded;
 
         @Override
@@ -257,7 +638,7 @@ public class BygramSettingsActivity extends BaseFragment {
                         + (BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS) ? 1 : 0)
                         + (BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES) ? 1 : 0);
                 items.add(UItem.asButton(3, getString(R.string.BygramMaterial3),
-                        LocaleController.formatString(R.string.BygramLiquidGlassSelected, md3)));
+                        md3 + "/3"));
                 if (md3Expanded) {
                     items.add(UItem.asCheck(200, getString(R.string.BygramMd3Loading))
                             .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_LOADING)));
@@ -270,41 +651,15 @@ public class BygramSettingsActivity extends BaseFragment {
                 items.add(UItem.asHeader(getString(R.string.BygramAvatarCorners)));
                 items.add(UItem.asCustom(avatarCorners));
                 items.add(UItem.asShadow(null));
-                int glass = BygramConfig.getInt(BygramConfig.LIQUID_GLASS_PLACEMENTS, BygramConfig.GLASS_ALL);
-                String glassValue = glass == 0 ? getString(R.string.BygramLiquidGlassDisabled)
-                        : glass == BygramConfig.GLASS_ALL ? getString(R.string.BygramLiquidGlassEverywhere)
-                        : LocaleController.formatString(R.string.BygramLiquidGlassSelected, Integer.bitCount(glass));
-                items.add(UItem.asButton(2, getString(R.string.BygramLiquidGlass), glassValue));
-                if (glassExpanded) {
-                    Configuration configuration = new Configuration(getContext().getResources().getConfiguration());
-                    configuration.setLocale(LocaleController.getInstance().getCurrentLocale());
-                    Resources resources = getContext().createConfigurationContext(configuration).getResources();
-                    String[] places = resources.getStringArray(R.array.BygramLiquidGlassPlaces);
-                    int[] flags = {BygramConfig.GLASS_MEDIA, BygramConfig.GLASS_CONTEXT_PANELS,
-                            BygramConfig.GLASS_FLOATING_BUTTONS, BygramConfig.GLASS_SEARCH,
-                            BygramConfig.GLASS_SELECTION, BygramConfig.GLASS_POPUPS,
-                            BygramConfig.GLASS_MESSAGE_MENUS, BygramConfig.GLASS_BUTTON_MENUS};
-                    String[] examples = resources.getStringArray(R.array.BygramLiquidGlassExamples);
-                    for (int i = 0; i < flags.length && i < places.length && i < examples.length; i++) {
-                        items.add(UItem.asButtonCheck(100 + i, places[i], examples[i]).setChecked((glass & flags[i]) != 0));
-                    }
-                }
-                items.add(UItem.asShadow(getString(R.string.BygramLiquidGlassInfo)));
             }, (item, view, position, x, y) -> {
                 if (item.id == 1) {
                     BygramConfig.setBoolean(BygramConfig.FILTER_ZALGO, !BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO));
-                } else if (item.id == 2) {
-                    glassExpanded = !glassExpanded;
                 } else if (item.id == 3) {
                     md3Expanded = !md3Expanded;
                 } else if (item.id >= 200 && item.id <= 202) {
                     String[] keys = {BygramConfig.MD3_LOADING, BygramConfig.MD3_SLIDERS, BygramConfig.MD3_SWITCHES};
                     String key = keys[item.id - 200];
                     BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
-                } else if (item.id >= 100 && item.id < 108) {
-                    int flag = 1 << (item.id - 100);
-                    int mask = BygramConfig.getInt(BygramConfig.LIQUID_GLASS_PLACEMENTS, BygramConfig.GLASS_ALL);
-                    BygramConfig.setInt(BygramConfig.LIQUID_GLASS_PLACEMENTS, mask ^ flag);
                 } else {
                     return;
                 }

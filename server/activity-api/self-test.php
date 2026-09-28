@@ -48,8 +48,19 @@ $pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_ke
     ->execute([$typingOwner, str_repeat('c', 64), 'lite-test-key']);
 if (typingPublicKeys($pdo, $typingOwner) !== ['lite-test-key']) throw new RuntimeException('FAIL: independent Lite typing registration');
 echo "PASS: typing publication accepts only active Full devices\n";
+$owner = 999999999993; $viewer = 999999999992;
+$pdo->prepare('INSERT INTO profile_view_settings (telegram_id,enabled) VALUES (?,1),(?,1)')->execute([$owner, $viewer]);
+$pdo->prepare("INSERT INTO profile_views (owner_id,viewer_id,viewer_name,visited_at) VALUES (?,?,?,UTC_TIMESTAMP())")
+    ->execute([$owner, $viewer, 'Viewer']);
+$visible = $pdo->prepare('SELECT viewer_id FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY');
+$visible->execute([$owner]);
+if ((int) $visible->fetchColumn() !== $viewer) throw new RuntimeException('FAIL: recent profile view hidden');
+$pdo->prepare('UPDATE profile_view_settings SET enabled=0 WHERE telegram_id=?')->execute([$viewer]);
+$visible->execute([$owner]);
+if ($visible->fetchColumn()) throw new RuntimeException('FAIL: disabled viewer visible');
+echo "PASS: profile views respect mutual consent\n";
 
-$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','orders','payment_methods','promo_codes','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
+$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','orders','payment_methods','profile_view_settings','profile_views','promo_codes','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
 $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
 if (array_diff($required, $tables)) {
     throw new RuntimeException('FAIL: API schema is incomplete');

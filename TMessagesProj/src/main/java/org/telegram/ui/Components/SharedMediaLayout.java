@@ -3896,36 +3896,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         if (forwardItem == null) {
             return;
         }
-        boolean noforwards = profileActivity.getMessagesController().isPeerNoForwards(dialog_id) || hasNoforwardsMessage();
-        forwardItem.setAlpha(noforwards ? 0.5f : 1f);
-        if (noforwards && forwardItem.getBackground() != null) {
-            forwardItem.setBackground(null);
-        } else if (!noforwards && forwardItem.getBackground() == null) {
+        forwardItem.setAlpha(1f);
+        if (forwardItem.getBackground() == null) {
             forwardItem.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_actionBarActionModeDefaultSelector), 5));
         }
     }
-    private boolean hasNoforwardsMessage() {
-        boolean hasNoforwardsMessage = false;
-        for (int a = 1; a >= 0; a--) {
-            ArrayList<Integer> ids = new ArrayList<>();
-            for (int b = 0; b < selectedFiles[a].size(); b++) {
-                ids.add(selectedFiles[a].keyAt(b));
-            }
-            for (Integer id1 : ids) {
-                if (id1 > 0) {
-                    MessageObject msg = selectedFiles[a].get(id1);
-                    if (msg != null && msg.messageOwner != null && msg.messageOwner.noforwards) {
-                        hasNoforwardsMessage = true;
-                        break;
-                    }
-                }
-            }
-            if (hasNoforwardsMessage)
-                break;
-        }
-        return hasNoforwardsMessage;
-    }
-
     private boolean changeTypeAnimation;
 
     private void changeMediaFilterType() {
@@ -5304,34 +5279,6 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 cantDeleteMessagesCount = 0;
             }, null, resourcesProvider);
         } else if (id == forward) {
-            if (userInfo != null) {
-                if (profileActivity.getMessagesController().isUserNoForwards(userInfo)) {
-                    if (fwdRestrictedHint != null) {
-                        fwdRestrictedHint.setText(getString(R.string.ForwardsRestrictedInfoUser));
-                        fwdRestrictedHint.showForView(v, true);
-                    }
-                    return;
-                }
-            }
-            if (info != null) {
-                TLRPC.Chat chat = profileActivity.getMessagesController().getChat(info.id);
-                if (profileActivity.getMessagesController().isChatNoForwards(chat)) {
-                    if (fwdRestrictedHint != null) {
-                        fwdRestrictedHint.setText(ChatObject.isChannel(chat) && !chat.megagroup ? getString(R.string.ForwardsRestrictedInfoChannel) :
-                                getString(R.string.ForwardsRestrictedInfoGroup));
-                        fwdRestrictedHint.showForView(v, true);
-                    }
-                    return;
-                }
-            }
-            if (hasNoforwardsMessage()) {
-                if (fwdRestrictedHint != null) {
-                    fwdRestrictedHint.setText(getString("ForwardsRestrictedInfoBot", R.string.ForwardsRestrictedInfoBot));
-                    fwdRestrictedHint.showForView(v, true);
-                }
-                return;
-            }
-
             Bundle args = new Bundle();
             args.putBoolean("onlySelect", true);
             args.putBoolean("canSelectTopics", true);
