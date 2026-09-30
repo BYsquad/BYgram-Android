@@ -223,8 +223,11 @@ public class BygramSettingsActivity extends BaseFragment {
                 String name = value.optString("viewer_name", "");
                 String username = value.optString("viewer_username", "");
                 String avatarUrl = value.optString("avatar_url", "");
+                int visitedAt = value.optInt("visited_at");
+                boolean isNew = value.optInt("is_new") != 0;
                 TLRPC.User user = getMessagesController().getUser(id);
                 FrameLayout row = new FrameLayout(getContext());
+                row.setBackgroundColor(isNew ? (Theme.getColor(Theme.key_windowBackgroundWhiteBlueText) & 0x00ffffff) | 0x18000000 : Theme.getColor(Theme.key_windowBackgroundWhite));
                 BackupImageView avatar = new BackupImageView(getContext());
                 avatar.setRoundRadius(AndroidUtilities.dp(24));
                 AvatarDrawable placeholder = new AvatarDrawable();
@@ -244,9 +247,14 @@ public class BygramSettingsActivity extends BaseFragment {
                 TextView title = new TextView(getContext());
                 title.setTextSize(16);
                 title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                title.setText(name + (username.isEmpty() ? "" : "  @" + username));
+                title.setText(name);
                 title.setGravity(Gravity.CENTER_VERTICAL);
-                row.addView(title, LayoutHelper.createFrame(-1, 64, Gravity.LEFT | Gravity.TOP, 76, 0, 16, 0));
+                row.addView(title, LayoutHelper.createFrame(-1, 32, Gravity.LEFT | Gravity.TOP, 76, 6, 16, 0));
+                TextView time = new TextView(getContext());
+                time.setTextSize(13);
+                time.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                if (visitedAt > 0) time.setText(org.telegram.messenger.LocaleController.formatDateTime(visitedAt, false));
+                row.addView(time, LayoutHelper.createFrame(-1, 26, Gravity.LEFT | Gravity.TOP, 76, 36, 16, 0));
                 row.setOnClickListener(v -> {
                     if (user == null && !username.isEmpty()) getMessagesController().openByUserName(username, this, 0, null);
                     else if (user == null) presentFragment(new ProfileViewUserActivity(id, name, avatarUrl));

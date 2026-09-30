@@ -476,6 +476,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private ActionBarMenuItem editItem;
     private ActionBarMenuItem otherItem;
     private ActionBarMenuItem profileViewsItem;
+    private BackupImageView profileViewsAvatar;
+    private TextView profileViewsCount;
+    private final Runnable profileViewsIndicatorRunnable = new Runnable() {
+        @Override public void run() {
+            if (bygramProfilePaused || profileViewsItem == null) return;
+            updateProfileViewsIndicator();
+            AndroidUtilities.runOnUIThread(this, 60_000);
+        }
+    };
     private ActionBarMenuItem searchItem;
     private ActionBarMenuSubItem editColorItem;
     private ActionBarMenuSubItem linkItem;
@@ -4073,6 +4082,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (myProfile) {
             profileViewsItem = menu.addItem(94, R.drawable.bygram_footprints);
             profileViewsItem.setContentDescription(LocaleController.getString(R.string.BygramProfileViews));
+            profileViewsAvatar = new BackupImageView(getContext());
+            profileViewsAvatar.setRoundRadius(AndroidUtilities.dp(14));
+            profileViewsAvatar.setVisibility(View.GONE);
+            profileViewsItem.addView(profileViewsAvatar, LayoutHelper.createFrame(28, 28, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 2, 0, 0));
+            profileViewsCount = new TextView(getContext());
+            profileViewsCount.setTextSize(11);
+            profileViewsCount.setTextColor(Color.WHITE);
+            profileViewsCount.setGravity(Gravity.CENTER);
+            GradientDrawable profileViewsBadge = new GradientDrawable();
+            profileViewsBadge.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
+            profileViewsBadge.setCornerRadius(AndroidUtilities.dp(8));
+            profileViewsCount.setBackground(profileViewsBadge);
+            profileViewsCount.setVisibility(View.GONE);
+            profileViewsItem.addView(profileViewsCount, LayoutHelper.createFrame(28, 15, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 28, 0, 0));
         }
         otherItem = menu.addItem(10, R.drawable.ic_ab_other, resourcesProvider);
 
@@ -9624,6 +9647,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     public void onResume() {
         super.onResume();
         bygramProfilePaused = false;
+        AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
+        profileViewsIndicatorRunnable.run();
         TLRPC.User viewedUser = userId == 0 ? null : getMessagesController().getUser(userId);
         BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_PROFILE, getDialogId(), viewedUser, currentChat);
         if (userId > 0 && userId != getUserConfig().getClientUserId()
@@ -9688,11 +9713,46 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         needLayout(false);
     }
 
+    private void updateProfileViewsIndicator() {
+        if (profileViewsItem == null || profileViewsAvatar == null || profileViewsCount == null) return;
+        if (!org.telegram.messenger.BygramTypingController.profileViewsEnabled(currentAccount)) {
+            profileViewsAvatar.setVisibility(View.GONE);
+            profileViewsCount.setVisibility(View.GONE);
+            profileViewsItem.getIconView().setVisibility(View.VISIBLE);
+            return;
+        }
+        org.json.JSONObject request = new org.json.JSONObject();
+        try { request.put("action", "profile_views_summary"); }
+        catch (org.json.JSONException error) { FileLog.e(error); return; }
+        org.telegram.messenger.BygramTypingController.profileViewsRequest(currentAccount, request, (response, botUrl) -> {
+            if (profileViewsItem == null || response == null || !response.optBoolean("ok")) return;
+            int count = response.optInt("new_count");
+            org.json.JSONArray views = response.optJSONArray("views");
+            org.json.JSONObject latest = views == null ? null : views.optJSONObject(0);
+            boolean show = count > 0 && latest != null;
+            profileViewsAvatar.setVisibility(show ? View.VISIBLE : View.GONE);
+            profileViewsCount.setVisibility(show ? View.VISIBLE : View.GONE);
+            profileViewsItem.getIconView().setVisibility(show ? View.GONE : View.VISIBLE);
+            if (!show) return;
+            long id = latest.optLong("viewer_id");
+            String name = latest.optString("viewer_name");
+            AvatarDrawable placeholder = new AvatarDrawable();
+            placeholder.setInfo(id, name, "");
+            TLRPC.User user = getMessagesController().getUser(id);
+            String url = latest.optString("avatar_url");
+            if (user != null && user.photo != null) profileViewsAvatar.setForUserOrChat(user, placeholder);
+            else if (url.startsWith("https://byxarek.site/TEST-PROJECT/BYgram/api/avatar.php?")) profileViewsAvatar.setImage(url, "48_48", placeholder);
+            else profileViewsAvatar.setImage((org.telegram.messenger.ImageLocation) null, null, placeholder, null);
+            profileViewsCount.setText(count > 99 ? "99+" : String.valueOf(count));
+        });
+    }
+
     @Override
     public void onPause() {
         super.onPause();
         bygramProfilePaused = true;
         AndroidUtilities.cancelRunOnUIThread(bygramProfileActivityRunnable);
+        AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
         BygramActivityController.clearCurrentActivity(currentAccount, BygramConfig.ACTIVITY_PROFILE, getDialogId());
         if (undoView != null) {
             undoView.hide(true, 0);

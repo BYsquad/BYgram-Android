@@ -26,6 +26,8 @@
 - [Ghost Mode и Spy Mode](privacy-modes.md)
 - [«Кто с кем общается?» и badges](activity-sharing.md)
 - [Проверка изменений](testing.md)
+- [Статус переноса в Windows-клиент](desktop-port-status.md)
+- [Девять Windows-функций: реализация и непройденные тесты](desktop-nine-features.md)
 - [Актуальный аудит](../BYGRAM_SETTINGS_AUDIT_2026-09-16.md)
 - [Сборка проекта](../build.md)
 

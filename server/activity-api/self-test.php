@@ -55,6 +55,15 @@ $pdo->prepare("INSERT INTO profile_views (owner_id,viewer_id,viewer_name,visited
 $visible = $pdo->prepare('SELECT viewer_id FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY');
 $visible->execute([$owner]);
 if ((int) $visible->fetchColumn() !== $viewer) throw new RuntimeException('FAIL: recent profile view hidden');
+$unread = $pdo->prepare('SELECT seen_at IS NULL FROM profile_views WHERE owner_id=? AND viewer_id=?');
+$unread->execute([$owner, $viewer]);
+if (!(bool) $unread->fetchColumn()) throw new RuntimeException('FAIL: new profile view is already read');
+$pdo->prepare('UPDATE profile_views SET seen_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id=?')->execute([$owner, $viewer]);
+$unread->execute([$owner, $viewer]);
+if ((bool) $unread->fetchColumn()) throw new RuntimeException('FAIL: viewed visitor remains new');
+$pdo->prepare('UPDATE profile_views SET seen_at=NULL,visited_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id=?')->execute([$owner, $viewer]);
+$unread->execute([$owner, $viewer]);
+if (!(bool) $unread->fetchColumn()) throw new RuntimeException('FAIL: repeated visit is not new');
 $pdo->prepare('UPDATE profile_view_settings SET enabled=0 WHERE telegram_id=?')->execute([$viewer]);
 $visible->execute([$owner]);
 if ($visible->fetchColumn()) throw new RuntimeException('FAIL: disabled viewer visible');

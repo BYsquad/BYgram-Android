@@ -310,14 +310,28 @@ if (str_starts_with($action, 'profile_views_')) {
             $name = mb_substr(trim((string) $known['first_name'] . ' ' . (string) $known['last_name']), 0, 128) ?: $name;
             $username = (string) ($known['username'] ?? '');
         }
-        $pdo->prepare('INSERT INTO profile_views (owner_id,viewer_id,viewer_name,viewer_username,visited_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE viewer_name=VALUES(viewer_name),viewer_username=VALUES(viewer_username),notified_at=IF(visited_at<UTC_TIMESTAMP()-INTERVAL 7 DAY,NULL,notified_at),visited_at=UTC_TIMESTAMP()')->execute([$ownerId, $userId, $name, $username]);
+        $pdo->prepare('INSERT INTO profile_views (owner_id,viewer_id,viewer_name,viewer_username,visited_at) VALUES (?,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE viewer_name=VALUES(viewer_name),viewer_username=VALUES(viewer_username),notified_at=IF(visited_at<UTC_TIMESTAMP()-INTERVAL 7 DAY,NULL,notified_at),seen_at=NULL,visited_at=UTC_TIMESTAMP()')->execute([$ownerId, $userId, $name, $username]);
         jsonResponse(['ok' => true, 'recorded' => true]);
     }
-    if ($action === 'profile_views_list' || $action === 'profile_views_poll') {
+    if ($action === 'profile_views_seen') {
+        $viewerId = filter_var($request['viewer_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$viewerId || $viewerId < 1) jsonResponse(['ok' => false], 400);
+        $pdo->prepare('UPDATE profile_views SET seen_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id=? AND seen_at IS NULL')->execute([$userId, $viewerId]);
+        jsonResponse(['ok' => true]);
+    }
+    if ($action === 'profile_views_list' || $action === 'profile_views_poll' || $action === 'profile_views_summary') {
         if (!$enabled) jsonResponse(['ok' => true, 'enabled' => false, 'views' => []]);
-        $extra = $action === 'profile_views_poll' ? ' AND v.notified_at IS NULL' : '';
-        $query = $pdo->prepare("SELECT v.viewer_id,v.viewer_name,v.viewer_username FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY$extra ORDER BY v.visited_at DESC LIMIT 100");
+        $extra = $action === 'profile_views_poll' ? ' AND v.notified_at IS NULL' : ($action === 'profile_views_summary' ? ' AND v.seen_at IS NULL' : '');
+        $limit = $action === 'profile_views_summary' ? 1 : 100;
+        $order = $action === 'profile_views_list' ? '(v.seen_at IS NULL) DESC,' : '';
+        $query = $pdo->prepare("SELECT v.viewer_id,v.viewer_name,v.viewer_username,TIMESTAMPDIFF(SECOND,'1970-01-01 00:00:00',v.visited_at) AS visited_at,(v.seen_at IS NULL) AS is_new FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY$extra ORDER BY $order v.visited_at DESC LIMIT $limit");
         $query->execute([$userId]); $views = $query->fetchAll();
+        if ($action === 'profile_views_list' && $views) {
+            $ids = array_column($views, 'viewer_id');
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $pdo->prepare("UPDATE profile_views SET seen_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id IN ($marks) AND seen_at IS NULL")
+                ->execute(array_merge([$userId], $ids));
+        }
         $expires = time() + 3600;
         foreach ($views as &$view) {
             $viewerId = (int) $view['viewer_id'];
@@ -329,6 +343,11 @@ if (str_starts_with($action, 'profile_views_')) {
             $ids = array_column($views, 'viewer_id');
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $pdo->prepare("UPDATE profile_views SET notified_at=UTC_TIMESTAMP() WHERE owner_id=? AND viewer_id IN ($marks)")->execute(array_merge([$userId], $ids));
+        }
+        if ($action === 'profile_views_summary') {
+            $count = $pdo->prepare('SELECT COUNT(*) FROM profile_views v JOIN profile_view_settings s ON s.telegram_id=v.viewer_id AND s.enabled=1 WHERE v.owner_id=? AND v.seen_at IS NULL AND v.visited_at>=UTC_TIMESTAMP()-INTERVAL 7 DAY');
+            $count->execute([$userId]);
+            jsonResponse(['ok' => true, 'enabled' => true, 'new_count' => (int) $count->fetchColumn(), 'views' => $views]);
         }
         jsonResponse(['ok' => true, 'enabled' => true, 'views' => $views]);
     }
