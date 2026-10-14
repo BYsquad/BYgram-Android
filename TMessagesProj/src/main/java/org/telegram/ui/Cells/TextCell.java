@@ -33,6 +33,8 @@ import androidx.annotation.Nullable;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
@@ -76,11 +78,11 @@ public class TextCell extends FrameLayout {
     private int lastWidth;
 
     public TextCell(Context context) {
-        this(context, 23, false, false, null);
+        this(context, 20, false, false, null);
     }
 
     public TextCell(Context context, Theme.ResourcesProvider resourcesProvider) {
-        this(context, 23, false, false, resourcesProvider);
+        this(context, 20, false, false, resourcesProvider);
     }
 
     public TextCell(Context context, int left, boolean dialog) {
@@ -137,7 +139,7 @@ public class TextCell extends FrameLayout {
         if (needCheck) {
             checkBox = new Switch(context, resourcesProvider);
             checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-            addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+            addView(checkBox, LayoutHelper.createFrame(Switch.layoutWidth(), Switch.layoutHeight(), (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
         }
 
         setFocusable(true);
@@ -208,7 +210,7 @@ public class TextCell extends FrameLayout {
             valueImageView.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
         }
         if (checkBox != null) {
-            checkBox.measure(MeasureSpec.makeMeasureSpec(dp(37), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.EXACTLY));
+            checkBox.measure(MeasureSpec.makeMeasureSpec(dp(Switch.layoutWidth()), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(Switch.layoutHeight()), MeasureSpec.EXACTLY));
         }
         setMeasuredDimension(width, height + (needDivider ? 1 : 0));
     }
@@ -477,7 +479,7 @@ public class TextCell extends FrameLayout {
     }
 
     public void setTextAndValueAndColorfulIcon(String text, CharSequence value, boolean animated, int resId, int colorTop, int colorBottom, boolean divider) {
-        imageLeft = 16;
+        imageLeft = 21;
         offsetFromImage = getOffsetFromImage(false);
         textView.setText(text);
         textView.setRightDrawable(null);
@@ -497,7 +499,7 @@ public class TextCell extends FrameLayout {
     }
 
     public void setTextAndCheckAndColorfulIcon(CharSequence text, boolean checked, int resId, int color, boolean divider) {
-        imageLeft = 16;
+        imageLeft = 21;
         offsetFromImage = getOffsetFromImage(false);
         textView.setText(text);
         textView.setRightDrawable(null);
@@ -508,7 +510,7 @@ public class TextCell extends FrameLayout {
         if (checkBox == null) {
             checkBox = new Switch(getContext(), resourcesProvider);
             checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-            addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+            addView(checkBox, LayoutHelper.createFrame(Switch.layoutWidth(), Switch.layoutHeight(), (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
         }
         if (checkBox != null) {
             checkBox.setVisibility(VISIBLE);
@@ -600,6 +602,11 @@ public class TextCell extends FrameLayout {
 
     public static CharSequence applyNewSpan(CharSequence str) {
         return applyNewSpan(str, false);
+    }
+    public static CharSequence applyNewSpanTimed(CharSequence str, int since) {
+        if (ConnectionsManager.getInstance(UserConfig.selectedAccount).getCurrentTime() - since > 4 * 7 * 24 * 60 * 60)
+            return str;
+        return applyNewSpan(str);
     }
     public static CharSequence applyNewSpan(CharSequence str, boolean usePaintAlpha) {
         SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder(str);

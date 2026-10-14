@@ -93,6 +93,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private BlurredBackgroundDrawable glassDrawable;
+    private float lastGlassAvatarRadius = -1f;
     private BlurredBackgroundDrawable glassDrawableBack;
     private BlurredBackgroundDrawable glassDrawableMenu;
     private INavigationLayout.BackButtonState backButtonState = INavigationLayout.BackButtonState.BACK;
@@ -223,11 +224,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassDrawable = factory.create(this)
             .setColorProvider(colorProvider)
             .setPadding(dp(6));
-        if (isForum) {
-            glassDrawable.setRadius(dp(18.33f), dp(23), dp(23), dp(18.33f));
-        } else {
-            glassDrawable.setRadius(dp(org.telegram.messenger.BygramConfig.getBoolean("bygram_md3_chat_header") ? 28 : 23));
-        }
+        glassDrawable.setRadius(dp(23));
+        lastGlassAvatarRadius = -1f;
 
 
         glassDrawableBack = factory.create(this)
@@ -1220,12 +1218,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         alphaUpdate.addUpdateListener(anm -> {
             searchFieldVisibleAlpha = (float) anm.getAnimatedValue();
 
-            if (glassDrawable != null && glassModeIsForum) {
-                final float r1 = dp(23);
-                final float r2 = lerp(dp(18.33f), dp(23), searchFieldVisibleAlpha);
-                glassDrawable.setRadius(r2, r1, r1, r2);
-                invalidate();
-            }
+            if (glassDrawable != null) invalidate();
 
             if (glassMode && menu != null) {
                 menu.setTranslationX(-lerp((float) dp(10), dp(5), searchFieldVisibleAlpha));
@@ -2229,6 +2222,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public boolean doNotDrawGlassMenu;
+    private boolean drawGlassTitle = true;
+
+    public void setDrawGlassTitle(boolean draw) {
+        if (drawGlassTitle != draw) {
+            drawGlassTitle = draw;
+            invalidate();
+        }
+    }
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
@@ -2244,7 +2245,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final int t = getHeight() - (getCurrentActionBarHeight() + s) / 2 - p;
         final int b = t + s + p * 2;
 
-        if (glassDrawable != null && !glassOnlyBack) {
+        if (glassDrawable != null && !glassOnlyBack && drawGlassTitle) {
             final int menuWidthWithPadding = menuWidth + ((hasForcedMenuWidth || hasForcedMenuMinWidth) ? (menuWidth > 0 ? p : 0) : (int) (p * animatorHasMenuItems.getFloatValue()));
             final int rightOffset = lerp(menuWidthWithPadding, Math.max(menuWidthWithPadding, p + s), chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
 
@@ -2268,6 +2269,16 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 right = rightDefault;
             }
 
+            if (chatAvatarContainer != null) {
+                float radius = dp(23);
+                float avatarRadius = org.telegram.messenger.BygramConfig.avatarRadius(dp(46));
+                float avatarFactor = animatorAvatarContainerHasAvatar.getFloatValue() * (1f - Math.max(searchFieldVisibleAlpha, Math.max(searchFactor, actionModeFactor)));
+                float leadingRadius = lerp(radius, avatarRadius, avatarFactor);
+                if (lastGlassAvatarRadius != leadingRadius) {
+                    lastGlassAvatarRadius = leadingRadius;
+                    glassDrawable.setRadius(leadingRadius, radius, radius, leadingRadius, false);
+                }
+            }
             glassDrawable.setBounds(left, t, right, b);
             glassDrawable.draw(canvas);
         }

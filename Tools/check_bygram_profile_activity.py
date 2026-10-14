@@ -8,12 +8,12 @@ strings = Path("TMessagesProj/src/main/res/values-ru/bygram_strings.xml").read_t
 api = Path("server/activity-api/index.php").read_text(encoding="utf-8")
 schema = Path("server/activity-api/schema.sql").read_text(encoding="utf-8")
 
-assert "AndroidUtilities.runOnUIThread(this, 20_000);" in source, "profile activity is not refreshed periodically"
+assert "AndroidUtilities.runOnUIThread(this, 7_000);" in source, "profile activity is not refreshed every seven seconds"
 assert (
     "musicView != null && musicView.getVisibility() == View.VISIBLE" in source
 ), "profile header height ignores an activity-only card"
-assert "musicView.getContentHeight()" in source, "profile reserves a fixed height instead of the visible music/activity content"
-assert "previousHeaderHeight" in source and "extraHeight += getHeaderExtraHeight() - previousHeaderHeight" in source, "late activity does not preserve profile header geometry"
+assert "musicView.getHeaderHeight()" in source and "return getContentHeight()" in music, "profile reserves a fixed height instead of the visible music/activity content"
+assert "int headerHeightDelta = getHeaderExtraHeight() - previousHeaderHeight" in source and "adjustHeaderForMusicChange(headerHeightDelta);" in source and "extraHeight = Math.max(0, extraHeight + delta);" in source, "late activity does not preserve profile header geometry"
 assert "drawActivityCard" in music and "ACTIVITY_CARD_HEIGHT" in music, "activity is not rendered as a compact card"
 
 for text in ("Смотрит канал", "Сидит в группе", "Общается с ботом", "В чате с"):

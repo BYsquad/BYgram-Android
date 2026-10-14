@@ -12,6 +12,7 @@ public class LauncherIconController {
     public static void tryFixLauncherIconIfNeeded() {
         for (LauncherIcon icon : LauncherIcon.values()) {
             if (isEnabled(icon)) {
+                if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT);
                 return;
             }
         }
@@ -41,7 +42,7 @@ public class LauncherIconController {
     }
 
     public enum LauncherIcon {
-        DEFAULT("DefaultIcon", R.drawable.bygram_logo_new, 0, R.string.BygramIconNew),
+        DEFAULT("DefaultIcon", R.drawable.bygram_logo, 0, R.string.AppName),
         VINTAGE("VintageIcon", R.drawable.bygram_logo, 0, R.string.BygramIconCurrent),
         AQUA("AquaIcon", R.mipmap.ic_launcher, 0, R.string.BygramIconTelegram),
         PREMIUM("PremiumIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconPremium, true),

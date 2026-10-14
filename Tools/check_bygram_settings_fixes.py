@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 
@@ -54,8 +55,10 @@ def resource_names(folder: str, file: str) -> set[str]:
 
 english_resources = resource_names("values", "bygram_strings.xml") | resource_names("values", "bygram_preferences.xml")
 russian_resources = resource_names("values-ru", "bygram_strings.xml") | resource_names("values-ru", "bygram_preferences.xml")
+menu_option_ids = re.findall(r"public (?:final static|static final) int OPTION_\w+ = (\d+);", chat)
 
 checks = {
+    "Telegram and BYgram message menu actions have unique IDs": bool(menu_option_ids) and len(menu_option_ids) == len(set(menu_option_ids)),
     "BYgram settings keep a reserved ID while Telegram uses 24": "BYGRAM_SETTINGS_ID = 1000" in settings_root and "Factory.of(BYGRAM_SETTINGS_ID," in settings_root and "case BYGRAM_SETTINGS_ID:" in settings_root and "Factory.of(24," in settings_root and "case 24:" in settings_root,
     "unlicensed users receive the manager URL": "'bot_url' => managerUrl()" in api and "appSetting('manager_username'" in api and 'callback.run(false, botUrl)' in activity,
     "license status returns the manager URL": "'manager_url' => managerUrl()" in api,

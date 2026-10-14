@@ -17,6 +17,8 @@ javac -d $checkDir TMessagesProj/src/main/java/org/telegram/messenger/BygramText
 java -cp $checkDir BygramTextCheck
 python Tools/check_bygram_md3_geometry.py
 python Tools/check_bygram_settings_fixes.py
+python Tools/check_bygram_profile_activity.py
+python Tools/check_bygram_editions.py
 php -l server/activity-api/index.php
 php -l server/activity-api/admin-api.php
 $env:BYGRAM_TEST_LOCAL='1'
@@ -25,14 +27,28 @@ php -d zend.assertions=1 -d assert.exception=1 server/activity-api/self-test.php
 
 Сборочные команды и пути APK: [инструкция по сборке](../build.md).
 
+После компиляции Java дополнительно проверяйте совместимость локальных
+параметров Spy с кошельком Telegram 13.0.2. Тест использует собранные классы
+приложения и реальный serializer, но не требует JNI или устройства:
+
+```powershell
+$checkDir = Join-Path $env:TEMP 'bygram-text-check'
+New-Item -ItemType Directory -Force -Path $checkDir | Out-Null
+$classes = 'TMessagesProj/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes'
+$sdkDir = ((Get-Content local.properties | Where-Object { $_ -like 'sdk.dir=*' }) -replace '^sdk.dir=', '')
+$androidJar = Join-Path $sdkDir 'platforms/android-36/android.jar'
+javac -cp "$classes;$androidJar" -d $checkDir Tools/BygramMessageParamsCheck.java
+java -cp "$checkDir;$classes;$androidJar" BygramMessageParamsCheck
+```
+
 ## Smoke test на авторизованном устройстве
 
 1. Убедиться, что тестируется APK из текущего дерева: package/versionCode/versionName.
 2. Открыть каждый дочерний экран раздела.
 3. Для каждого switch: изменить, уйти/вернуться, force-stop/relaunch, проверить persistence и consumer.
-4. Проверить 3 launcher icons, вернуть исходную.
+4. Проверить две launcher icons в кастомизации (BYgram и Telegram), BYgram на чистой установке и после сброса, сохранение выбранного Telegram после перезапуска, миграцию прежнего Vintage на BYgram.
 5. Проверить avatar slider на 0, промежуточном значении и 28, включая forum avatar.
-6. Раскрыть MD3; проверить счётчик и компоненты. Проверить штатный Liquid Glass в «Настройки чата → Анимации → Анимации в чатах».
+6. Проверить PIN скрытых чатов, создание/проверку пароля и редактор статуса в светлой/тёмной теме, RTL и с увеличенным шрифтом. В Full статусы доступны через «Кастомизация», в Lite отсутствуют. При углах 0/14/28 проверить обе стороны фона реакции, обводки перекрывающихся аватаров и левый край заголовка чата; открыть поиск и контекстные действия. Раскрыть MD3; проверить счётчик и компоненты. Проверить штатный Liquid Glass в «Настройки чата → Анимации → Анимации в чатах».
 7. Экспортировать JSON, проверить allowlist и отсутствие history/viewers/tokens.
 8. Reset/clear подтверждать только на чистом тестовом аккаунте; проверить restart.
 9. Восстановить исходные пользовательские значения.

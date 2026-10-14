@@ -29,6 +29,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.AvatarDrawable;
@@ -86,9 +87,6 @@ public class BygramSettingsActivity extends BaseFragment {
         if (BuildConfig.BYGRAM_FULL) {
             items.add(UItem.asButton(3, R.drawable.msg_location, getString(R.string.BygramShareActivity)));
         }
-        if (BuildConfig.BYGRAM_FULL) {
-            items.add(UItem.asButton(4, R.drawable.settings_chat, getString(R.string.BygramCustomTyping)));
-        }
         items.add(UItem.asButton(5, R.drawable.settings_privacy, getString(R.string.BygramHiddenChats)));
         items.add(UItem.asButton(6, R.drawable.settings_privacy, getString(R.string.BygramProtectedChats)));
         items.add(UItem.asButton(13, R.drawable.bygram_footprints, getString(R.string.BygramProfileViews)));
@@ -112,8 +110,6 @@ public class BygramSettingsActivity extends BaseFragment {
             presentFragment(new SpySettingsActivity());
         } else if (item.id == 3) {
             openActivitySharing();
-        } else if (item.id == 4) {
-            presentFragment(new TypingCustomizationActivity());
         } else if (item.id == 5) {
             if (BygramChatPrivacy.hasPin(currentAccount)) {
                 askSecret(getString(R.string.BygramHiddenPin), true, secret -> {
@@ -139,11 +135,10 @@ public class BygramSettingsActivity extends BaseFragment {
     private interface SecretCallback { void accept(String secret); }
 
     private void askSecret(String title, boolean numeric, SecretCallback callback) {
-        EditText input = new EditText(getContext());
-        input.setSingleLine(true);
+        EditText input = createDialogInput(getContext(), title);
         input.setInputType(numeric ? 18 : 129);
         showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                .setTitle(title).setView(input)
+                .setTitle(title).setView(dialogInputContainer(input))
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .setPositiveButton(getString(R.string.OK), (dialog, which) -> callback.accept(input.getText().toString()))
                 .create());
@@ -153,6 +148,35 @@ public class BygramSettingsActivity extends BaseFragment {
         showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                 .setTitle(getString(R.string.BygramPrivacyError))
                 .setPositiveButton(getString(R.string.OK), null).create());
+    }
+
+    static EditTextBoldCursor createDialogInput(Context context, String hint) {
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setSingleLine(true);
+        input.setTextSize(18);
+        input.setMinHeight(AndroidUtilities.dp(56));
+        input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        input.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
+        input.setCursorColor(Theme.getColor(Theme.key_dialogTextBlue));
+        input.setHint(hint);
+        input.setGravity(Gravity.CENTER_VERTICAL | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT));
+        input.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
+        android.graphics.drawable.StateListDrawable background = new android.graphics.drawable.StateListDrawable();
+        for (boolean focused : new boolean[]{true, false}) {
+            android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+            shape.setColor(Theme.getColor(Theme.key_dialogBackgroundGray));
+            shape.setCornerRadius(AndroidUtilities.dp(12));
+            shape.setStroke(AndroidUtilities.dp(focused ? 2 : 1), Theme.getColor(focused ? Theme.key_dialogTextBlue : Theme.key_dialogInputField));
+            background.addState(focused ? new int[]{android.R.attr.state_focused} : new int[]{}, shape);
+        }
+        input.setBackground(background);
+        return input;
+    }
+
+    static FrameLayout dialogInputContainer(EditText input) {
+        FrameLayout container = new FrameLayout(input.getContext());
+        container.addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 24, 8, 24, 8));
+        return container;
     }
 
     public static class ProfileViewsActivity extends BaseFragment {
@@ -489,11 +513,10 @@ public class BygramSettingsActivity extends BaseFragment {
         }
 
         private void askSecret(String title, boolean numeric, SecretCallback callback) {
-            EditText input = new EditText(getContext());
-            input.setSingleLine(true);
+            EditText input = createDialogInput(getContext(), title);
             input.setInputType(numeric ? 18 : 129);
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                    .setTitle(title).setView(input)
+                    .setTitle(title).setView(dialogInputContainer(input))
                     .setNegativeButton(getString(R.string.Cancel), null)
                     .setPositiveButton(getString(R.string.OK), (dialog, which) -> callback.accept(input.getText().toString())).create());
         }
@@ -512,6 +535,9 @@ public class BygramSettingsActivity extends BaseFragment {
             items.add(UItem.asHeader(getString(R.string.BygramCustomization)));
             items.add(UItem.asButton(1, R.drawable.settings_account, getString(R.string.BygramProfile)));
             items.add(UItem.asButton(2, R.drawable.settings_chat, getString(R.string.BygramGeneral)));
+            if (BuildConfig.BYGRAM_FULL) {
+                items.add(UItem.asButton(4, R.drawable.settings_chat, getString(R.string.BygramCustomTyping)));
+            }
             items.add(UItem.asShadow(null));
         }
 
@@ -520,6 +546,7 @@ public class BygramSettingsActivity extends BaseFragment {
         @Override void onCustomClick(int id) {
             if (id == 1) presentFragment(new ProfileCustomizationActivity());
             else if (id == 2) presentFragment(new GeneralCustomizationActivity());
+            else if (id == 4 && BuildConfig.BYGRAM_FULL) presentFragment(new TypingCustomizationActivity());
         }
     }
 
@@ -552,14 +579,13 @@ public class BygramSettingsActivity extends BaseFragment {
             if (id == 200) { publish(); return; }
             int action = id - 100;
             if (action < 0 || action >= LABELS.length || action == 2) return;
-            EditText input = new EditText(getContext());
-            input.setSingleLine(true);
+            EditText input = createDialogInput(getContext(), getString(R.string.BygramTypingDefault));
             input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)});
             input.setText(BygramConfig.getCustomTyping(currentAccount, action));
             input.setSelection(input.length());
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                     .setTitle(getString(LABELS[action]))
-                    .setView(input)
+                    .setView(dialogInputContainer(input))
                     .setNegativeButton(getString(R.string.Cancel), null)
                     .setPositiveButton(getString(R.string.Save), (dialog, which) -> {
                         BygramConfig.setCustomTyping(currentAccount, action, input.getText().toString());
@@ -612,7 +638,6 @@ public class BygramSettingsActivity extends BaseFragment {
             content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
             AppIconsSelectorCell icons = new AppIconsSelectorCell(context, this, currentAccount, Arrays.asList(
                     LauncherIconController.LauncherIcon.DEFAULT,
-                    LauncherIconController.LauncherIcon.VINTAGE,
                     LauncherIconController.LauncherIcon.AQUA));
             BackupImageView avatarPreview = new BackupImageView(context);
             AvatarDrawable avatarDrawable = new AvatarDrawable();

@@ -24,6 +24,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Region;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 
 import com.google.zxing.EncodeHintType;
@@ -52,6 +53,11 @@ public final class TelegramQRCodeWriter {
   private int sideQuadSize;
 
   private int imageSize;
+  private Drawable centerDrawable;
+
+  public void setCenterDrawable(Drawable drawable) {
+    centerDrawable = drawable;
+  }
 
   public Bitmap encode(String contents, int width, int height, Map<EncodeHintType, ?> hints, Bitmap bitmap) throws WriterException {
     return encode(contents, width, height, hints, bitmap, 1.0f, 0xffffffff, 0xff000000);
@@ -183,12 +189,17 @@ public final class TelegramQRCodeWriter {
       }
     }
 
-    Bitmap sourceIcon = BitmapFactory.decodeResource(ApplicationLoader.applicationContext.getResources(), R.drawable.bygram_logo);
-    Bitmap icon = Bitmap.createScaledBitmap(sourceIcon, imageSize, imageSize, true);
-    canvas.drawBitmap(icon, imageX, imageX, null);
-    icon.recycle();
-    if (sourceIcon != icon) {
-      sourceIcon.recycle();
+    if (centerDrawable != null) {
+      centerDrawable.setBounds(imageX, imageX, imageX + imageSize, imageX + imageSize);
+      centerDrawable.draw(canvas);
+    } else {
+      Bitmap sourceIcon = BitmapFactory.decodeResource(ApplicationLoader.applicationContext.getResources(), R.drawable.bygram_logo);
+      Bitmap icon = Bitmap.createScaledBitmap(sourceIcon, imageSize, imageSize, true);
+      canvas.drawBitmap(icon, imageX, imageX, null);
+      icon.recycle();
+      if (sourceIcon != icon) {
+        sourceIcon.recycle();
+      }
     }
 
     canvas.setBitmap(null);

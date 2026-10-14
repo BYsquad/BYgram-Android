@@ -1,6 +1,5 @@
 """Fast regression check for BYgram appearance settings."""
 from pathlib import Path
-from xml.etree import ElementTree
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,25 +34,45 @@ main_site = source("server/site/src/main.jsx")
 config_example = source("server/activity-api/config.example.php")
 
 assert "new Slider(new ContextThemeWrapper" in seekbar, "MD3 slider is not backed by Material Slider"
-assert "setTrackHeight(AndroidUtilities.dp(8))" in seekbar and "setThumbWidth(AndroidUtilities.dp(3))" in seekbar and "setThumbHeight(AndroidUtilities.dp(24))" in seekbar, "MD3 slider geometry changed"
-assert "MD3_TRACK_HEIGHT_DP = 26f" in switch and "drawRoundRect(rectF, radius, radius" in switch, "MD3 switch geometry changed"
-assert "md3 ? Math.min(getMeasuredHeight(), AndroidUtilities.dpf2(MD3_TRACK_HEIGHT_DP))" in switch and "rectF.set(0, y, getMeasuredWidth(), y + trackHeight)" in switch, "MD3 switch track is clipped by small switch views"
+assert "setTrackHeight(" not in seekbar and "setThumbWidth(" not in seekbar and "setThumbHeight(" not in seekbar, "MD3 slider overrides the official Material geometry"
+assert "setTrackStopIndicatorSize(0)" not in seekbar and "setTickVisibilityMode(2)" not in seekbar, "MD3 slider hides its official stops/ticks"
+assert "new MaterialSwitch(new ContextThemeWrapper" in switch and "Theme_Material3_DayNight" in switch, "MD3 switch must use Google's implementation and animations"
+assert "? 52 : 37" in switch and "LayoutHelper.createFrame(52, 32, Gravity.CENTER)" in switch, "MD3 switch must reserve a 52 x 32 dp track"
+assert "MD3_THUMB_MIN_RADIUS_DP" not in switch and "materialSwitch.setChecked(checked)" in switch and "materialSwitch.setPressed(value)" in switch, "MD3 handle animation must be driven by the official component"
+assert "Theme.getColor(thumbColorKey, resourcesProvider)" in switch and "materialSwitch.setThumbTintList(switchColors(" in switch and "materialSwitch.setTrackTintList(switchColors(" in switch and "materialSwitch.setTrackDecorationTintList(" in switch, "MD3 colors must use the Telegram theme"
+assert "materialSwitch.jumpDrawablesToCurrentState()" in switch and "setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO)" in switch, "MD3 binding must preserve nonanimated updates and a single accessibility node"
+assert "getMeasuredWidth() / AndroidUtilities.dpf2(52)" in switch and "getMeasuredHeight() / AndroidUtilities.dpf2(32)" in switch, "Compact switch containers must scale without clipping"
+for caller in ("Cells/CheckBoxUserCell.java", "Cells/NotificationsCheckCell.java", "Cells/AvailableReactionCell.java", "Cells/PollCreateCheckCell.java", "Cells/TextCheckCell.java", "Cells/TextCell.java", "Cells/TextCheckCell2.java", "Components/MultilineTextCheckCell.java", "Components/PhonebookShareAlert.java", "LiteModeSettingsActivity.java", "SessionBottomSheet.java"):
+    assert "Switch.layoutWidth()" in source("TMessagesProj/src/main/java/org/telegram/ui/" + caller), f"Switch width is stale in {caller}"
+reactions = source("TMessagesProj/src/main/java/org/telegram/ui/Components/Reactions/ReactionsLayoutInBubble.java")
+avatars = source("TMessagesProj/src/main/java/org/telegram/ui/Components/AvatarsDrawable.java")
+voters = source("TMessagesProj/src/main/java/org/telegram/ui/Components/AvatarsListDrawable.java")
+action_bar = source("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/ActionBar.java")
+assert "float rad = height / 2f;" not in reactions and reactions.count("BygramConfig.avatarRadius(height)") >= 2, "Reaction background and effect disagree on shape"
+assert "drawCircle(imageReceiver.getCenterX()" not in avatars and "BygramConfig.avatarRadius(avatar.getImageHeight())" in avatars, "Overlapping avatar masks are circular"
+assert "drawCircle(cx, cy, r" not in voters and "BygramConfig.avatarRadius(w)" in voters, "Poll voter avatar masks are circular"
+assert "BygramConfig.avatarRadius(dp(46))" in action_bar and "setRadius(leadingRadius, radius, radius, leadingRadius, false)" in action_bar, "Chat header edge ignores avatar shape"
+main_settings, customization = settings.split("public static class CustomizationSettingsActivity", 1)
+assert "asButton(4," not in main_settings and "asButton(4," in customization.split("public static class TypingCustomizationActivity", 1)[0], "Typing statuses must live in Customization"
+assert "new EditText(" not in settings and "shape.setStroke(" in settings and "dialogInputContainer(input)" in chat, "BYgram dialogs must share the themed input style"
+icons = settings.split("AppIconsSelectorCell icons =", 1)[1].split("BackupImageView avatarPreview", 1)[0]
+launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")
+manifest = source("TMessagesProj/src/main/AndroidManifest.xml")
+assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "Customization must only offer BYgram and Telegram icons"
+assert 'DEFAULT("DefaultIcon", R.drawable.bygram_logo, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use bygram-logo.png"
+default_alias = manifest.split('android:name="org.telegram.messenger.DefaultIcon"', 1)[1].split('</activity-alias>', 1)[0]
+assert '@drawable/bygram_logo"' in default_alias and "bygram_logo_new" not in default_alias, "Fresh installs must use the BYgram logo"
+assert (ROOT / "bygram-logo.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-xxxhdpi/bygram_logo.png").read_bytes(), "Default icon asset differs from bygram-logo.png"
 assert "new LoadingIndicator(getContext())" in progress, "MD3 loading is not backed by Material LoadingIndicator"
 assert "new LoadingIndicator(context)" in circular_progress, "Drawable loading is not backed by Material LoadingIndicator"
-glass_sources = chat + dialogs + photo + popups
-for placement in ("GLASS_MEDIA", "GLASS_CONTEXT_PANELS", "GLASS_FLOATING_BUTTONS", "GLASS_SEARCH", "GLASS_SELECTION", "GLASS_POPUPS", "GLASS_MESSAGE_MENUS", "GLASS_BUTTON_MENUS"):
-    assert placement in glass_sources, f"Liquid glass placement has no UI consumer: {placement}"
-assert "BygramLiquidGlassExamples" in settings, "Liquid-glass rows have no examples"
-assert "configuration.setLocale(LocaleController.getInstance().getCurrentLocale())" in settings and "resources.getStringArray(R.array.BygramLiquidGlassPlaces)" in settings and "resources.getStringArray(R.array.BygramLiquidGlassExamples)" in settings, "Liquid-glass arrays do not use the app locale"
-for name in ("BygramLiquidGlassPlaces", "BygramLiquidGlassExamples"):
-    arrays = [ElementTree.parse(ROOT / f"TMessagesProj/src/main/res/{folder}/bygram_preferences.xml").find(f"string-array[@name='{name}']") for folder in ("values", "values-ru")]
-    assert all(array is not None and len(array) == 8 for array in arrays), f"{name} has incomplete Russian translations"
-    assert all(any('\u0400' <= char <= '\u04ff' for char in ''.join(item.itertext())) for item in arrays[1]), f"{name} contains untranslated Russian entries"
+lite_settings = source("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")
+assert "BygramLiquidGlass" not in settings and "LIQUID_GLASS_PLACEMENTS" not in config, "Removed glass settings have returned"
+assert "LiteOptionsLiquidGlass" in lite_settings and "LiteMode.FLAG_LIQUID_GLASS" in lite_settings and "LiteMode.toggleFlag(item.flags" in lite_settings, "Native liquid-glass setting has no consumer"
 assert "bygram_uniform_avatars" not in image_receiver and "Arrays.fill(avatarRoundRadius" in image_receiver, "Visible avatar radius does not apply uniformly"
 assert "avatarRadius(" in config and "BygramConfig.avatarRadius" in image_receiver + profile + stories + profile_stories, "Profile avatars and story rings do not share the configured shape"
 assert "bygram_logo_new" not in badge and "getProfileBadgeInfo" not in activity_controller, "Profile badges are still present in the client"
 assert "setMultilineTextAndValue" in settings, "Long BYgram toggle labels are still ellipsized"
-assert "APP_VERSION_CODE=7105" in gradle and "APP_VERSION_NAME=12.10.5" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
+assert "APP_VERSION_CODE=7175" in gradle and "APP_VERSION_NAME=13.0.2" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
 assert "telegram-widget.js" in admin and "data-telegram-login" in admin and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
 assert "BYxarek" + "_manager" not in activity_controller + api + bootstrap + main_site + config_example and "BYgram_manager" in activity_controller + api + main_site + config_example, "Manager username is outdated"
-print("PASS: MD3, liquid-glass examples, avatar endpoints and removed profile badges")
+print("PASS: MD3, native liquid glass, avatar endpoints and removed profile badges")

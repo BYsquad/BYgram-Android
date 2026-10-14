@@ -18,6 +18,7 @@ import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.ImageLocation;
@@ -51,6 +52,16 @@ public class AvatarsDrawable {
     boolean updateAfterTransition;
 
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.RectF avatarBounds = new android.graphics.RectF();
+
+    private void drawAvatarOutline(Canvas canvas, ImageReceiver avatar, float extent, Paint paint) {
+        avatarBounds.set(avatar.getCenterX() - extent, avatar.getCenterY() - extent,
+                avatar.getCenterX() + extent, avatar.getCenterY() + extent);
+        float radius = BygramConfig.avatarRadius(avatar.getImageHeight());
+        // Keep the border parallel to the avatar, including at square corners.
+        if (radius > 0) radius += Math.max(0, extent - avatar.getImageHeight() / 2f);
+        canvas.drawRoundRect(avatarBounds, radius, radius, paint);
+    }
     private Paint xRefP = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     Runnable updateDelegate;
@@ -511,7 +522,7 @@ public class AvatarsDrawable {
                     }
                     storiesTools.setBounds(0, 0, parent.getMeasuredHeight(), dp(40));
                     storiesTools.paint.setAlpha((int) (255 * alpha));
-                    canvas.drawCircle(imageReceiver.getCenterX(), imageReceiver.getCenterY(), rad, storiesTools.paint);
+                    drawAvatarOutline(canvas, imageReceiver, rad, storiesTools.paint);
                     if (needRestore) {
                         canvas.restore();
                     }
@@ -575,7 +586,7 @@ public class AvatarsDrawable {
                 float avatarScale = 1f;
                 if (a != states.length - 1 || drawStoriesCircle) {
                     if (currentStyle == 1 || currentStyle == 3 || currentStyle == 5) {
-                        canvas.drawCircle(imageReceiver.getCenterX(), imageReceiver.getCenterY(), dp(13), xRefP);
+                        drawAvatarOutline(canvas, imageReceiver, dp(13), xRefP);
                         if (states[a].wavesDrawable == null) {
                             if (currentStyle == 5) {
                                 states[a].wavesDrawable = new GroupCallUserCell.AvatarWavesDrawable(dp(14), dp(16));
@@ -603,7 +614,7 @@ public class AvatarsDrawable {
                         }
                         avatarScale = states[a].wavesDrawable.getAvatarScale();
                     } else if (currentStyle == 4 || currentStyle == STYLE_GROUP_CALL_TOOLTIP) {
-                        canvas.drawCircle(imageReceiver.getCenterX(), imageReceiver.getCenterY(), dp(17), xRefP);
+                        drawAvatarOutline(canvas, imageReceiver, dp(17), xRefP);
                         if (states[a].wavesDrawable == null) {
                             states[a].wavesDrawable = new GroupCallUserCell.AvatarWavesDrawable(dp(17), dp(21));
                         }
@@ -639,13 +650,13 @@ public class AvatarsDrawable {
                     } else {
                         float rad = getSize() / 2f + strokeWidth;
                         if (useAlphaLayer) {
-                            canvas.drawCircle(imageReceiver.getCenterX(), imageReceiver.getCenterY(), rad, xRefP);
+                            drawAvatarOutline(canvas, imageReceiver, rad, xRefP);
                         } else {
                             int paintAlpha = paint.getAlpha();
                             if (alpha != 1f) {
                                 paint.setAlpha((int) (paintAlpha * alpha));
                             }
-                            canvas.drawCircle(imageReceiver.getCenterX(), imageReceiver.getCenterY(), rad, paint);
+                            drawAvatarOutline(canvas, imageReceiver, rad, paint);
                             if (alpha != 1f) {
                                 paint.setAlpha(paintAlpha);
                             }

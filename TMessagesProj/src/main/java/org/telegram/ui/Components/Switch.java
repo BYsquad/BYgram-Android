@@ -28,9 +28,14 @@ import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.util.StateSet;
 import android.view.View;
+import android.view.Gravity;
+import android.widget.FrameLayout;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.annotation.Keep;
+import androidx.appcompat.view.ContextThemeWrapper;
+
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Utilities;
@@ -39,11 +44,19 @@ import org.telegram.ui.Cells.BaseCell;
 
 import me.vkryl.android.animator.BoolAnimator;
 
-public class Switch extends View {
+public class Switch extends FrameLayout {
 
-    private static final float MD3_TRACK_HEIGHT_DP = 26f;
-    private static final float MD3_THUMB_MIN_RADIUS_DP = 7f;
-    private static final float MD3_THUMB_MAX_RADIUS_DP = 9f;
+    private MaterialSwitch materialSwitch;
+    private int materialTrack, materialTrackChecked, materialThumb, materialThumbChecked, materialOutline;
+    private boolean materialColorsSet;
+
+    public static int layoutWidth() {
+        return org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_SWITCHES) ? 52 : 37;
+    }
+
+    public static int layoutHeight() {
+        return org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_SWITCHES) ? 32 : 20;
+    }
     private final BoolAnimator animatorIconVisibility = new BoolAnimator(this, CubicBezierInterpolator.EASE_OUT_QUINT, 380L, true);
 
     private RectF rectF;
@@ -102,6 +115,8 @@ public class Switch extends View {
     public Switch(Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        setWillNotDraw(false);
+        setClipChildren(false);
         rectF = new RectF();
 
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -164,6 +179,7 @@ public class Switch extends View {
             return;
         }
         drawRipple = value;
+        if (materialSwitch != null) materialSwitch.setPressed(value);
 
         if (rippleDrawable == null) {
             ripplePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -285,7 +301,7 @@ public class Switch extends View {
     public void setChecked(boolean checked, int iconType, boolean animated) {
         if (checked != isChecked) {
             isChecked = checked;
-            if (attachedToWindow && animated) {
+            if (attachedToWindow && animated && !org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_SWITCHES)) {
                 animateToCheckedState(checked);
             } else {
                 cancelCheckAnimator();
@@ -296,6 +312,10 @@ public class Switch extends View {
             }
         }
         setDrawIconType(iconType, animated);
+        if (materialSwitch != null) {
+            materialSwitch.setChecked(checked);
+            if (!animated) materialSwitch.jumpDrawablesToCurrentState();
+        }
     }
 
     public void setIcon(int icon) {
@@ -376,23 +396,127 @@ public class Switch extends View {
         invalidate();
     }
 
+    private static ColorStateList switchColors(int unchecked, int checked) {
+        return new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, StateSet.WILD_CARD}, new int[]{checked, unchecked});
+    }
+
+    private final Drawable materialIcon = new Drawable() {
+        @Override public void draw(Canvas canvas) {
+            canvas.save();
+            canvas.translate(getBounds().exactCenterX(), getBounds().exactCenterY());
+            canvas.scale(getBounds().width() / AndroidUtilities.dpf2(16), getBounds().height() / AndroidUtilities.dpf2(16));
+            paint2.setColor(processColor(Theme.getColor(isChecked ? trackCheckedColorKey : trackColorKey, resourcesProvider)));
+            if (drawIconType == 1) {
+                if (isChecked) {
+                    canvas.drawLine(-AndroidUtilities.dp(5), 0, -AndroidUtilities.dp(1), AndroidUtilities.dp(4), paint2);
+                    canvas.drawLine(-AndroidUtilities.dp(1), AndroidUtilities.dp(4), AndroidUtilities.dp(6), -AndroidUtilities.dp(4), paint2);
+                } else {
+                    canvas.drawLine(-AndroidUtilities.dp(4), -AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), paint2);
+                    canvas.drawLine(-AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), -AndroidUtilities.dp(4), paint2);
+                }
+            } else {
+                paint2.setAlpha((int) (255 * (1f - iconProgress)));
+                canvas.drawLine(0, 0, 0, -AndroidUtilities.dp(5), paint2);
+                canvas.rotate(-90 * iconProgress);
+                canvas.drawLine(0, 0, AndroidUtilities.dp(4), 0, paint2);
+            }
+            canvas.restore();
+        }
+        @Override public void setAlpha(int alpha) {}
+        @Override public void setColorFilter(ColorFilter filter) {}
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+    };
+
+    private void updateMaterialSwitch() {
+        boolean enabled = org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_SWITCHES);
+        if (enabled && materialSwitch == null) {
+            materialSwitch = new MaterialSwitch(new ContextThemeWrapper(getContext(), com.google.android.material.R.style.Theme_Material3_DayNight));
+            materialSwitch.setMinHeight(0);
+            materialSwitch.setMinimumHeight(0);
+            materialSwitch.setPadding(0, 0, 0, 0);
+            materialSwitch.setBackground(null);
+            materialSwitch.setClickable(false);
+            materialSwitch.setFocusable(false);
+            materialSwitch.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            materialSwitch.setChecked(isChecked);
+            materialSwitch.jumpDrawablesToCurrentState();
+            addView(materialSwitch, LayoutHelper.createFrame(52, 32, Gravity.CENTER));
+        }
+        if (materialSwitch == null) return;
+        materialSwitch.setVisibility(enabled ? VISIBLE : GONE);
+        materialSwitch.setEnabled(isEnabled());
+        materialSwitch.setPressed(drawRipple);
+        Drawable icon = iconDrawable != null && animatorIconVisibility.getFloatValue() > 0 ? iconDrawable : drawIconType != 0 ? materialIcon : null;
+        if (materialSwitch.getThumbIconDrawable() != icon) materialSwitch.setThumbIconDrawable(icon);
+        updateMaterialColors(-1);
+    }
+
+    private void updateMaterialColors(int override) {
+        int track = processColor(Theme.getColor(trackColorKey, resourcesProvider));
+        int trackChecked = processColor(Theme.getColor(trackCheckedColorKey, resourcesProvider));
+        int thumb = Theme.getColor(thumbColorKey, resourcesProvider);
+        int thumbChecked = processColor(Theme.getColor(thumbCheckedColorKey, resourcesProvider));
+        int outline = processColor(Theme.getColor(Theme.key_switchTrackBlueThumb, resourcesProvider));
+        if (override >= 0) {
+            track = trackChecked = override == 1 ? trackChecked : track;
+            thumb = thumbChecked = override == 1 ? thumbChecked : thumb;
+        }
+        if (!materialColorsSet || materialTrack != track || materialTrackChecked != trackChecked || materialThumb != thumb || materialThumbChecked != thumbChecked || materialOutline != outline) {
+            materialColorsSet = true;
+            materialSwitch.setTrackTintList(switchColors(materialTrack = track, materialTrackChecked = trackChecked));
+            materialSwitch.setThumbTintList(switchColors(materialThumb = thumb, materialThumbChecked = thumbChecked));
+            materialSwitch.setTrackDecorationTintList(ColorStateList.valueOf(materialOutline = outline));
+            materialSwitch.setThumbIconTintList(switchColors(track, trackChecked));
+        }
+    }
+
+    @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        updateMaterialSwitch();
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
+    @Override protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (materialSwitch != null) {
+            float scale = Math.min(1f, Math.min(getMeasuredWidth() / AndroidUtilities.dpf2(52), getMeasuredHeight() / AndroidUtilities.dpf2(32)));
+            materialSwitch.setScaleX(scale);
+            materialSwitch.setScaleY(scale);
+        }
+    }
+
+    private final android.graphics.Path materialRevealPath = new android.graphics.Path();
+
+    @Override protected void dispatchDraw(Canvas canvas) {
+        if (materialSwitch != null && materialSwitch.getVisibility() == VISIBLE && overrideColorProgress != 0) {
+            int outside = overrideColorProgress == 1 ? 0 : 1;
+            updateMaterialColors(outside);
+            super.dispatchDraw(canvas);
+            canvas.save();
+            materialRevealPath.rewind();
+            materialRevealPath.addCircle(overlayCx - getX(), overlayCy - getY(), overlayRad, android.graphics.Path.Direction.CW);
+            canvas.clipPath(materialRevealPath);
+            updateMaterialColors(1 - outside);
+            drawChild(canvas, materialSwitch, getDrawingTime());
+            canvas.restore();
+        } else {
+            super.dispatchDraw(canvas);
+        }
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
+        updateMaterialSwitch();
+        if (materialSwitch != null && materialSwitch.getVisibility() == VISIBLE) return;
         if (getVisibility() != VISIBLE) {
             return;
         }
 
-        boolean md3 = org.telegram.messenger.BygramConfig.getBoolean("bygram_md3_switches");
         int width = AndroidUtilities.dp(31);
-        int thumb = AndroidUtilities.dp(20);
-        int x = md3 ? 0 : (getMeasuredWidth() - width) / 2;
-        float trackHeight = md3 ? Math.min(getMeasuredHeight(), AndroidUtilities.dpf2(MD3_TRACK_HEIGHT_DP)) : AndroidUtilities.dpf2(14);
+        int x = (getMeasuredWidth() - width) / 2;
+        float trackHeight = AndroidUtilities.dpf2(14);
         float y = (getMeasuredHeight() - trackHeight) / 2;
-        int tx = md3
-                ? (getMeasuredWidth() - width) / 2 + AndroidUtilities.dp(8) + (int) (AndroidUtilities.dp(16) * Utilities.clamp01(progress))
-                : x + AndroidUtilities.dp(7) + (int) (AndroidUtilities.dp(17) * progress);
+        int tx = x + AndroidUtilities.dp(7) + (int) (AndroidUtilities.dp(17) * progress);
         int ty = getMeasuredHeight() / 2;
-
 
         int color1;
         int color2;
@@ -454,14 +578,9 @@ public class Switch extends View {
             paint.setColor(color);
             paint2.setColor(color);
 
-            if (md3) {
-                rectF.set(0, y, getMeasuredWidth(), y + trackHeight);
-                canvasToDraw.drawRoundRect(rectF, trackHeight / 2, trackHeight / 2, paint);
-            } else {
-                rectF.set(x, y, x + width, y + trackHeight);
-                canvasToDraw.drawRoundRect(rectF, trackHeight / 2, trackHeight / 2, paint);
-                canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dpf2(10), paint);
-            }
+            rectF.set(x, y, x + width, y + trackHeight);
+            canvasToDraw.drawRoundRect(rectF, trackHeight / 2, trackHeight / 2, paint);
+            canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dpf2(10), paint);
 
             if (a == 0 && rippleDrawable != null) {
                 rippleDrawable.setBounds(tx - AndroidUtilities.dp(18), ty - AndroidUtilities.dp(18), tx + AndroidUtilities.dp(18), ty + AndroidUtilities.dp(18));
@@ -508,14 +627,7 @@ public class Switch extends View {
             alpha = (int) (a1 + (a2 - a1) * colorProgress);
             paint.setColor(((alpha & 0xff) << 24) | ((red & 0xff) << 16) | ((green & 0xff) << 8) | (blue & 0xff));
 
-            if (md3) {
-                float radius = AndroidUtilities.dpf2(MD3_THUMB_MIN_RADIUS_DP + (MD3_THUMB_MAX_RADIUS_DP - MD3_THUMB_MIN_RADIUS_DP) * Utilities.clamp01(progress));
-                float stretch = AndroidUtilities.dpf2(3) * (1f - Math.abs(Utilities.clamp01(progress) * 2f - 1f));
-                rectF.set(tx - radius - stretch, ty - radius, tx + radius + stretch, ty + radius);
-                canvasToDraw.drawRoundRect(rectF, radius, radius, paint);
-            } else {
-                canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dpf2(8), paint);
-            }
+            canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dpf2(8), paint);
 
             if (a == 0) {
                 if (iconDrawable != null) {

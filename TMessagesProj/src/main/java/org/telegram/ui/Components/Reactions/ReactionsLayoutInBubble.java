@@ -1109,7 +1109,7 @@ public class ReactionsLayoutInBubble {
                 canvas.save();
                 canvas.scale(bounceScale, bounceScale, x + w / 2f, y + height / 2f);
             }
-            float rad = height / 2f;
+            float rad = BygramConfig.avatarRadius(height);
             if (getDrawServiceShaderBackground() > 0 && !drawBgOnlyIfChosen) {
                 Paint paint1 = Theme.getThemePaint(Theme.key_paint_chatActionBackground, resourcesProvider);
                 Paint paint2 = Theme.getThemePaint(Theme.key_paint_chatActionBackgroundDarken, resourcesProvider);

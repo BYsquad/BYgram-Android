@@ -16,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.MessagesController;
@@ -44,6 +45,7 @@ public class AvatarsListDrawable extends Drawable {
     private final int avatarSize;
     private final int avatarOffset;
     private final float avatarStroke;
+    private final RectF outlineBounds = new RectF();
 
     public AvatarsListDrawable(int currentAccount, View parent, int avatarSize, int avatarOffset, float avatarStroke) {
         this.currentAccount = currentAccount;
@@ -226,7 +228,10 @@ public class AvatarsListDrawable extends Drawable {
             //if (paint != null) {
                 final float r = (w / 2 + avatarStroke);
              //   paint.setAlpha((int)(alpha * visibility));
-                canvas.drawCircle(cx, cy, r, Theme.PAINT_CLEAR);
+                outlineBounds.set(cx - r, cy - r, cx + r, cy + r);
+                float radius = BygramConfig.avatarRadius(w);
+                if (radius > 0) radius += avatarStroke;
+                canvas.drawRoundRect(outlineBounds, radius, radius, Theme.PAINT_CLEAR);
             //}
 
             entry.item.imageReceiver.setImageCoords(startX + x, startY, w, w);

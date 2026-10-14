@@ -568,14 +568,7 @@ public class SeekBarView extends FrameLayout {
 
     private void initMaterialSlider() {
         materialSlider = new Slider(new ContextThemeWrapper(getContext(), com.google.android.material.R.style.Theme_Material3_DayNight));
-        materialSlider.setTrackHeight(AndroidUtilities.dp(8));
-        materialSlider.setThumbHeight(AndroidUtilities.dp(24));
-        materialSlider.setThumbWidth(AndroidUtilities.dp(3));
-        materialSlider.setTrackStopIndicatorSize(0);
-        materialSlider.setHaloRadius(0);
         materialSlider.setLabelBehavior(2);
-        materialSlider.setTickVisibilityMode(2);
-        materialSlider.setContinuousModeTickCount(0);
         materialSlider.setValueFrom(0f);
         materialSlider.setValueTo(1f);
         materialSlider.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
