@@ -395,6 +395,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private ProfileActionsView actionsView;
     private MessagesController.SavedMusicList savedMusicList;
     private ProfileMusicView musicView;
+    private ProfileMusicView bygramMusicView;
+    private int bygramMusicRow = -1;
     private boolean bygramProfilePaused = true;
     private final Runnable bygramProfileActivityRunnable = new Runnable() {
         @Override public void run() {
@@ -3886,9 +3888,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 avatarsBlurView.setMusicView(musicView);
             }
             musicView.setColor(peerColor);
-            if (userInfo != null && userInfo.saved_music != null) {
-                musicView.setMusicDocument(userInfo.saved_music);
-            }
+            musicView.setMusicDocument(userInfo == null ? null : userInfo.saved_music);
             musicView.setOnClickListener(v -> {
                 if (savedMusicList == null) {
                     if (
@@ -3920,6 +3920,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     showDialog(new AudioPlayerAlert(getContext(), getResourceProvider()));
                 }
             });
+
+            if (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
+                bygramMusicView = new ProfileMusicView(context, resourcesProvider, currentAccount, true);
+                bygramMusicView.setMusicDocument(userInfo == null ? null : userInfo.saved_music);
+                bygramMusicView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                bygramMusicView.setOnClickListener(v -> musicView.performClick());
+            }
 
             actionsView = new ProfileActionsView(context, dp(74));
             setActionsMode();
@@ -7381,7 +7388,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private boolean processOnClickOrPress(final int position, final View view, final float x, final float y) {
         if (position == bygramIdRow && bygramIdRow >= 0) {
             AndroidUtilities.addToClipboard(bygramProfileId());
-            BulletinFactory.of(this).createCopyBulletin(getString(R.string.BygramProfileIdCopied), resourcesProvider).show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.copy, getString(R.string.BygramProfileIdCopied)).show();
             return true;
         }
         if (position == usernameRow || position == setUsernameRow) {
@@ -10676,6 +10683,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         infoEndRowEmpty = -1;
         phoneRow = -1;
         bygramIdRow = -1;
+        bygramMusicRow = -1;
         noteRow = -1;
         userInfoRow = -1;
         locationRow = -1;
@@ -10761,7 +10769,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         if (userId != 0) {
             TLRPC.User user = getMessagesController().getUser(userId);
-            if (userInfo != null && userInfo.saved_music != null && (imageUpdater == null || myProfile)) {
+            if (!BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) && userInfo != null && userInfo.saved_music != null && (imageUpdater == null || myProfile)) {
                 hasMusic = true;
             }
 
@@ -10857,6 +10865,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     unofficialSecurityRiskDividerRow = rowCount++;
                 }
 
+                if (bygramMusicView != null && userInfo != null && userInfo.saved_music != null) {
+                    bygramMusicRow = rowCount++;
+                }
                 if (userInfo != null && (userInfo.flags2 & 64) != 0 && (profileChannelMessageFetcher == null || !profileChannelMessageFetcher.loaded || !profileChannelMessageFetcher.messageObjects.isEmpty())) {
                     final TLRPC.Chat channel = getMessagesController().getChat(userInfo.personal_channel_id);
                     if (channel != null && (ChatObject.isPublic(channel) || !ChatObject.isNotInChat(channel))) {
@@ -11218,6 +11229,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 musicView.setMusicDocument(userInfo.saved_music);
                 int headerHeightDelta = getHeaderExtraHeight() - previousHeaderHeight;
                 adjustHeaderForMusicChange(headerHeightDelta);
+                if (bygramMusicView != null) bygramMusicView.setMusicDocument(userInfo.saved_music);
             }
         }
     }
@@ -13526,6 +13538,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     view = new ProfilePremiumCell(mContext, viewType == VIEW_TYPE_PREMIUM_TEXT_CELL ? 0 : 1, resourcesProvider);
                     view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                     break;
+                case VIEW_TYPE_MUSIC:
+                    if (bygramMusicView.getParent() != null) {
+                        ((ViewGroup) bygramMusicView.getParent()).removeView(bygramMusicView);
+                    }
+                    view = bygramMusicView;
+                    break;
                 case VIEW_TYPE_CHANNEL:
                     view = new ProfileChannelCell(ProfileActivity.this) {
                         @Override
@@ -14495,6 +14513,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public int getItemViewType(int position) {
+            if (position == bygramMusicRow && bygramMusicRow >= 0) return VIEW_TYPE_MUSIC;
             if (position == infoHeaderRow || position == membersHeaderRow || position == settingsSectionRow2 ||
                     position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader) {
                 return VIEW_TYPE_HEADER;
@@ -15898,6 +15917,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             put(++pointer, infoEndRowEmpty, sparseIntArray);
             put(++pointer, phoneRow, sparseIntArray);
             put(++pointer, bygramIdRow, sparseIntArray);
+            put(++pointer, bygramMusicRow, sparseIntArray);
             put(++pointer, noteRow, sparseIntArray);
             put(++pointer, locationRow, sparseIntArray);
             put(++pointer, userInfoRow, sparseIntArray);

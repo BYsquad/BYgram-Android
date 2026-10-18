@@ -100,3 +100,16 @@ ID меню чата и ID экрана настроек относятся к �
 [отчёте обновления до 13.0.2](bygram-settings/telegram-13.0.2-upgrade.md).
 Успешная компиляция и статические контракты не заменяют проверки Ghost,
 Spy, защищённых чатов, камеры и серверных функций на устройстве.
+
+## Исходники Telegram для iOS
+
+Официальная база Telegram-iOS размещена отдельно от Android BYgram в `C:\project\BYgram-ios` и загружается вместе с зафиксированными upstream подмодулями командой `git clone --recurse-submodules https://github.com/TelegramMessenger/Telegram-iOS.git C:\project\BYgram-ios`. Этот checkout является исходниками Telegram без патчей BYgram; сборка в рамках загрузки не выполняется.
+
+## Android: реклама и профиль, 17.10.2026
+
+- `MessagesController.isSponsoredDisabled()` всегда возвращает `true`: реклама отключена для всех аккаунтов, независимо от Premium и серверного `sponsored_enabled`. Общий загрузчик отсекает также кеш рекламы каналов/ботов; поиск не запрашивает sponsored peers; `VideoAds` не загружает и не планирует рекламу из кеша. Пользовательские сообщения и контент сайтов не фильтруются.
+- Логотип Android заменён на `logo-new.png`; выбор Telegram использует отдельный синий ресурс, обходящий красный адаптивный фон BYgram.
+- Кастомная музыка — строка списка над каналом; высота заголовка учитывает только оставшуюся активность или стандартную плашку. Подтверждение копирования ID использует `createSimpleBulletin`, поскольку `createCopyBulletin` возвращает пустое уведомление на новых Android.
+- Статические проверки: `Tools/check_bygram_no_ads.py`, `Tools/check_bygram_profile_activity.py`, `Tools/check_bygram_md3_geometry.py`. Требуется smoke-проверка профиля на устройстве: с каналом и без, поздняя загрузка/удаление музыки, сворачивание аватара, светлая/тёмная тема, копирование ID и выбор обеих иконок.
+
+Проверка 17.10.2026: `-PBYGRAM_EDITION=full :TMessagesProj_App:compileAfatDebugJavaWithJavac` — успешно; четыре статические проверки (реклама, профиль, MD3/иконки, 44 контракта настроек) — успешно. Лог: `output/build-android-profile-final-2026-10-17.log`. APK не пересобирался; подключённых Android-устройств нет.

@@ -25144,7 +25144,7 @@ public class ChatActivity extends BaseFragment implements
     private Pattern sponsoredUrlPattern;
     private MessageObject botSponsoredMessage;
     private void addSponsoredMessages(boolean animated) {
-        if (sponsoredMessagesAdded || chatMode != 0 || !ChatObject.isChannel(currentChat) && !UserObject.isBot(currentUser) || !forwardEndReached[0] || getUserConfig().isPremium() && getMessagesController().isSponsoredDisabled() || isReport()) {
+        if (sponsoredMessagesAdded || chatMode != 0 || !ChatObject.isChannel(currentChat) && !UserObject.isBot(currentUser) || !forwardEndReached[0] || getMessagesController().isSponsoredDisabled() || isReport()) {
             return;
         }
         MessagesController.SponsoredMessagesInfo res = getMessagesController().getSponsoredMessages(dialog_id);
@@ -33580,10 +33580,95 @@ public class ChatActivity extends BaseFragment implements
                 break;
             }
             case OPTION_BYGRAM_EDIT_HISTORY: {
-                String history = BygramConfig.getEditHistoryText(currentAccount, selectedObject.getDialogId(), selectedObject.getId());
+                ArrayList<MessageObject> history = BygramConfig.getEditHistory(currentAccount, selectedObject.messageOwner);
                 AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), themeDelegate);
                 builder.setTitle(LocaleController.getString(R.string.BygramEditHistory));
-                builder.setMessage(TextUtils.isEmpty(history) ? LocaleController.getString(R.string.BygramNoEditHistory) : history);
+                if (history.isEmpty()) {
+                    builder.setMessage(LocaleController.getString(R.string.BygramNoEditHistory));
+                } else {
+                    android.widget.ScrollView scroll = new android.widget.ScrollView(getContext());
+                    LinearLayout versions = new LinearLayout(getContext());
+                    versions.setOrientation(LinearLayout.VERTICAL);
+                    versions.setBackgroundColor(getThemedColor(Theme.key_chat_wallpaper));
+                    scroll.addView(versions);
+                    ChatMessageCellDelegate historyDelegate = new ChatMessageCellDelegate() {
+                        @Override
+                        public boolean canPerformActions() {
+                            return true;
+                        }
+
+                        @Override
+                        public void didPressInstantButton(ChatMessageCell cell, int type) {
+                            TLRPC.MessageMedia media = cell.getMessageObject().messageOwner.media;
+                            if (type == 0 && media != null && media.webpage != null && media.webpage.cached_page != null) {
+                                createArticleViewer(false).openSnapshot(cell.getMessageObject());
+                            }
+                        }
+
+                        @Override
+                        public void didPressWebPage(ChatMessageCell cell, TLRPC.WebPage webpage, String url, boolean safe) {
+                            if (webpage != null && webpage.cached_page != null) {
+                                createArticleViewer(false).openSnapshot(cell.getMessageObject());
+                            } else {
+                                getChatMessageCellDelegate().didPressWebPage(cell, webpage, url, safe);
+                            }
+                        }
+
+                        @Override
+                        public void didPressUrl(ChatMessageCell cell, CharacterStyle url, boolean longPress) {
+                            getChatMessageCellDelegate().didPressUrl(cell, url, longPress);
+                        }
+
+                        @Override
+                        public void didPressImage(ChatMessageCell cell, float x, float y, boolean fullPreview) {
+                            MessageObject version = cell.getMessageObject();
+                            if (fullPreview && version.messageOwner.media != null && version.messageOwner.media.webpage != null) {
+                                TLRPC.WebPage page = version.messageOwner.media.webpage;
+                                didPressWebPage(cell, page, page.url, version.messageOwner.media.safe);
+                            } else if (version.type == MessageObject.TYPE_FILE) {
+                                AndroidUtilities.openDocument(version, getParentActivity(), ChatActivity.this);
+                            } else {
+                                ArrayList<MessageObject> photos = new ArrayList<>();
+                                photos.add(version);
+                                PhotoViewer.getInstance().setParentActivity(ChatActivity.this, themeDelegate);
+                                PhotoViewer.getInstance().openPhoto(photos, 0, 0, 0, 0, new PhotoViewer.EmptyPhotoViewerProvider());
+                            }
+                        }
+
+                        @Override
+                        public boolean needPlayMessage(ChatMessageCell cell, MessageObject message, boolean muted) {
+                            return MediaController.getInstance().playMessage(message, muted);
+                        }
+                    };
+                    java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault());
+                    for (MessageObject version : history) {
+                        TextView date = new TextView(getContext());
+                        date.setText(formatter.format(new java.util.Date(version.messageOwner.date * 1000L)));
+                        date.setTextColor(getThemedColor(Theme.key_dialogTextGray));
+                        date.setGravity(Gravity.CENTER);
+                        versions.addView(date, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
+                        ChatMessageCell cell = new ChatMessageCell(getContext(), currentAccount, false, sharedResources, themeDelegate) {
+                            @Override
+                            public int getParentWidth() {
+                                return parentWidth > 0 ? parentWidth : super.getParentWidth();
+                            }
+
+                            @Override
+                            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                                int width = View.MeasureSpec.getSize(widthMeasureSpec);
+                                if (parentWidth != width) {
+                                    setParentViewSize(width, AndroidUtilities.displaySize.y);
+                                    forceResetMessageObject();
+                                }
+                                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                            }
+                        };
+                        cell.setDelegate(historyDelegate);
+                        cell.setMessageObject(version, null, false, false, false, false);
+                        versions.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                    }
+                    builder.setView(scroll);
+                }
                 builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
                 showDialog(builder.create());
                 break;
@@ -45358,7 +45443,7 @@ public class ChatActivity extends BaseFragment implements
                 options.addGap();
             }
             if (user == null) {
-                options.add(R.drawable.bygram_logo, getString(R.string.InviteToTelegramShort), () -> {
+                options.add(R.drawable.bygram_logo_new, getString(R.string.InviteToTelegramShort), () -> {
                     if (getParentActivity() == null) return;
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.fromParts("sms", phone, null));

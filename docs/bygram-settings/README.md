@@ -21,6 +21,8 @@
 
 ## Документы
 
+- [Новый аудит iOS: дизайн настроек и текущие различия с Android, 16.10.2026](../../../BYgram-ios/docs/bygram-ios-design-and-feature-audit-2026-10-16.md)
+- [Независимая повторная проверка переноса настроек Android → iOS, 16.10.2026](ios-settings-audit-2026-10-16.md)
 - [Конфигурация, ключи, экспорт и сброс](configuration.md)
 - [Кастомизация интерфейса и профиля](customization.md)
 - [Ghost Mode и Spy Mode](privacy-modes.md)

@@ -42,9 +42,9 @@ public class LauncherIconController {
     }
 
     public enum LauncherIcon {
-        DEFAULT("DefaultIcon", R.drawable.bygram_logo, 0, R.string.AppName),
-        VINTAGE("VintageIcon", R.drawable.bygram_logo, 0, R.string.BygramIconCurrent),
-        AQUA("AquaIcon", R.mipmap.ic_launcher, 0, R.string.BygramIconTelegram),
+        DEFAULT("DefaultIcon", R.drawable.bygram_logo_new, 0, R.string.AppName),
+        VINTAGE("VintageIcon", R.drawable.bygram_logo_new, 0, R.string.BygramIconCurrent),
+        AQUA("AquaIcon", R.drawable.telegram_logo, 0, R.string.BygramIconTelegram),
         PREMIUM("PremiumIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconPremium, true),
         TURBO("TurboIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconTurbo, true),
         NOX("NoxIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox, true);

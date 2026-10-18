@@ -370,7 +370,7 @@ public class QrActivity extends BaseFragment {
         rootLayout.addView(qrView);
 
         logoImageView = new RLottieImageView(context);
-        logoImageView.setImageResource(R.drawable.bygram_logo);
+        logoImageView.setImageResource(R.drawable.bygram_logo_new);
         logoImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
         rootLayout.addView(logoImageView);
 

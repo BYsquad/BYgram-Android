@@ -2119,7 +2119,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 TLRPC.Message message = pinnedDialogs.messages.get(a);
                 if (message.peer_id.channel_id != 0) {
                     TLRPC.Chat chat = chatsDict.get(message.peer_id.channel_id);
-                    if (chat != null && chat.left && (promoDialogId == 0 || promoDialogId != -chat.id)) {
+                    if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2 && (promoDialogId == 0 || promoDialogId != -chat.id)) {
                         continue;
                     }
                 } else if (message.peer_id.chat_id != 0) {
@@ -2173,7 +2173,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 if (DialogObject.isChannel(d)) {
                     TLRPC.Chat chat = chatsDict.get(-d.id);
                     if (chat != null) {
-                        if (chat.left && (promoDialogId == 0 || promoDialogId != d.id)) {
+                        if (chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2 && (promoDialogId == 0 || promoDialogId != d.id)) {
                             continue;
                         }
                     }
@@ -9344,14 +9344,16 @@ public class MessagesController extends BaseController implements NotificationCe
                             }
                         }
                     }
-                    if (alreadySaved.contains(messageId) || messageObject != null && messageObject.isBygramDeleted()) {
+                    TLRPC.Message storedMessage = messageObject == null ? getMessagesStorage().getMessage(dialogId, messageId) : messageObject.messageOwner;
+                    if (alreadySaved.contains(messageId) || messageObject != null && messageObject.isBygramDeleted()
+                            || !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED) && (storedMessage == null || storedMessage.out)) {
                         locallyDeletedMessages.add(messageId);
                     } else {
                         bygramDeletedMessages.add(messageId);
                         getMessagesStorage().markMessageAsBygramDeleted(dialogId, messageId);
                     }
                 }
-                if (toSend != null) toSend.removeAll(locallyDeletedMessages);
+                if (toSend != null) toSend.removeAll(alreadySaved);
             }
             if (scheduled) {
                 getMessagesStorage().markMessagesAsDeleted(dialogId, messages, true, false, ChatActivity.MODE_SCHEDULED, 0);
@@ -10027,10 +10029,17 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public void deleteDialog(final long did, int onlyHistory, boolean revoke) {
-        if (revoke && onlyHistory != 2 && BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
+        if (onlyHistory != 2 && onlyHistory != 3 && BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)
+                && getMessagesStorage().getBygramDialogRetentionStateSync(did) == 1) {
             getMessagesStorage().getDialogMaxMessageId(did, maxId -> {
-                getMessagesStorage().markDialogMessagesAsBygramDeleted(did);
-                deleteDialog(did, 0, onlyHistory, Math.max(0, maxId), true, null, 0);
+                getMessagesStorage().markDialogMessagesAsBygramDeleted(did, true);
+                TLRPC.Dialog dialog = dialogs_dict.get(did);
+                if (dialog != null && !allDialogs.contains(dialog)) {
+                    allDialogs.add(dialog);
+                    sortDialogs(null);
+                }
+                getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
+                deleteDialog(did, 0, onlyHistory, Math.max(0, maxId), revoke, null, 0);
             });
             return;
         }
@@ -12967,7 +12976,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 if (message.peer_id.channel_id != 0) {
                     TLRPC.Chat chat = chatsDict.get(message.peer_id.channel_id);
-                    if (chat != null && chat.left) {
+                    if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2) {
                         continue;
                     }
                 } else if (message.peer_id.chat_id != 0) {
@@ -13009,7 +13018,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 if (DialogObject.isChannel(d)) {
                     TLRPC.Chat chat = chatsDict.get(-d.id);
-                    if (chat != null && chat.left) {
+                    if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2) {
                         continue;
                     }
                     channelsPts.put(-d.id, d.pts);
@@ -13439,7 +13448,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 if (message.peer_id.channel_id != 0) {
                     TLRPC.Chat chat = chatsDict.get(message.peer_id.channel_id);
-                    if (chat != null && chat.left && (promoDialogId == 0 || promoDialogId != -chat.id)) {
+                    if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2 && (promoDialogId == 0 || promoDialogId != -chat.id)) {
                         continue;
                     }
                 } else if (message.peer_id.chat_id != 0) {
@@ -17471,7 +17480,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     TLRPC.Message message = res.messages.get(a);
                     if (message.peer_id.channel_id != 0) {
                         TLRPC.Chat chat = chatsDict.get(message.peer_id.channel_id);
-                        if (chat != null && chat.left) {
+                        if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2) {
                             continue;
                         }
                     } else if (message.peer_id.chat_id != 0) {
@@ -17498,7 +17507,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     DialogObject.initDialog(d);
                     if (DialogObject.isChannel(d)) {
                         TLRPC.Chat chat = chatsDict.get(-d.id);
-                        if (chat != null && chat.left) {
+                        if (chat != null && chat.left && getMessagesStorage().getBygramDialogRetentionStateSync(-chat.id) != 2) {
                             continue;
                         }
                     } else if (DialogObject.isChatDialog(d.id)) {
@@ -19640,9 +19649,10 @@ public class MessagesController extends BaseController implements NotificationCe
                 if (BygramConfig.getBoolean(BygramConfig.SPY_SAVE_EDITS)) {
                     TLRPC.Message previousMessage = getMessagesStorage().getMessage(message.dialog_id, message.id);
                     if (previousMessage != null && (!TextUtils.equals(previousMessage.message, message.message)
-                            || !BygramConfig.sameEntities(previousMessage.entities, message.entities))) {
+                            || !BygramConfig.sameEntities(previousMessage.entities, message.entities)
+                            || !BygramConfig.sameMedia(previousMessage.media, message.media))) {
                         int editDate = message.edit_date != 0 ? message.edit_date : getConnectionsManager().getCurrentTime();
-                        BygramConfig.saveEditHistory(currentAccount, message.dialog_id, message.id, editDate, previousMessage.message, previousMessage.entities);
+                        BygramConfig.saveEditHistory(currentAccount, message.dialog_id, message.id, editDate, previousMessage);
                     }
                 }
 
@@ -20430,7 +20440,7 @@ public class MessagesController extends BaseController implements NotificationCe
                             if (dialog == null && chat instanceof TLRPC.TL_channel && !chat.left) {
                                 Utilities.stageQueue.postRunnable(() -> getChannelDifference(update.channel_id, 1, 0, null));
                             } else if (ChatObject.isNotInChat(chat) && dialog != null && (promoDialog == null || promoDialog.id != dialog.id)) {
-                                deleteDialog(dialog.id, 0);
+                                if (getMessagesStorage().getBygramDialogRetentionStateSync(dialog.id) != 2) deleteDialog(dialog.id, 0);
                             }
                             if (chat instanceof TLRPC.TL_channelForbidden || chat.kicked) {
                                 ChatObject.Call call = getGroupCall(chat.id, false);
@@ -20469,7 +20479,7 @@ public class MessagesController extends BaseController implements NotificationCe
                             }
                             TLRPC.Dialog dialog = dialogs_dict.get(-chat.id);
                             if (dialog != null) {
-                                deleteDialog(dialog.id, 0);
+                                    if (getMessagesStorage().getBygramDialogRetentionStateSync(dialog.id) != 2) deleteDialog(dialog.id, 0);
                             }
                         }
                         updateMask |= UPDATE_MASK_CHAT;
@@ -21818,6 +21828,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
+        if (isSponsoredDisabled()) return null;
         SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
         if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
             return info;
@@ -22317,9 +22328,12 @@ public class MessagesController extends BaseController implements NotificationCe
         if (clean) {
             clearingHistoryDialogs.put(did, dialog);
         } else {
-            deletingDialogs.put(did, dialog);
-            allDialogs.remove(dialog);
-            sortDialogs(null);
+            if (!BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)
+                    || getMessagesStorage().getBygramDialogRetentionStateSync(did) != 1) {
+                deletingDialogs.put(did, dialog);
+                allDialogs.remove(dialog);
+                sortDialogs(null);
+            }
         }
         getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload, true);
     }
@@ -22333,7 +22347,7 @@ public class MessagesController extends BaseController implements NotificationCe
             clearingHistoryDialogs.remove(did);
         } else {
             deletingDialogs.remove(did);
-            if (!apply) {
+            if (!apply && !allDialogs.contains(dialog)) {
                 allDialogs.add(dialog);
                 sortDialogs(null);
             }
@@ -24541,9 +24555,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isSponsoredDisabled() {
-        TLRPC.UserFull userFull = getUserFull(getUserConfig().getClientUserId());
-        if (userFull == null) return false;
-        return !userFull.sponsored_enabled;
+        return true;
     }
 
     private boolean loadingAvailableEffects;

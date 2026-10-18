@@ -1261,7 +1261,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
         if (isDialogCell) {
             boolean needUpdate = updateHelper.update();
-            boolean badgeChanged = (bygramNameBadge != null) != ((user != null && BygramBadgeController.hasBadge(user))
+            boolean badgeChanged = (bygramNameBadge != null) != ((user != null && !UserObject.isUserSelf(user) && BygramBadgeController.hasBadge(user))
                     || (chat != null && BygramBadgeController.hasBadge(chat)));
             if (!needUpdate && !badgeChanged && !forceBygramActivityLayout && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
                 return;
@@ -2430,7 +2430,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             if (nameString instanceof String) {
                 nameString = ((String) nameString).replace('\n', ' ');
             }
-            boolean bygramBadged = (user != null && BygramBadgeController.hasBadge(user))
+            boolean bygramBadged = (user != null && !UserObject.isUserSelf(user) && BygramBadgeController.hasBadge(user))
                     || (chat != null && BygramBadgeController.hasBadge(chat));
             CharSequence nameStringFinal = nameString;
             bygramNameBadge = null;

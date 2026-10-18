@@ -46,6 +46,7 @@ search = read("TMessagesProj/src/main/java/org/telegram/ui/Adapters/DialogsSearc
 navigation = read("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/ActionBarLayout.java")
 lite_settings = read("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")
 stories = read("TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java")
+story_cells = read("TMessagesProj/src/main/java/org/telegram/ui/Stories/DialogStoriesCell.java")
 
 
 def resource_names(folder: str, file: str) -> set[str]:
@@ -99,7 +100,10 @@ checks = {
     "active settings use an allowlist": 'key.startsWith("bygram_ghost_")' not in config and 'key.startsWith("bygram_spy_")' not in config,
     "removed settings no longer select dead implementations": "getMicrosoftTranslatorKey" not in config + translate and "bygram_translation_provider" not in translate,
     "native glass option replaces BYgram placements": "BygramLiquidGlass" not in settings and "LIQUID_GLASS_PLACEMENTS" not in config and "LiteOptionsLiquidGlass" in lite_settings,
-    "spy can physically remove previously saved messages": "getBygramDeletedMessageIdsSync" in storage and "locallyDeletedMessages.add(messageId)" in messages and "toSend.removeAll(locallyDeletedMessages)" in messages,
+    "spy can physically remove previously saved messages": "getBygramDeletedMessageIdsSync" in storage and "locallyDeletedMessages.add(messageId)" in messages and "toSend.removeAll(alreadySaved)" in messages,
+    "spy own deletion preference is persisted and exposed": all(value in config for value in ['SPY_SAVE_OWN_DELETED = "bygram_spy_save_own_deleted"', 'case SPY_SAVE_OWN_DELETED:']) and "case 3: return BygramConfig.SPY_SAVE_OWN_DELETED" in settings and "storedMessage.out" in messages,
+    "spy keeps the first removed chat and purges saved-only history": "hasSaved && !hasLive ? 2 : canKeep ? 1 : 0" in storage and "getBygramDialogRetentionStateSync(did) == 1" in messages and "markDialogMessagesAsBygramDeleted(did, true)" in messages,
+    "story title follows actual avatar bounds in both lists": story_cells.count("getAvatarRight(cell.getMeasuredWidth(), cell.progressToCollapsed)") == 2 and "lastViewRight += dp(12)" in story_cells and "int cellWidth = dp(72)" not in story_cells,
     "private chats cover list, search, notification, navigation and accessibility": all((
         "BygramChatPrivacy" in dialogs, "BygramChatPrivacy" in search,
         "BygramChatPrivacy" in notifications, "requireBygramPassword" in navigation,

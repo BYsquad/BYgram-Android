@@ -2,7 +2,7 @@
 
 ## Android-клиент
 
-14.10.2026: в выборе иконки оставлены BYgram (по умолчанию, `bygram-logo.png`) и Telegram; MD3-переключатели используют официальный `MaterialSwitch` с цветами темы Telegram. Статусы печати перенесены в «Кастомизацию», оформлены общие поля PIN/пароля/статуса, исправлены геометрия MD3-переключателей, стандартный стиль слайдера и согласование формы аватаров с реакциями и заголовком чата. Подробности — в [документе кастомизации](bygram-settings/customization.md).
+14.10.2026: в выборе иконки оставлены BYgram (по умолчанию, `logo-new.png`) и Telegram; MD3-переключатели используют официальный `MaterialSwitch` с цветами темы Telegram. Статусы печати перенесены в «Кастомизацию», оформлены общие поля PIN/пароля/статуса, исправлены геометрия MD3-переключателей, стандартный стиль слайдера и согласование формы аватаров с реакциями и заголовком чата. Подробности — в [документе кастомизации](bygram-settings/customization.md).
 
 Основа Android-исходников обновлена до официального Telegram commit `f32ffeec763f0bdbf4bec25b52d654f77bff733d` (13.0.2, базовый versionCode 7175). Полностью перенесён диапазон `dc780e81..f32ffee`, включая промежуточные коммиты и ревизии submodules. Сохранён package `com.bygram.mobile`. Совместимость BYgram и ограничения проверки описаны в [отчёте обновления](bygram-settings/telegram-13.0.2-upgrade.md).
 
@@ -15,6 +15,7 @@
 - [Инструкция по сборке](build.md)
 - [Редакции Lite и Full и привязка устройств](full-edition-device-licensing.md)
 - [Функции раздела «Настройки BYgram»](bygram-settings/README.md)
+- [Повторная проверка переноса настроек Android → iOS, 16.10.2026](bygram-settings/ios-settings-audit-2026-10-16.md)
 - [Статус переноса функций в Windows-клиент](bygram-settings/desktop-port-status.md)
 - [Проверка Windows Debug и исправления от 30.09.2026](bygram-settings/desktop-debug-audit-2026-09-30.md)
 - [Кастомные статусы печати и значки](bygram-settings/customization.md)

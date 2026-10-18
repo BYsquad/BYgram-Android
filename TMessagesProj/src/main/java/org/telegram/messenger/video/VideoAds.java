@@ -177,6 +177,7 @@ public static VideoAds make(
 
     private void init(BulletinFactory bulletinFactory) {
         this.bulletinFactory = bulletinFactory;
+        if (MessagesController.getInstance(currentAccount).isSponsoredDisabled()) return;
         this.lastTime = System.currentTimeMillis();
         this.first = true;
         if (cache.loaded) {
@@ -195,7 +196,7 @@ public static VideoAds make(
     private void load() {
         if (loading || loaded) return;
 
-        if (UserConfig.getInstance(currentAccount).isPremium() && MessagesController.getInstance(currentAccount).isSponsoredDisabled()) {
+        if (MessagesController.getInstance(currentAccount).isSponsoredDisabled()) {
             return;
         }
 

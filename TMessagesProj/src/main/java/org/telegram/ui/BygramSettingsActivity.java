@@ -79,7 +79,7 @@ public class BygramSettingsActivity extends BaseFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo));
+        items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo_new));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
         items.add(UItem.asButton(1, R.drawable.settings_privacy, getString(R.string.BygramGhostMode)));
@@ -1076,6 +1076,7 @@ public class BygramSettingsActivity extends BaseFragment {
         void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             items.add(UItem.asHeader(getString(R.string.BygramSpyMode)));
             items.add(UItem.asCheck(1, getString(R.string.BygramSaveDeleted)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)));
+            items.add(UItem.asCheck(3, getString(R.string.BygramSaveOwnDeleted)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)));
             items.add(UItem.asCheck(2, getString(R.string.BygramSaveEdits)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_EDITS)));
             items.add(UItem.asShadow(null));
             items.add(UItem.asCheck(4, getString(R.string.BygramSaveReadDate)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_READ_DATE)));
@@ -1089,6 +1090,7 @@ public class BygramSettingsActivity extends BaseFragment {
         String keyFor(int id) {
             switch (id) {
                 case 1: return BygramConfig.SPY_SAVE_DELETED;
+                case 3: return BygramConfig.SPY_SAVE_OWN_DELETED;
                 case 2: return BygramConfig.SPY_SAVE_EDITS;
                 case 4: return BygramConfig.SPY_SAVE_READ_DATE;
                 case 5: return BygramConfig.SPY_SAVE_LAST_ONLINE;

@@ -12,12 +12,9 @@ import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.SerializedData;
 import org.telegram.tgnet.TLRPC;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,6 +28,7 @@ public final class BygramConfig {
     public static final String GHOST_READ_ON_ACTIONS = "bygram_ghost_read_on_actions";
 
     public static final String SPY_SAVE_DELETED = "bygram_spy_save_deleted";
+    public static final String SPY_SAVE_OWN_DELETED = "bygram_spy_save_own_deleted";
     public static final String SPY_SAVE_EDITS = "bygram_spy_save_edits";
     public static final String SPY_SAVE_READ_DATE = "bygram_spy_save_read_date";
     public static final String SPY_SAVE_LAST_ONLINE = "bygram_spy_save_last_online";
@@ -146,6 +144,7 @@ public final class BygramConfig {
             case GHOST_NO_TYPING:
             case GHOST_READ_ON_ACTIONS:
             case SPY_SAVE_DELETED:
+            case SPY_SAVE_OWN_DELETED:
             case SPY_SAVE_EDITS:
             case SPY_SAVE_READ_DATE:
             case SPY_SAVE_LAST_ONLINE:
@@ -330,24 +329,29 @@ public final class BygramConfig {
         return "bygram_edit_" + account + '_' + dialogId + '_' + messageId;
     }
 
-    public static void saveEditHistory(int account, long dialogId, int messageId, int date, String text, ArrayList<TLRPC.MessageEntity> entities) {
-        if (!getBoolean(SPY_SAVE_EDITS) || text == null) {
+    public static void saveEditHistory(int account, long dialogId, int messageId, int date, TLRPC.Message message) {
+        if (!getBoolean(SPY_SAVE_EDITS) || message == null) {
             return;
         }
         String key = historyKey(account, dialogId, messageId);
         try {
             JSONArray history = new JSONArray(preferences().getString(key, "[]"));
-            String serializedEntities = serializeEntities(entities);
+            String text = message.message == null ? "" : message.message;
+            String serializedEntities = serializeEntities(message.entities);
+            String serializedMedia = serializeMedia(message.media);
             if (history.length() > 0 && text.equals(history.getJSONObject(history.length() - 1).optString("text"))
-                    && serializedEntities.equals(history.getJSONObject(history.length() - 1).optString("entities"))) {
+                    && serializedEntities.equals(history.getJSONObject(history.length() - 1).optString("entities"))
+                    && serializedMedia.equals(history.getJSONObject(history.length() - 1).optString("media"))) {
                 return;
             }
             JSONObject entry = new JSONObject();
             entry.put("date", date);
             entry.put("text", text);
             if (!serializedEntities.isEmpty()) entry.put("entities", serializedEntities);
+            if (!serializedMedia.isEmpty()) entry.put("media", serializedMedia);
+            entry.put("attachPath", message.attachPath);
             history.put(entry);
-            // ponytail: SharedPreferences history is capped; move to SQLite if users need more than 20 edits per message.
+            // shortcut: SharedPreferences stores at most 20 snapshots; move to SQLite for larger histories.
             while (history.length() > 20) {
                 history.remove(0);
             }
@@ -361,23 +365,57 @@ public final class BygramConfig {
         return preferences().contains(historyKey(account, dialogId, messageId));
     }
 
-    public static String getEditHistoryText(int account, long dialogId, int messageId) {
+    public static ArrayList<MessageObject> getEditHistory(int account, TLRPC.Message source) {
+        ArrayList<MessageObject> result = new ArrayList<>();
         try {
-            JSONArray history = new JSONArray(preferences().getString(historyKey(account, dialogId, messageId), "[]"));
-            StringBuilder result = new StringBuilder();
-            SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+            JSONArray history = new JSONArray(preferences().getString(historyKey(account, MessageObject.getDialogId(source), source.id), "[]"));
             for (int i = history.length() - 1; i >= 0; i--) {
-                JSONObject entry = history.getJSONObject(i);
-                if (result.length() > 0) result.append("\n\n");
-                result.append(formatter.format(new Date(entry.optLong("date") * 1000L)))
-                        .append("\n")
-                        .append(entry.optString("text"));
+                try {
+                    JSONObject entry = history.getJSONObject(i);
+                    TLRPC.TL_message message = new TLRPC.TL_message();
+                    // Local preview IDs keep playback of different revisions separate from the live message.
+                    message.id = Integer.MIN_VALUE + i;
+                    message.dialog_id = source.dialog_id;
+                    message.peer_id = source.peer_id;
+                    message.from_id = source.from_id;
+                    message.out = source.out;
+                    message.noforwards = source.noforwards;
+                    message.date = entry.optInt("date");
+                    message.message = entry.optString("text");
+                    message.attachPath = entry.optString("attachPath");
+                    String entities = entry.optString("entities");
+                    if (!entities.isEmpty()) {
+                        SerializedData data = new SerializedData(Base64.decode(entities, Base64.NO_WRAP));
+                        try {
+                            int count = data.readInt32(true);
+                            if (count < 0 || count > data.remaining() / 4) throw new IllegalArgumentException("Invalid history entities");
+                            for (int j = 0; j < count; j++) {
+                                message.entities.add(TLRPC.MessageEntity.TLdeserialize(data, data.readInt32(true), true));
+                            }
+                        } finally {
+                            data.cleanup();
+                        }
+                    }
+                    String media = entry.optString("media");
+                    if (!media.isEmpty()) {
+                        SerializedData data = new SerializedData(Base64.decode(media, Base64.NO_WRAP));
+                        try {
+                            message.media = TLRPC.MessageMedia.TLdeserialize(data, data.readInt32(true), true);
+                        } finally {
+                            data.cleanup();
+                        }
+                    }
+                    message.flags = (message.from_id != null ? 256 : 0)
+                            | (!message.entities.isEmpty() ? 128 : 0) | (message.media != null ? 512 : 0);
+                    result.add(new MessageObject(account, message, true, true));
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
             }
-            return result.toString();
         } catch (Exception e) {
             FileLog.e(e);
-            return "";
         }
+        return result;
     }
 
     public static void rememberReadDate(int account, long dialogId, int previousMaxMessageId, int maxMessageId, int date) {
@@ -411,6 +449,21 @@ public final class BygramConfig {
 
     public static boolean sameEntities(ArrayList<TLRPC.MessageEntity> left, ArrayList<TLRPC.MessageEntity> right) {
         return serializeEntities(left).equals(serializeEntities(right));
+    }
+
+    private static String serializeMedia(TLRPC.MessageMedia media) {
+        if (media == null || media instanceof TLRPC.TL_messageMediaEmpty) return "";
+        SerializedData data = new SerializedData(media.getObjectSize());
+        try {
+            media.serializeToStream(data);
+            return Base64.encodeToString(data.toByteArray(), Base64.NO_WRAP);
+        } finally {
+            data.cleanup();
+        }
+    }
+
+    public static boolean sameMedia(TLRPC.MessageMedia left, TLRPC.MessageMedia right) {
+        return serializeMedia(left).equals(serializeMedia(right));
     }
 
     public static int getReadDate(int account, long dialogId, int messageId) {

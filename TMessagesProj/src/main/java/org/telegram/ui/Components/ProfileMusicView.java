@@ -52,6 +52,7 @@ public class ProfileMusicView extends View {
 
     private final Theme.ResourcesProvider resourcesProvider;
     private final int account;
+    private final boolean profileList;
     private final PorterDuffColorFilter filterColorWhite = new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
     private final PorterDuffColorFilter filterColorBlack = new PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN);
 
@@ -74,9 +75,14 @@ public class ProfileMusicView extends View {
     private final ButtonBounce bounce = new ButtonBounce(this);
 
     public ProfileMusicView(Context context, Theme.ResourcesProvider resourcesProvider, int account) {
+        this(context, resourcesProvider, account, false);
+    }
+
+    public ProfileMusicView(Context context, Theme.ResourcesProvider resourcesProvider, int account, boolean profileList) {
         super(context);
         this.resourcesProvider = resourcesProvider;
         this.account = account;
+        this.profileList = profileList;
 
         icon = context.getResources().getDrawable(R.drawable.files_music).mutate();
         coverImage = new ImageReceiver(this);
@@ -166,7 +172,7 @@ public class ProfileMusicView extends View {
 
 
     public void setMusicDocument(TLRPC.Document document) {
-        hasMusicDocument = document != null;
+        hasMusicDocument = document != null && (profileList || !BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC));
         long documentId = document == null ? 0 : document.id;
         TLRPC.PhotoSize cover = document == null ? null : FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 144);
         if (coverDocumentId != documentId || (cover == null && !coverImage.hasImageLoaded())) {
@@ -312,7 +318,7 @@ public class ProfileMusicView extends View {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (!hasMusicDocument) return false;
-        final float alpha = Utilities.clamp01((currentHeight) / dp(21));
+        final float alpha = profileList ? 1f : Utilities.clamp01((currentHeight) / dp(21));
         if (alpha <= 0) return false;
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             bounce.setPressed(rect.contains(event.getX(), event.getY()));
@@ -337,7 +343,7 @@ public class ProfileMusicView extends View {
 
         // Match ProfileActionsView: the stack contracts with its available header height
         // and fades out before the height reaches zero. A layer fades every drawable too.
-        float fraction = Utilities.clamp01(currentHeight / Math.max(1, getHeaderHeight()));
+        float fraction = profileList ? 1f : Utilities.clamp01(currentHeight / Math.max(1, getHeaderHeight()));
         float collapseAlpha = Utilities.clamp01((fraction - 0.2f) / 0.8f);
         if (collapseAlpha <= 0f) return;
         int saveCount = canvas.save();

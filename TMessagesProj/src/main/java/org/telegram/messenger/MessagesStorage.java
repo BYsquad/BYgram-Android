@@ -5747,13 +5747,73 @@ public class MessagesStorage extends BaseController {
     }
 
     public void markDialogMessagesAsBygramDeleted(long dialogId) {
+        markDialogMessagesAsBygramDeleted(dialogId, false);
+    }
+
+    // 0: nothing to retain, 1: live history, 2: only Spy copies remain.
+    public int getBygramDialogRetentionStateSync(long dialogId) {
+        int[] state = {1};
+        CountDownLatch latch = new CountDownLatch(1);
         storageQueue.postRunnable(() -> {
-            ArrayList<Integer> messageIds = new ArrayList<>();
             SQLiteCursor cursor = null;
             try {
-                cursor = database.queryFinalized("SELECT mid FROM messages_v2 WHERE uid = ?", dialogId);
-                while (cursor.next()) messageIds.add(cursor.intValue(0));
+                cursor = database.queryFinalized("SELECT out, custom_params FROM messages_v2 WHERE uid = ?", dialogId);
+                boolean hasSaved = false, hasLive = false, canKeep = false;
+                boolean keepOwn = BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED);
+                while (cursor.next()) {
+                    TLRPC.Message message = new TLRPC.TL_message();
+                    NativeByteBuffer params = cursor.byteBufferValue(1);
+                    try {
+                        MessageCustomParamsHelper.readLocalParams(message, params);
+                    } finally {
+                        if (params != null) params.reuse();
+                    }
+                    boolean saved = message.bygramDeleted;
+                    hasSaved |= saved;
+                    hasLive |= !saved;
+                    canKeep |= saved || cursor.intValue(0) == 0 || keepOwn;
+                    if (hasLive && canKeep) break;
+                }
+                state[0] = hasSaved && !hasLive ? 2 : canKeep ? 1 : 0;
+            } catch (Exception e) {
+                checkSQLException(e);
+            } finally {
+                if (cursor != null) cursor.dispose();
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return state[0];
+    }
+
+    public void markDialogMessagesAsBygramDeleted(long dialogId, boolean localDeletion) {
+        storageQueue.postRunnable(() -> {
+            ArrayList<Integer> messageIds = new ArrayList<>();
+            ArrayList<Integer> removeIds = new ArrayList<>();
+            SQLiteCursor cursor = null;
+            try {
+                cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ?", dialogId);
+                while (cursor.next()) {
+                    int id = cursor.intValue(0);
+                    if (localDeletion && cursor.intValue(1) != 0 && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
+                            && !getMessageWithCustomParamsOnlyInternal(id, dialogId).bygramDeleted) {
+                        removeIds.add(id);
+                    } else {
+                        messageIds.add(id);
+                    }
+                }
                 for (int messageId : messageIds) markMessageAsBygramDeletedInternal(dialogId, messageId);
+                if (!removeIds.isEmpty()) {
+                    long channelId = DialogObject.isChatDialog(dialogId) && ChatObject.isChannel(getMessagesController().getChat(-dialogId)) ? -dialogId : 0;
+                    markMessagesAsDeletedInternal(dialogId, removeIds, true, 0, 0);
+                    updateDialogsWithDeletedMessagesInternal(dialogId, channelId, removeIds, null);
+                    AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(
+                            NotificationCenter.messagesDeleted, removeIds, channelId, false));
+                }
                 AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(
                         NotificationCenter.bygramMessagesDeleted, dialogId, messageIds));
             } catch (Exception e) {

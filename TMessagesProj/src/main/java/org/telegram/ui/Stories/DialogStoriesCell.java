@@ -882,7 +882,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
                     cell.setTranslationY(translationY);
                 }
                 if (cell.drawInParent) {
-                    float right = recyclerListView.getX() + cell.getX() + cell.getMeasuredWidth() / 2f + dp(ITEM_WIDTH) / 2f;
+                    float right = recyclerListView.getX() + cell.getX() + getAvatarRight(cell.getMeasuredWidth(), cell.progressToCollapsed);
                     if (lastViewRight == 0 || right > lastViewRight) {
                         lastViewRight = right;
                     }
@@ -891,7 +891,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         } else {
             for (int i = 0; i < listViewMini.getChildCount(); i++) {
                 StoryCell cell = (StoryCell) listViewMini.getChildAt(i);
-                float right = (listViewMini.getX() /*+ dp(50)*/) + cell.getX() + cell.getMeasuredWidth();
+                float right = listViewMini.getX() + cell.getX() + getAvatarRight(cell.getMeasuredWidth(), cell.progressToCollapsed);
                 if (lastViewRight == 0 || right > lastViewRight) {
                     lastViewRight = right;
                 }
@@ -926,8 +926,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             titleView.setScaleX(lerp(1f, 0.95f, subtitleOverlayContainer.getTotalVisibility()));
             titleView.setScaleY(lerp(1f, 0.95f, subtitleOverlayContainer.getTotalVisibility()));
             titleView.setTranslationY(bottomY + dp(14) - offset + dp(FAKE_TOP_PADDING) - dp(6) * subtitleOverlayContainer.getTotalVisibility());
-            int cellWidth = dp(72);
-            lastViewRight += -cellWidth + getAvatarRight(cellWidth, collapsedProgress) + dp(12);
+            lastViewRight += dp(12);
             titleView.setTranslationX(lastViewRight);
             titleView.getDrawable().setRightPadding(lastViewRight - dp(12) + actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress);
 

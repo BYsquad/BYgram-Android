@@ -48,8 +48,8 @@
             android:enabled="false"
             android:name="org.telegram.messenger.VintageIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
-            android:icon="@drawable/bygram_logo"
-            android:roundIcon="@drawable/bygram_logo"
+            android:icon="@drawable/bygram_logo_new"
+            android:roundIcon="@drawable/bygram_logo_new"
             android:exported="true"
             tools:node="replace">
 
@@ -64,8 +64,8 @@
             android:enabled="false"
             android:name="org.telegram.messenger.AquaIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
-            android:icon="@mipmap/ic_launcher_sa"
-            android:roundIcon="@mipmap/ic_launcher_sa"
+            android:icon="@drawable/telegram_logo"
+            android:roundIcon="@drawable/telegram_logo"
             android:exported="true"
             tools:node="replace">
 

@@ -40,6 +40,7 @@
     <string name="BygramReadOnActions">Отмечать прочитанным при действиях</string>
     <string name="BygramReadOnActionsInfo">Отмечает сообщения прочитанными, когда вы отправляете сообщение, ставите реакцию или нажимаете кнопку бота.</string>
     <string name="BygramSaveDeleted">Сохранять удалённые и исчезающие сообщения</string>
+    <string name="BygramSaveOwnDeleted">Сохранять свои сообщения при удалении мной</string>
     <string name="BygramSaveEdits">Сохранять историю правок</string>
     <string name="BygramSaveReadDate">Сохранять дату прочтения</string>
     <string name="BygramSaveReadDateInfo">Локально сохраняет одну дату прочтения для каждого диапазона сообщений, прочитанного одним обновлением.</string>

@@ -193,7 +193,7 @@ public final class TelegramQRCodeWriter {
       centerDrawable.setBounds(imageX, imageX, imageX + imageSize, imageX + imageSize);
       centerDrawable.draw(canvas);
     } else {
-      Bitmap sourceIcon = BitmapFactory.decodeResource(ApplicationLoader.applicationContext.getResources(), R.drawable.bygram_logo);
+      Bitmap sourceIcon = BitmapFactory.decodeResource(ApplicationLoader.applicationContext.getResources(), R.drawable.bygram_logo_new);
       Bitmap icon = Bitmap.createScaledBitmap(sourceIcon, imageSize, imageSize, true);
       canvas.drawBitmap(icon, imageX, imageX, null);
       icon.recycle();

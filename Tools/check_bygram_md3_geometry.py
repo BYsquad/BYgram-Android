@@ -59,10 +59,16 @@ icons = settings.split("AppIconsSelectorCell icons =", 1)[1].split("BackupImageV
 launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")
 manifest = source("TMessagesProj/src/main/AndroidManifest.xml")
 assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "Customization must only offer BYgram and Telegram icons"
-assert 'DEFAULT("DefaultIcon", R.drawable.bygram_logo, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use bygram-logo.png"
+assert 'DEFAULT("DefaultIcon", R.drawable.bygram_logo_new, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use logo-new.png"
 default_alias = manifest.split('android:name="org.telegram.messenger.DefaultIcon"', 1)[1].split('</activity-alias>', 1)[0]
-assert '@drawable/bygram_logo"' in default_alias and "bygram_logo_new" not in default_alias, "Fresh installs must use the BYgram logo"
-assert (ROOT / "bygram-logo.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-xxxhdpi/bygram_logo.png").read_bytes(), "Default icon asset differs from bygram-logo.png"
+assert '@drawable/bygram_logo_new"' in default_alias, "Fresh installs must use the BYgram logo"
+assert (ROOT / "logo-new.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/bygram_logo_new.png").read_bytes(), "Default icon asset differs from logo-new.png"
+assert 'AQUA("AquaIcon", R.drawable.telegram_logo' in launcher, "Telegram preview must not use the branded adaptive icon"
+aqua_alias = manifest.split('android:name="org.telegram.messenger.AquaIcon"', 1)[1].split('</activity-alias>', 1)[0]
+assert aqua_alias.count('@drawable/telegram_logo"') == 2, "Telegram launcher icons must match the preview"
+standalone = source("TMessagesProj/config/release/AndroidManifest_standalone.xml")
+assert standalone.split('android:name="org.telegram.messenger.AquaIcon"', 1)[1].split('</activity-alias>', 1)[0].count('@drawable/telegram_logo"') == 2, "Standalone must use the same blue Telegram icon"
+assert (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/telegram_logo.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/mipmap-xxxhdpi/ic_launcher.png").read_bytes(), "Telegram icon must retain the original blue artwork"
 assert "new LoadingIndicator(getContext())" in progress, "MD3 loading is not backed by Material LoadingIndicator"
 assert "new LoadingIndicator(context)" in circular_progress, "Drawable loading is not backed by Material LoadingIndicator"
 lite_settings = source("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")

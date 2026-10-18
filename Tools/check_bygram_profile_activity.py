@@ -15,6 +15,12 @@ assert (
 assert "musicView.getHeaderHeight()" in source and "return getContentHeight()" in music, "profile reserves a fixed height instead of the visible music/activity content"
 assert "int headerHeightDelta = getHeaderExtraHeight() - previousHeaderHeight" in source and "adjustHeaderForMusicChange(headerHeightDelta);" in source and "extraHeight = Math.max(0, extraHeight + delta);" in source, "late activity does not preserve profile header geometry"
 assert "drawActivityCard" in music and "ACTIVITY_CARD_HEIGHT" in music, "activity is not rendered as a compact card"
+assert source.index("bygramMusicRow = rowCount++") < source.index("channelRow = rowCount++"), "custom music must precede the linked channel"
+assert "view = bygramMusicView;" in source and "return VIEW_TYPE_MUSIC;" in source, "custom music is not a profile list row"
+assert "bygramMusicView.setOnClickListener(v -> musicView.performClick())" in source, "list music must use the existing playback handler"
+assert "profileList || !BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)" in music, "custom music is duplicated in the avatar header"
+assert "profileList ? 1f" in music, "list music must remain visible and clickable when the header collapses"
+assert "createSimpleBulletin(R.raw.copy, getString(R.string.BygramProfileIdCopied))" in source, "ID confirmation must appear even when Android supplies its own clipboard toast"
 
 for text in ("Смотрит канал", "Сидит в группе", "Общается с ботом", "В чате с"):
     assert text in strings, f"missing detailed activity label: {text}"

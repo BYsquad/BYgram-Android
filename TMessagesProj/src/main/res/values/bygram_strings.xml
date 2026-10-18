@@ -40,6 +40,7 @@
     <string name="BygramReadOnActions">Read on actions</string>
     <string name="BygramReadOnActionsInfo">Marks messages as read when you send a message, react, or press a bot button.</string>
     <string name="BygramSaveDeleted">Save deleted and disappearing messages</string>
+    <string name="BygramSaveOwnDeleted">Keep my messages when I delete them</string>
     <string name="BygramSaveEdits">Save edit history</string>
     <string name="BygramSaveReadDate">Save read date</string>
     <string name="BygramSaveReadDateInfo">Stores one local read date for each message range read by the same update.</string>
