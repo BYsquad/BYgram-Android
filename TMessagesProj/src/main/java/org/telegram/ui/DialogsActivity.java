@@ -4055,6 +4055,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3FactoryLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryBlur.setSourceRootView(viewPositionWatcher, contentView);
+        if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0) {
+            actionBar.setupGlass(glassFactory(), BlurredBackgroundProviderImpl.topPanel(resourceProvider));
+        }
 
         final PointF tmpPoint = new PointF();
         iBlur3Capture = (canvas, position) -> {
@@ -5201,6 +5204,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {
+            private final BlurredBackgroundDrawable storiesBackground = glassFactory().create(this,
+                    BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(23)).setPadding(dp(6));
+
+            @Override
+            protected void dispatchDraw(Canvas canvas) {
+                if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0) {
+                    storiesBackground.setAlpha((int) (255 * (1f - MathUtils.clamp(getCollapsedProgress(), 0f, 1f))));
+                    storiesBackground.setBounds(dp(6), dp(6), getWidth() - dp(6), getHeight() - dp(6));
+                    storiesBackground.draw(canvas);
+                }
+                super.dispatchDraw(canvas);
+            }
+
             @Override
             public void onUserLongPressed(View view, long dialogId) {
                 MediaDataController.getInstance(currentAccount).loadHints(true);
@@ -5668,6 +5684,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         updateStoriesVisibility(false);
 
         updateFloatingButtonVisibility(false);
+
+        if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && folderId == 0 && communityId == 0
+                && searchString == null && !searching && !searchIsShowed
+                && BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)) {
+            setScrollY(-getMaxScrollYOffset());
+            for (ViewPage page : viewPages) {
+                if (page != null) {
+                    page.layoutManager.scrollToPositionWithOffset(
+                            page.dialogsType == DIALOGS_TYPE_DEFAULT && hasHiddenArchive() ? 1 : 0,
+                            (int) scrollYOffset);
+                }
+            }
+        }
 
         checkUi_searchFiltersVisibility();
         checkUi_menuItems();
@@ -7203,6 +7232,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         showFiltersHint();
         if (viewPages != null) {
             for (int a = 0; a < viewPages.length; a++) {
+                if (!SharedConfig.archiveHidden && viewPages[a].archivePullViewState != ARCHIVE_ITEM_STATE_PINNED
+                        && viewPages[a].dialogsType == DIALOGS_TYPE_DEFAULT
+                        && viewPages[a].layoutManager.findFirstVisibleItemPosition() <= 1) {
+                    viewPages[a].layoutManager.scrollToPositionWithOffset(0, (int) scrollYOffset);
+                }
+                viewPages[a].listView.updatePullState();
                 if (viewPages[a].dialogsType == 0 && viewPages[a].archivePullViewState == ARCHIVE_ITEM_STATE_HIDDEN && viewPages[a].layoutManager.findFirstVisibleItemPosition() == 0 && hasHiddenArchive()) {
                     viewPages[a].layoutManager.scrollToPositionWithOffset(1, (int) scrollYOffset);
                 }
@@ -14401,7 +14436,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     selectedPaint.setStyle(Paint.Style.STROKE);
                     selectedPaint.setStrokeWidth(dp(1.33f));
                     selectedPaint.setColor(getThemedColor(Theme.key_featuredStickers_addButton));
-                    canvas.drawCircle(getWidth() / 2.0f, getHeight() / 2.0f, dp(16), selectedPaint);
+                    AndroidUtilities.rectTmp.set(getWidth() / 2.0f - dp(16), getHeight() / 2.0f - dp(16), getWidth() / 2.0f + dp(16), getHeight() / 2.0f + dp(16));
+                    canvas.drawRoundRect(AndroidUtilities.rectTmp, BygramConfig.avatarRadius(dp(32)), BygramConfig.avatarRadius(dp(32)), selectedPaint);
                 }
                 super.dispatchDraw(canvas);
             }

@@ -23,4 +23,8 @@
     <string name="BygramFirebaseCrashlytics">Crashlytics</string>
     <string name="BygramFirebaseAnalytics">Analytics</string>
     <string name="BygramTelemetryInfo">Crashlytics допомагає знаходити й виправляти збої, а Analytics — розуміти, які функції потрібно покращити. Обидва сервіси можна вимкнути будь-коли.</string>
+    <string name="BygramCollapseSearchOnStart">Згортати пошук під час запуску</string>
+    <string name="BygramCollapseSearchOnStartInfo">Відкривати список чатів зі згорнутим пошуком. Потягніть список униз або натисніть значок пошуку, щоб відкрити його.</string>
+    <string name="BygramHideArchive">Ховати архів над списком чатів</string>
+    <string name="BygramHideArchiveInfo">Щоб показати архів, додатково потягніть униз список чатів, перебуваючи в самому верху.</string>
 </resources>

@@ -36,6 +36,7 @@ notifications = read("TMessagesProj/src/main/java/org/telegram/messenger/Notific
 privacy = read("TMessagesProj/src/main/java/org/telegram/messenger/BygramChatPrivacy.java")
 search_pager = read("TMessagesProj/src/main/java/org/telegram/ui/Components/SearchViewPager.java")
 dialogs_activity = read("TMessagesProj/src/main/java/org/telegram/ui/DialogsActivity.java")
+main_tabs = read("TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java")
 chat = read("TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java")
 viewer = read("TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java")
 sender = read("TMessagesProj/src/main/java/org/telegram/messenger/SendMessagesHelper.java")
@@ -51,6 +52,8 @@ story_cells = read("TMessagesProj/src/main/java/org/telegram/ui/Stories/DialogSt
 
 def resource_names(folder: str, file: str) -> set[str]:
     root = ET.parse(ROOT / "TMessagesProj/src/main/res" / folder / file).getroot()
+    names = [item.attrib["name"] for item in root if "name" in item.attrib]
+    assert len(names) == len(set(names)), f"Duplicate resources in {folder}/{file}"
     return {item.attrib["name"] for item in root if "name" in item.attrib}
 
 
@@ -59,6 +62,12 @@ russian_resources = resource_names("values-ru", "bygram_strings.xml") | resource
 menu_option_ids = re.findall(r"public (?:final static|static final) int OPTION_\w+ = (\d+);", chat)
 
 checks = {
+    "launch search setting survives cleanup export and reset": 'COLLAPSE_SEARCH_ON_START = "bygram_collapse_search_on_start"' in config and 'case COLLAPSE_SEARCH_ON_START:' in config and 'BygramConfig.COLLAPSE_SEARCH_ON_START' in settings,
+    "launch collapse preserves explicit search and scopes the main list": 'searchString == null && !searching && !searchIsShowed' in dialogs_activity and 'folderId == 0 && communityId == 0' in dialogs_activity.split('updateFloatingButtonVisibility(false);', 1)[1].split('checkUi_searchFiltersVisibility();', 1)[0] and 'setScrollY(-getMaxScrollYOffset());' in dialogs_activity,
+    "archive customization uses native pull state": 'setChecked(org.telegram.messenger.SharedConfig.archiveHidden)' in settings and 'org.telegram.messenger.SharedConfig.toggleArchiveHidden();' in settings and 'viewPages[a].listView.updatePullState();' in dialogs_activity,
+    "chat tab archive is available without custom folders": 'o.add(R.drawable.msg_archive, getString(R.string.ArchivedChats)' in main_tabs and 'args.putInt("folderId", 1);' in main_tabs and 'if (filters == null || filters.size() <= 1) return false;' not in main_tabs,
+    "chat list header and stories reuse native glass": 'actionBar.setupGlass(glassFactory(), BlurredBackgroundProviderImpl.topPanel(resourceProvider));' in dialogs_activity and 'storiesBackground.draw(canvas);' in dialogs_activity and 'MathUtils.clamp(getCollapsedProgress(), 0f, 1f)' in dialogs_activity,
+    "chat list customization has en ru uk resources": all({'BygramCollapseSearchOnStart', 'BygramCollapseSearchOnStartInfo', 'BygramHideArchive', 'BygramHideArchiveInfo'} <= resource_names(locale, 'bygram_preferences.xml') for locale in ('values', 'values-ru', 'values-uk')),
     "Telegram and BYgram message menu actions have unique IDs": bool(menu_option_ids) and len(menu_option_ids) == len(set(menu_option_ids)),
     "BYgram settings keep a reserved ID while Telegram uses 24": "BYGRAM_SETTINGS_ID = 1000" in settings_root and "Factory.of(BYGRAM_SETTINGS_ID," in settings_root and "case BYGRAM_SETTINGS_ID:" in settings_root and "Factory.of(24," in settings_root and "case 24:" in settings_root,
     "unlicensed users receive the manager URL": "'bot_url' => managerUrl()" in api and "appSetting('manager_username'" in api and 'callback.run(false, botUrl)' in activity,
@@ -102,7 +111,8 @@ checks = {
     "native glass option replaces BYgram placements": "BygramLiquidGlass" not in settings and "LIQUID_GLASS_PLACEMENTS" not in config and "LiteOptionsLiquidGlass" in lite_settings,
     "spy can physically remove previously saved messages": "getBygramDeletedMessageIdsSync" in storage and "locallyDeletedMessages.add(messageId)" in messages and "toSend.removeAll(alreadySaved)" in messages,
     "spy own deletion preference is persisted and exposed": all(value in config for value in ['SPY_SAVE_OWN_DELETED = "bygram_spy_save_own_deleted"', 'case SPY_SAVE_OWN_DELETED:']) and "case 3: return BygramConfig.SPY_SAVE_OWN_DELETED" in settings and "storedMessage.out" in messages,
-    "spy keeps the first removed chat and purges saved-only history": "hasSaved && !hasLive ? 2 : canKeep ? 1 : 0" in storage and "getBygramDialogRetentionStateSync(did) == 1" in messages and "markDialogMessagesAsBygramDeleted(did, true)" in messages,
+    "spy keeps the first removed chat and purges saved-only history": "hasSaved && !hasLive ? 2 : canKeep ? 1 : 0" in storage and "getBygramDialogRetentionStateSync(did, onlyHistory == 0 || BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)) == 1" in messages and "markDialogMessagesAsBygramDeleted(did, onlyHistory != 0)" in messages,
+    "whole-chat deletion retains outgoing history during Undo": "getBygramDialogRetentionStateSync(did, true) != 1" in messages and "respectOwnDeletionSetting && cursor.intValue(1) != 0" in storage,
     "story title follows actual avatar bounds in both lists": story_cells.count("getAvatarRight(cell.getMeasuredWidth(), cell.progressToCollapsed)") == 2 and "lastViewRight += dp(12)" in story_cells and "int cellWidth = dp(72)" not in story_cells,
     "private chats cover list, search, notification, navigation and accessibility": all((
         "BygramChatPrivacy" in dialogs, "BygramChatPrivacy" in search,

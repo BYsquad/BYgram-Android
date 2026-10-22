@@ -12,7 +12,7 @@
     <string name="BygramSeconds">Форматировать время с секундами</string>
     <string name="BygramNoNotificationDelay">Отключить задержку уведомлений</string>
     <string name="BygramArchive">Архив чатов</string>
-    <string name="BygramHideArchive">Скрыть архив из списка чатов</string>
+    <string name="BygramHideArchive">Скрывать архив над списком чатов</string>
     <string name="BygramChatList">Список чатов</string>
     <string name="BygramHideStories">Скрыть истории</string>
     <string name="BygramHideFab">Скрыть плавающую кнопку</string>
@@ -284,4 +284,7 @@
     <string name="BygramMessageDetails">Сведения о сообщении</string>
     <string name="BygramRepeatDraft">Повторить через черновик</string>
     <string name="BygramCopyPhoto">Копировать фото</string>
+    <string name="BygramCollapseSearchOnStart">Сворачивать поиск при запуске</string>
+    <string name="BygramCollapseSearchOnStartInfo">Открывать список чатов со свёрнутым поиском. Потяните список вниз или нажмите значок поиска, чтобы открыть его.</string>
+    <string name="BygramHideArchiveInfo">Чтобы показать архив, дополнительно потяните вниз список чатов, находясь в самом верху.</string>
 </resources>

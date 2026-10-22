@@ -1,5 +1,9 @@
 # Сборка BYgram на Windows
 
+18.10.2026, актуальная Full Debug: обводка выбранного аккаунта под форму аватаров, новые логотипы/Telegram icon и исправление сохранения своих сообщений при удалении всего чата. `:TMessagesProj_App:assembleAfatDebug -PBYGRAM_EDITION=full` — BUILD SUCCESSFUL; финальная упаковка после удаления конфликтующего Telegram vector — 23 s. `output/BYgram-full-debug.apk`: 128991783 байт, SHA-256 `aa0d2d88cbd625a57d6b242976c12e0897436b4851ad745d4a5b34624b7438d9`. Пакет `com.bygram.mobile`, 13.0.2 (71759), debuggable, min 23 / target 36, четыре ABI, `BYGRAM_FULL=true`. Подпись v1/v2 и en/ru/uk localization PASS; все три изображения внутри APK единственные и совпадают по пикселям с исходными ресурсами. Лог: `output/build-full-debug-branding-final-2026-10-18.log`. Проверки: MD3/ресурсы, 48 settings contracts, 16 Spy retention scenarios; визуальная проверка на устройстве не выполнялась.
+
+Очистка 18.10.2026: удалены старые Lite APK, прежняя release-сборка с baseline profiles, устаревшие логи/дампы и JSON-метаданные сборки от 15.10 (22 файла, 445861865 байт). Сохранены актуальный `output/BYgram-full-debug.apk` с SHA-256 `a3ed80f8a219a02ae3139a02c049ffc9a730e45bfe6b0bcc468218fb505b7143`, его лог `output/build-full-debug-spy-whole-chat-2026-10-18.log` и кеш текущей сборки. Упомянутые ниже старые логи после очистки недоступны; исторические результаты проверок сохранены в документации.
+
 Инструкция обновлена 23 сентября 2026 года; проверена компиляция `:TMessagesProj_App:compileAfatDebugJavaWithJavac` в PowerShell.
 
 ## Требования
@@ -86,6 +90,8 @@ Copy-Item .\TMessagesProj_App\build\outputs\apk\afat\debug\BYgram-full-afatDebug
 17.10.2026 собран Debug Full из рабочего дерева с поддержкой медиа/InstantPage в истории правок и исправлением значка «Избранного»: `output/BYgram-full-debug.apk`, package `com.bygram.mobile`, версия `13.0.2` (`71759`), 126670277 байт. Подтверждены `BYGRAM_FULL = true`, debuggable, четыре ABI, подпись v1/v2 и бинарная локализация BYgram (en 269/269, ru 269/269, uk 124/124). SHA-256: `d2f6148e36eab9457e3cd45e199db8e81d55213d432da20e8f461d2643d4ac3e`. На устройстве APK не запускался. Лог: `output/build-full-debug-2026-10-17.log`.
 
 ## Release APK Lite и Full
+
+18.10.2026 пересобран Full Debug с сохранением собственных сообщений при удалении всего чата независимо от отдельного переключателя: `output/BYgram-full-debug.apk`, package `com.bygram.mobile`, версия `13.0.2` (`71759`), 125932891 байт. Подтверждены Full, debuggable, четыре ABI, подпись v1/v2 и бинарная локализация (en 270/270, ru 270/270, uk 125/125). SHA-256: `a3ed80f8a219a02ae3139a02c049ffc9a730e45bfe6b0bcc468218fb505b7143`. Проверены 48 contracts и 16 JVM-сценариев хранения; на устройстве не запускался. Лог: `output/build-full-debug-spy-whole-chat-2026-10-18.log`.
 
 18.10.2026 собран Full Debug из текущего рабочего дерева с исправлениями заголовка и Spy: `output/BYgram-full-debug.apk`, package `com.bygram.mobile`, версия `13.0.2` (`71759`), 125932643 байт. Подтверждены `BYGRAM_FULL = true`, debuggable, четыре ABI, подпись v1/v2 и бинарная локализация BYgram (en 270/270, ru 270/270, uk 125/125). SHA-256: `dd9ef660e00d5a96094f9f39036d84d34eb3f4eeb98030fdae259d2e1e0b9e24`. На устройстве APK не запускался. Лог: `output/build-full-debug-2026-10-18.log`.
 

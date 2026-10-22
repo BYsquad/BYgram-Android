@@ -52,6 +52,9 @@ assert "float rad = height / 2f;" not in reactions and reactions.count("BygramCo
 assert "drawCircle(imageReceiver.getCenterX()" not in avatars and "BygramConfig.avatarRadius(avatar.getImageHeight())" in avatars, "Overlapping avatar masks are circular"
 assert "drawCircle(cx, cy, r" not in voters and "BygramConfig.avatarRadius(w)" in voters, "Poll voter avatar masks are circular"
 assert "BygramConfig.avatarRadius(dp(46))" in action_bar and "setRadius(leadingRadius, radius, radius, leadingRadius, false)" in action_bar, "Chat header edge ignores avatar shape"
+for selector in (dialogs, source("TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java")):
+    account_view = selector.split("public LinearLayout accountView(", 1)[1].split("return btn;", 1)[0]
+    assert "canvas.drawCircle(" not in account_view and "canvas.drawRoundRect(AndroidUtilities.rectTmp, BygramConfig.avatarRadius(dp(32))" in account_view, "Selected account outline ignores the BYgram avatar shape"
 main_settings, customization = settings.split("public static class CustomizationSettingsActivity", 1)
 assert "asButton(4," not in main_settings and "asButton(4," in customization.split("public static class TypingCustomizationActivity", 1)[0], "Typing statuses must live in Customization"
 assert "new EditText(" not in settings and "shape.setStroke(" in settings and "dialogInputContainer(input)" in chat, "BYgram dialogs must share the themed input style"
@@ -68,7 +71,12 @@ aqua_alias = manifest.split('android:name="org.telegram.messenger.AquaIcon"', 1)
 assert aqua_alias.count('@drawable/telegram_logo"') == 2, "Telegram launcher icons must match the preview"
 standalone = source("TMessagesProj/config/release/AndroidManifest_standalone.xml")
 assert standalone.split('android:name="org.telegram.messenger.AquaIcon"', 1)[1].split('</activity-alias>', 1)[0].count('@drawable/telegram_logo"') == 2, "Standalone must use the same blue Telegram icon"
-assert (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/telegram_logo.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/mipmap-xxxhdpi/ic_launcher.png").read_bytes(), "Telegram icon must retain the original blue artwork"
+telegram_icon = (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/telegram_logo.png").read_bytes()
+assert not (ROOT / "TMessagesProj/src/main/res/drawable/telegram_logo.xml").exists(), "Old Telegram vector must not override the PNG at device densities"
+assert int.from_bytes(telegram_icon[16:20], "big") == int.from_bytes(telegram_icon[20:24], "big"), "Telegram artwork must be square without stretching"
+assert (ROOT / "logo-no-fon.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/bygram_logo_no_fon.png").read_bytes(), "Transparent logo differs from logo-no-fon.png"
+assert 'android:drawable="@drawable/bygram_logo_no_fon"' in source("TMessagesProj/src/main/res/drawable/bygram_splash.xml"), "Splash must use the transparent logo"
+assert 'R.drawable.bygram_logo_no_fon' in main_settings and 'bygram_logo_no_fon' not in launcher, "Transparent logo belongs to settings, never app icon choices"
 assert "new LoadingIndicator(getContext())" in progress, "MD3 loading is not backed by Material LoadingIndicator"
 assert "new LoadingIndicator(context)" in circular_progress, "Drawable loading is not backed by Material LoadingIndicator"
 lite_settings = source("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")

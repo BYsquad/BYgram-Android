@@ -470,10 +470,14 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private boolean openFoldersSelector(View anchor) {
         if (getContext() == null || getParentActivity() == null) return false;
         final ArrayList<MessagesController.DialogFilter> filters = getMessagesController().getDialogFilters();
-        if (filters == null || filters.size() <= 1) return false;
-
         final ItemOptions o = ItemOptions.makeOptions(this, anchor);
-        for (int i = 0; i < filters.size(); i++) {
+        o.add(R.drawable.msg_archive, getString(R.string.ArchivedChats), () -> {
+            Bundle args = new Bundle();
+            args.putInt("folderId", 1);
+            presentFragment(new DialogsActivity(args));
+        });
+        if (filters != null && filters.size() > 1) o.addGap();
+        for (int i = 0; filters != null && filters.size() > 1 && i < filters.size(); i++) {
             final MessagesController.DialogFilter folder = filters.get(i);
             final ActionBarMenuSubItem folderItem = new ActionBarMenuSubItem(getParentActivity(), 2, false, false, getResourceProvider());
             folderItem.setPadding(dp(18), 0, dp(18), 0);
@@ -702,7 +706,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     selectedPaint.setStyle(Paint.Style.STROKE);
                     selectedPaint.setStrokeWidth(dp(1.33f));
                     selectedPaint.setColor(getThemedColor(Theme.key_featuredStickers_addButton));
-                    canvas.drawCircle(getWidth() / 2.0f, getHeight() / 2.0f, dp(16), selectedPaint);
+                    AndroidUtilities.rectTmp.set(getWidth() / 2.0f - dp(16), getHeight() / 2.0f - dp(16), getWidth() / 2.0f + dp(16), getHeight() / 2.0f + dp(16));
+                    canvas.drawRoundRect(AndroidUtilities.rectTmp, BygramConfig.avatarRadius(dp(32)), BygramConfig.avatarRadius(dp(32)), selectedPaint);
                 }
                 super.dispatchDraw(canvas);
             }

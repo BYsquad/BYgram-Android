@@ -5752,6 +5752,10 @@ public class MessagesStorage extends BaseController {
 
     // 0: nothing to retain, 1: live history, 2: only Spy copies remain.
     public int getBygramDialogRetentionStateSync(long dialogId) {
+        return getBygramDialogRetentionStateSync(dialogId, BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED));
+    }
+
+    public int getBygramDialogRetentionStateSync(long dialogId, boolean keepOwn) {
         int[] state = {1};
         CountDownLatch latch = new CountDownLatch(1);
         storageQueue.postRunnable(() -> {
@@ -5759,7 +5763,6 @@ public class MessagesStorage extends BaseController {
             try {
                 cursor = database.queryFinalized("SELECT out, custom_params FROM messages_v2 WHERE uid = ?", dialogId);
                 boolean hasSaved = false, hasLive = false, canKeep = false;
-                boolean keepOwn = BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED);
                 while (cursor.next()) {
                     TLRPC.Message message = new TLRPC.TL_message();
                     NativeByteBuffer params = cursor.byteBufferValue(1);
@@ -5790,7 +5793,7 @@ public class MessagesStorage extends BaseController {
         return state[0];
     }
 
-    public void markDialogMessagesAsBygramDeleted(long dialogId, boolean localDeletion) {
+    public void markDialogMessagesAsBygramDeleted(long dialogId, boolean respectOwnDeletionSetting) {
         storageQueue.postRunnable(() -> {
             ArrayList<Integer> messageIds = new ArrayList<>();
             ArrayList<Integer> removeIds = new ArrayList<>();
@@ -5799,7 +5802,7 @@ public class MessagesStorage extends BaseController {
                 cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ?", dialogId);
                 while (cursor.next()) {
                     int id = cursor.intValue(0);
-                    if (localDeletion && cursor.intValue(1) != 0 && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
+                    if (respectOwnDeletionSetting && cursor.intValue(1) != 0 && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
                             && !getMessageWithCustomParamsOnlyInternal(id, dialogId).bygramDeleted) {
                         removeIds.add(id);
                     } else {

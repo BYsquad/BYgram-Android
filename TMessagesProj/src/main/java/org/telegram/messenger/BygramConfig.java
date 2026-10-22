@@ -37,6 +37,7 @@ public final class BygramConfig {
     public static final String CUSTOM_PROFILE_MUSIC = "bygram_custom_profile_music";
     private static final String CUSTOM_TYPING_PREFIX = "bygram_custom_typing_";
     public static final String FILTER_ZALGO = "bygram_filter_zalgo";
+    public static final String COLLAPSE_SEARCH_ON_START = "bygram_collapse_search_on_start";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
     public static final String MD3_LOADING = "bygram_md3_loading";
     public static final String MD3_SLIDERS = "bygram_md3_sliders";
@@ -152,6 +153,7 @@ public final class BygramConfig {
             case FIREBASE_ANALYTICS:
             case CUSTOM_PROFILE_MUSIC:
             case FILTER_ZALGO:
+            case COLLAPSE_SEARCH_ON_START:
             case PROFILE_ID_MODE:
             case MD3_LOADING:
             case MD3_SLIDERS:

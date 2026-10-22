@@ -10030,9 +10030,9 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public void deleteDialog(final long did, int onlyHistory, boolean revoke) {
         if (onlyHistory != 2 && onlyHistory != 3 && BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)
-                && getMessagesStorage().getBygramDialogRetentionStateSync(did) == 1) {
+                && getMessagesStorage().getBygramDialogRetentionStateSync(did, onlyHistory == 0 || BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)) == 1) {
             getMessagesStorage().getDialogMaxMessageId(did, maxId -> {
-                getMessagesStorage().markDialogMessagesAsBygramDeleted(did, true);
+                getMessagesStorage().markDialogMessagesAsBygramDeleted(did, onlyHistory != 0);
                 TLRPC.Dialog dialog = dialogs_dict.get(did);
                 if (dialog != null && !allDialogs.contains(dialog)) {
                     allDialogs.add(dialog);
@@ -22329,7 +22329,7 @@ public class MessagesController extends BaseController implements NotificationCe
             clearingHistoryDialogs.put(did, dialog);
         } else {
             if (!BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)
-                    || getMessagesStorage().getBygramDialogRetentionStateSync(did) != 1) {
+                    || getMessagesStorage().getBygramDialogRetentionStateSync(did, true) != 1) {
                 deletingDialogs.put(did, dialog);
                 allDialogs.remove(dialog);
                 sortDialogs(null);

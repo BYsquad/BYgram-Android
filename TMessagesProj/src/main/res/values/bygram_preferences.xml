@@ -12,7 +12,7 @@
     <string name="BygramSeconds">Show seconds in time</string>
     <string name="BygramNoNotificationDelay">Disable notification delay</string>
     <string name="BygramArchive">Archived chats</string>
-    <string name="BygramHideArchive">Hide archive from chat list</string>
+    <string name="BygramHideArchive">Hide archive above the chat list</string>
     <string name="BygramChatList">Chat list</string>
     <string name="BygramHideStories">Hide stories</string>
     <string name="BygramHideFab">Hide floating button</string>
@@ -181,4 +181,7 @@
     <string name="BygramMessageDetails">Message details</string>
     <string name="BygramRepeatDraft">Repeat via draft</string>
     <string name="BygramCopyPhoto">Copy photo</string>
+    <string name="BygramCollapseSearchOnStart">Collapse search on launch</string>
+    <string name="BygramCollapseSearchOnStartInfo">Start the chat list with search collapsed. Pull down or tap the search icon to open it.</string>
+    <string name="BygramHideArchiveInfo">Pull down again at the top of the chat list to reveal the archive.</string>
 </resources>

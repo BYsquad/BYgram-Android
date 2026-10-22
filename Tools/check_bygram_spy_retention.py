@@ -54,10 +54,13 @@ public class SpyRetentionCheck {
     void checkSQLException(Exception e) {}
     // INSERT_METHOD
     static void check(boolean own, int expected, int[]... rows) {
+        check(own, false, expected, rows);
+    }
+    static void check(boolean own, boolean wholeChat, int expected, int[]... rows) {
         SpyRetentionCheck storage = new SpyRetentionCheck();
         storage.database.rows = rows;
         BygramConfig.keepOwn = own;
-        int actual = storage.getBygramDialogRetentionStateSync(42);
+        int actual = wholeChat ? storage.getBygramDialogRetentionStateSync(42, true) : storage.getBygramDialogRetentionStateSync(42);
         if (actual != expected || !storage.database.cursor.disposed) throw new AssertionError(actual + " != " + expected);
     }
     public static void main(String[] args) {
@@ -71,10 +74,15 @@ public class SpyRetentionCheck {
         check(false, 1, new int[]{0, 1}, new int[]{1, 0});
         check(false, 1, new int[]{1, 0}, new int[]{0, 1});
         check(false, 1, new int[]{0, 1}, new int[]{0, 0});
+        check(false, true, 1, new int[]{1, 0});
+        check(false, true, 1, new int[]{1, 0}, new int[]{1, 0});
+        check(false, true, 2, new int[]{1, 1}, new int[]{1, 1});
+        check(false, true, 1, new int[]{1, 1}, new int[]{1, 0});
+        check(false, true, 0);
         SpyRetentionCheck unavailable = new SpyRetentionCheck();
         unavailable.database.fail = true;
         if (unavailable.getBygramDialogRetentionStateSync(42) != 1) throw new AssertionError("Failure must keep history");
-        System.out.println("PASS: 11 storage retention scenarios (first/repeat delete, own toggle, new messages, unavailable DB)");
+        System.out.println("PASS: 16 storage retention scenarios (first/repeat delete, whole chats with own toggle off, new messages, unavailable DB)");
     }
 }
 """.replace("// INSERT_METHOD", method)

@@ -79,7 +79,7 @@ public class BygramSettingsActivity extends BaseFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo_new));
+        items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo_no_fon));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
         items.add(UItem.asButton(1, R.drawable.settings_privacy, getString(R.string.BygramGhostMode)));
@@ -667,6 +667,12 @@ public class BygramSettingsActivity extends BaseFragment {
                 items.add(UItem.asCheck(1, getString(R.string.BygramFilterZalgo))
                         .setChecked(BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO)));
                 items.add(UItem.asShadow(getString(R.string.BygramFilterZalgoInfo)));
+                items.add(UItem.asCheck(4, getString(R.string.BygramCollapseSearchOnStart))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)));
+                items.add(UItem.asShadow(getString(R.string.BygramCollapseSearchOnStartInfo)));
+                items.add(UItem.asCheck(5, getString(R.string.BygramHideArchive))
+                        .setChecked(org.telegram.messenger.SharedConfig.archiveHidden));
+                items.add(UItem.asShadow(getString(R.string.BygramHideArchiveInfo)));
                 int md3 = (BygramConfig.getBoolean(BygramConfig.MD3_LOADING) ? 1 : 0)
                         + (BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS) ? 1 : 0)
                         + (BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES) ? 1 : 0);
@@ -689,6 +695,11 @@ public class BygramSettingsActivity extends BaseFragment {
                     BygramConfig.setBoolean(BygramConfig.FILTER_ZALGO, !BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO));
                 } else if (item.id == 3) {
                     md3Expanded = !md3Expanded;
+                } else if (item.id == 4) {
+                    BygramConfig.setBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START,
+                            !BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START));
+                } else if (item.id == 5) {
+                    org.telegram.messenger.SharedConfig.toggleArchiveHidden();
                 } else if (item.id >= 200 && item.id <= 202) {
                     String[] keys = {BygramConfig.MD3_LOADING, BygramConfig.MD3_SLIDERS, BygramConfig.MD3_SWITCHES};
                     String key = keys[item.id - 200];
