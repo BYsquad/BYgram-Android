@@ -30,6 +30,7 @@
 - [Примечания для разработчиков: флаги, ID и решения при обновлении](../development-notes.md)
 - [Проверка изменений](testing.md)
 - [Обновление Telegram до 13.0.2 и совместимость BYgram](telegram-13.0.2-upgrade.md)
+- [Обновление Telegram до 13.0.3 с сохранением upstream-истории](telegram-13.0.3-upgrade.md)
 - [Статус переноса в Windows-клиент](desktop-port-status.md)
 - [Девять Windows-функций: реализация и непройденные тесты](desktop-nine-features.md)
 - [Актуальный аудит](../BYGRAM_SETTINGS_AUDIT_2026-09-16.md)

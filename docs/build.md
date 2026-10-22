@@ -1,5 +1,17 @@
 # Сборка BYgram на Windows
 
+22.10.2026, актуальная Full Debug: Telegram 13.0.3, upstream `0aae959806`,
+вся история 14 коммитов после `f32ffee` включена через merge. Сборка
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 8m 45s. Готовый `output/BYgram-full-debug.apk`: 122614017 байт,
+SHA-256 `bfe10fabcaa3a354173eec8fb9553b10b9ef3529f435d0d445c21432a710b017`.
+Package `com.bygram.mobile`, 13.0.3 (71839), Full/debuggable, четыре ABI,
+подпись v1/v2 и прежний сертификат подтверждены. Локализация en/ru/uk PASS.
+Пройдены 55 contracts, 16 Spy-сценариев и JVM-проверки текстов, локальных
+параметров и истории медиа. На устройстве не запускался.
+Лог: `output/build-full-debug-telegram-13.0.3-2026-10-22.log`.
+Подробности — [отчёт обновления](bygram-settings/telegram-13.0.3-upgrade.md).
+
 18.10.2026, актуальная Full Debug: обводка выбранного аккаунта под форму аватаров, новые логотипы/Telegram icon и исправление сохранения своих сообщений при удалении всего чата. `:TMessagesProj_App:assembleAfatDebug -PBYGRAM_EDITION=full` — BUILD SUCCESSFUL; финальная упаковка после удаления конфликтующего Telegram vector — 23 s. `output/BYgram-full-debug.apk`: 128991783 байт, SHA-256 `aa0d2d88cbd625a57d6b242976c12e0897436b4851ad745d4a5b34624b7438d9`. Пакет `com.bygram.mobile`, 13.0.2 (71759), debuggable, min 23 / target 36, четыре ABI, `BYGRAM_FULL=true`. Подпись v1/v2 и en/ru/uk localization PASS; все три изображения внутри APK единственные и совпадают по пикселям с исходными ресурсами. Лог: `output/build-full-debug-branding-final-2026-10-18.log`. Проверки: MD3/ресурсы, 48 settings contracts, 16 Spy retention scenarios; визуальная проверка на устройстве не выполнялась.
 
 Очистка 18.10.2026: удалены старые Lite APK, прежняя release-сборка с baseline profiles, устаревшие логи/дампы и JSON-метаданные сборки от 15.10 (22 файла, 445861865 байт). Сохранены актуальный `output/BYgram-full-debug.apk` с SHA-256 `a3ed80f8a219a02ae3139a02c049ffc9a730e45bfe6b0bcc468218fb505b7143`, его лог `output/build-full-debug-spy-whole-chat-2026-10-18.log` и кеш текущей сборки. Упомянутые ниже старые логи после очистки недоступны; исторические результаты проверок сохранены в документации.

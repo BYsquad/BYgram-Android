@@ -109,6 +109,18 @@
 
 Новые записи добавляются ниже по шаблону, от новых к старым.
 
+### 2026-10-22 — Telegram native/media submodules — 13.0.2 → 13.0.3
+
+- Уровень: L2, обновление в составе официальной Android-базы Telegram.
+- Причина и новые возможности: весь upstream `f32ffee..0aae959806`, включая новый аудиорекордер V2 и исправления отправки файлов/медиа.
+- Изменённый старый код: `MediaController.stopRecordingV2()` использует существующий режим виброотклика BYgram. `tgcalls`: `ccbb57965` → `03d7b8662`; `media`: `c430d2076` → `09b6c97c0`. Остальные версии зависимостей сохранены.
+- Сборка: `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug`, BUILD SUCCESSFUL, все четыре ABI.
+- Автоматические тесты: 55 settings contracts, 16 Spy retention scenarios, editions/MD3/profile/no-ads, JVM text/params/edit-media, подпись и локализация APK — PASS.
+- Ручные сценарии: не выполнены, ADB-устройств нет; аудиозапись, звонки, Ghost/Spy и защита чатов требуют smoke tests на устройстве.
+- Предупреждения: Java 8/deprecated API, Gradle API, default resources и META-INF при проверке v1; проверка APK v2 проходит.
+- Ограничения/откат: Lite, Release/R8 и backend integration не запускались. Исходное рабочее дерево сохранено в `f375bcad5`; перенос не меняет локальный формат Spy.
+- Результат: Full Debug собран; [полный отчёт](docs/bygram-settings/telegram-13.0.3-upgrade.md).
+
 ### 2026-09-05 — dynamicanimation / kotlinpoet / credentials — 1.0.0 / 1.15.0 / 1.6.0-alpha04 → 1.1.0 / 2.3.0 / 1.6.0
 
 - Уровень: L1

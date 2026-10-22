@@ -42,6 +42,7 @@ viewer = read("TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java")
 sender = read("TMessagesProj/src/main/java/org/telegram/messenger/SendMessagesHelper.java")
 message_object = read("TMessagesProj/src/main/java/org/telegram/messenger/MessageObject.java")
 message_cell = read("TMessagesProj/src/main/java/org/telegram/ui/Cells/ChatMessageCell.java")
+media_controller = read("TMessagesProj/src/main/java/org/telegram/messenger/MediaController.java")
 dialogs = read("TMessagesProj/src/main/java/org/telegram/ui/Adapters/DialogsAdapter.java")
 search = read("TMessagesProj/src/main/java/org/telegram/ui/Adapters/DialogsSearchAdapter.java")
 navigation = read("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/ActionBarLayout.java")
@@ -62,6 +63,10 @@ russian_resources = resource_names("values-ru", "bygram_strings.xml") | resource
 menu_option_ids = re.findall(r"public (?:final static|static final) int OPTION_\w+ = (\d+);", chat)
 
 checks = {
+    "legacy and V2 voice recorders respect BYgram haptic settings": all(
+        "BygramConfig.hapticFeedback(" in argument
+        for argument in re.findall(r"feedbackView\.performHapticFeedback\((.*?)HapticFeedbackConstants\.FLAG_IGNORE_GLOBAL_SETTING", media_controller, re.S)
+    ) and media_controller.count("feedbackView.performHapticFeedback(") == 3,
     "launch search setting survives cleanup export and reset": 'COLLAPSE_SEARCH_ON_START = "bygram_collapse_search_on_start"' in config and 'case COLLAPSE_SEARCH_ON_START:' in config and 'BygramConfig.COLLAPSE_SEARCH_ON_START' in settings,
     "launch collapse preserves explicit search and scopes the main list": 'searchString == null && !searching && !searchIsShowed' in dialogs_activity and 'folderId == 0 && communityId == 0' in dialogs_activity.split('updateFloatingButtonVisibility(false);', 1)[1].split('checkUi_searchFiltersVisibility();', 1)[0] and 'setScrollY(-getMaxScrollYOffset());' in dialogs_activity,
     "archive customization uses native pull state": 'setChecked(org.telegram.messenger.SharedConfig.archiveHidden)' in settings and 'org.telegram.messenger.SharedConfig.toggleArchiveHidden();' in settings and 'viewPages[a].listView.updatePullState();' in dialogs_activity,
