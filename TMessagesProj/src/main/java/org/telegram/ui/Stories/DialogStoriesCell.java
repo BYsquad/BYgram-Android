@@ -616,11 +616,11 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
                     currentTitle = str;
                 }
             } else {
-                currentTitle = menuItemsOffset < dp(50) ? LocaleController.getString(R.string.AppName) :
+                currentTitle = menuItemsOffset < dp(50) ? org.telegram.messenger.BygramConfig.dialogsTitle(currentAccount) :
                     LocaleController.getString(R.string.MyStory);
             }
         } else {
-            currentTitle = menuItemsOffset < dp(50) ? LocaleController.getString(R.string.AppName) :
+            currentTitle = menuItemsOffset < dp(50) ? org.telegram.messenger.BygramConfig.dialogsTitle(currentAccount) :
                 LocaleController.formatPluralString("Stories", totalCount);
         }
 
@@ -927,10 +927,19 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             titleView.setScaleY(lerp(1f, 0.95f, subtitleOverlayContainer.getTotalVisibility()));
             titleView.setTranslationY(bottomY + dp(14) - offset + dp(FAKE_TOP_PADDING) - dp(6) * subtitleOverlayContainer.getTotalVisibility());
             lastViewRight += dp(12);
+            float titleRight = getWidth() - actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress - dp(24);
+            float emojiWidth = emojiStatusView.getVisibility() == VISIBLE && statusDrawable.getDrawable() != null ? dp(42) : 0;
+            float titleWidth = Math.min(titleView.getDrawable().getAnimateToWidth(), Math.max(0, titleRight - lastViewRight - emojiWidth));
+            int titlePosition = org.telegram.messenger.BygramConfig.getInt(org.telegram.messenger.BygramConfig.TITLE_POSITION, 0);
+            if (type == TYPE_DIALOGS && titlePosition == 1) {
+                lastViewRight += Math.max(0, (titleRight - lastViewRight - titleWidth - emojiWidth) / 2f);
+            } else if (type == TYPE_DIALOGS && titlePosition == 2) {
+                lastViewRight = Math.max(lastViewRight, titleRight - titleWidth - emojiWidth);
+            }
             titleView.setTranslationX(lastViewRight);
-            titleView.getDrawable().setRightPadding(lastViewRight - dp(12) + actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress);
+            titleView.getDrawable().setRightPadding(getWidth() - titleRight + lastViewRight + emojiWidth);
 
-            emojiStatusView.setTranslationX(titleView.getTranslationX() + titleView.getDrawable().getAnimateToWidth() + dp(2));
+            emojiStatusView.setTranslationX(titleView.getTranslationX() + titleWidth + dp(2));
             emojiStatusView.setTranslationY(bottomY + dp(14 - 11 + FAKE_TOP_PADDING + 4.333f) + translationOffset);
 
             subtitleOverlayContainer.setTranslationX(titleView.getTranslationX());
@@ -1316,6 +1325,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
     public void onResume() {
         storiesController.checkExpiredStories();
+        updateItems(false, true);
         for (int i = 0; i < items.size(); i++) {
             TL_stories.PeerStories stories = storiesController.getStories(items.get(i).dialogId);
             if (stories != null) {
@@ -1672,7 +1682,10 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
                 backgroundPaint.setColor(getThemedColor(Theme.key_actionBarDefaultArchived));
             }
             if (progressToCollapsed != 0) {
-                canvas.drawCircle(cx, cy, radius + dpf2(1.5f), backgroundPaint);
+                AndroidUtilities.rectTmp.set(x - dpf2(1.5f), y - dpf2(1.5f), x + finalSize + dpf2(1.5f), y + finalSize + dpf2(1.5f));
+                float maskRadius = org.telegram.messenger.BygramConfig.avatarRadius(finalSize);
+                if (maskRadius > 0) maskRadius += dpf2(1.5f);
+                canvas.drawRoundRect(AndroidUtilities.rectTmp, maskRadius, maskRadius, backgroundPaint);
             }
 
             canvas.save();
@@ -2201,7 +2214,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         }
         if (emojiStatusView != null) {
             boolean showStatus = titleAlpha > 0 && !hasOverlayText
-                    && TextUtils.equals(currentTitle, LocaleController.getString(R.string.AppName));
+                    && TextUtils.equals(currentTitle, org.telegram.messenger.BygramConfig.dialogsTitle(currentAccount));
             emojiStatusView.setAlpha(titleAlpha);
             emojiStatusView.setVisibility(showStatus ? VISIBLE : GONE);
         }

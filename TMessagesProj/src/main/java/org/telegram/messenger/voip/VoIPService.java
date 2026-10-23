@@ -4109,7 +4109,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 				} else {
 					vibrate = prefs.getInt("vibrate_calls", 0);
 				}
-				if ((vibrate != 2 && vibrate != 4 && (am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE || am.getRingerMode() == AudioManager.RINGER_MODE_NORMAL)) || (vibrate == 4 && am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE)) {
+				if (org.telegram.messenger.BygramConfig.isCallVibrationEnabled() && ((vibrate != 2 && vibrate != 4 && (am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE || am.getRingerMode() == AudioManager.RINGER_MODE_NORMAL)) || (vibrate == 4 && am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE))) {
 					vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 					long duration = 700;
 					if (vibrate == 1) {
@@ -5465,7 +5465,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 					wasEstablished = true;
 					if (!isProximityNear && !privateCall.video) {
 						try {
-							LaunchActivity.getLastFragment().getFragmentView().performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+							LaunchActivity.getLastFragment().getFragmentView().performHapticFeedback(org.telegram.messenger.BygramConfig.callHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
 						} catch (Exception ignore) {}
 					}
 					AndroidUtilities.runOnUIThread(new Runnable() {

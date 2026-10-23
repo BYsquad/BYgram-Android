@@ -144,7 +144,7 @@ public class GroupCallPipAlertView extends LinearLayout implements VoIPService.S
                     try {
                         Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
                         if (vibrator != null) {
-                            if (!org.telegram.messenger.BygramConfig.getBoolean("bygram_disable_vibration")) vibrator.vibrate(200);
+                            if (org.telegram.messenger.BygramConfig.isCallVibrationEnabled()) vibrator.vibrate(200);
                         }
                     } catch (Exception e) {
                         FileLog.e(e);

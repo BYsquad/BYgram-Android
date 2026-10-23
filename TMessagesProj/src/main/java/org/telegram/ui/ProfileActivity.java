@@ -1253,6 +1253,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private class TopView extends FrameLayout {
+        private final ImageReceiver bygramBackground = new ImageReceiver(this);
+        private int bygramBackgroundGeneration;
 
         private int currentColor;
         private Paint paint = new Paint();
@@ -1260,6 +1262,24 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         public TopView(Context context) {
             super(context);
             setWillNotDraw(false);
+        }
+
+        void loadBygramBackground() {
+            final int generation = ++bygramBackgroundGeneration;
+            bygramBackground.setImageBitmap((Drawable) null);
+            if (userId <= 0 || userId != getUserConfig().getClientUserId()
+                    && BygramConfig.getBoolean(BygramConfig.HIDE_PROFILE_BACKGROUNDS)) { invalidate(); return; }
+            org.telegram.messenger.BygramTypingController.loadProfileBackground(userId, (response, unused) -> {
+                if (generation != bygramBackgroundGeneration || userId != getUserConfig().getClientUserId()
+                        && BygramConfig.getBoolean(BygramConfig.HIDE_PROFILE_BACKGROUNDS)) return;
+                if (response == null || !response.optBoolean("ok")) return;
+                String url = org.telegram.messenger.BygramTypingController.profileBackgroundUrl(userId, response);
+                if (!url.isEmpty()) {
+                    String ext = response.optString("mime").equals("image/gif") ? "gif" : "jpg";
+                    bygramBackground.setImage(org.telegram.messenger.ImageLocation.getForPath(url), "1280_1280", null, null, null, 0, ext, null, 0);
+                }
+                invalidate();
+            });
         }
 
         @Override
@@ -1328,12 +1348,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
             emoji.attach();
+            bygramBackground.onAttachedToWindow();
         }
 
         @Override
         protected void onDetachedFromWindow() {
             super.onDetachedFromWindow();
             emoji.detach();
+            bygramBackground.onDetachedFromWindow();
         }
 
         public final AnimatedFloat emojiLoadedT = new AnimatedFloat(this, 0, 440, CubicBezierInterpolator.EASE_OUT_QUINT);
@@ -1405,6 +1427,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (progressToGradient > 0) {
                     backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
+                }
+                bygramBackground.setImageCoords(0, 0, getMeasuredWidth(), y1);
+                bygramBackground.draw(canvas);
+                if (bygramBackground.hasImageLoaded()) {
+                    paint.setColor(peerColor != null ? Color.BLACK : currentColor);
+                    paint.setAlpha(160);
+                    canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
+                    paint.setAlpha(255);
                 }
                 if (hasEmoji) {
                     final float loadedScale = emojiLoadedT.set(isEmojiLoaded());
@@ -9657,6 +9687,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
+        if (topView != null) topView.loadBygramBackground();
         bygramProfilePaused = false;
         AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
         profileViewsIndicatorRunnable.run();
@@ -9698,6 +9729,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         updateProfileData(true);
+        if (userId == getUserConfig().getClientUserId()) updateListAnimated(false);
         fixLayout();
         if (nameTextView[1] != null) {
             setParentActivityTitle(nameTextView[1].getText());
@@ -10787,7 +10819,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     setAvatarSectionRow = rowCount++;
                 }
                 numberSectionRow = rowCount++;
-                numberRow = rowCount++;
+                if (!BygramConfig.getBoolean(BygramConfig.HIDE_PHONE)) numberRow = rowCount++;
                 if (BygramConfig.getInt(BygramConfig.PROFILE_ID_MODE, 0) != 0) bygramIdRow = rowCount++;
                 setUsernameRow = rowCount++;
                 bioRow = rowCount++;
@@ -10877,7 +10909,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 infoStartRow = rowCount;
                 if (BygramConfig.getInt(BygramConfig.PROFILE_ID_MODE, 0) != 0) bygramIdRow = rowCount++;
-                if (!isBot && (hasPhone || !hasInfo)) {
+                if (!isBot && (hasPhone || !hasInfo)
+                        && !(UserObject.isUserSelf(user) && BygramConfig.getBoolean(BygramConfig.HIDE_PHONE))) {
                     phoneRow = rowCount++;
                 }
                 if (userInfo != null && !TextUtils.isEmpty(userInfo.about)) {

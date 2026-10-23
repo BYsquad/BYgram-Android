@@ -1808,6 +1808,11 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
     }
 
     private void createLayout(CharSequence text, int width) {
+        if (currentMessageObject != null && currentMessageObject.messageOwner.bygramChatDeletedAt != 0) {
+            text = new SpannableStringBuilder(text == null ? "" : text).append("\n\n")
+                    .append(LocaleController.formatString(R.string.BygramChatDeletedAt,
+                            LocaleController.formatDateTime(currentMessageObject.messageOwner.bygramChatDeletedAt, false)));
+        }
         int maxWidth = width - dp(30);
         if (isSideMenued) {
             maxWidth -= dp(64);
@@ -4197,6 +4202,10 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
                     }
                 };
                 sb.setSpan(underlineSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            if (messageObject != null && messageObject.messageOwner.bygramChatDeletedAt != 0) {
+                sb.append("\n").append(LocaleController.formatString(R.string.BygramChatDeletedAt,
+                        LocaleController.formatDateTime(messageObject.messageOwner.bygramChatDeletedAt, false)));
             }
             accessibilityText = sb;
         }

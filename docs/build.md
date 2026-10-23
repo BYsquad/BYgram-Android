@@ -1,5 +1,130 @@
 # Сборка BYgram на Windows
 
+23.10.2026, итоговый APK кастомизации: цветной профиль с белым именем получает
+тёмную подложку фона; сохранены служебные якоря Spy, защита от устаревших ответов
+и корректное смещение свёрнутого поиска. Full Debug
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 6m 21s (306 tasks: 16 executed, 290 up-to-date).
+APK: `output/BYgram-customization-FINAL-full-debug.apk`, 122635249 байт;
+SHA-256 `a6ad92b6303798c42e4702f097a3dfa6a108240d77dfa3ce758d8f6a02dadc51`.
+Контейнер APK создан заново штатной задачей Gradle: прежний generated APK
+предварительно удалён после сохранения предыдущих сборок в output; это исключает
+рост ZIP при последовательной инкрементальной упаковке.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), прежний сертификат, подпись v1/v2,
+локализация en/ru 295/295 и uk 155/155. 23 JVM-проверки кастомизации — PASS.
+Лог: `output/build-customization-contrast-full-debug-2026-10-23.log`.
+Итоговый APK отправлен через telegram-cli в «Избранное» 23.10.2026 в 22:56 МСК;
+Telegram подтвердил сообщение `200556` и размер документа 122635249 байт.
+Для установки использовать именно файл с пометкой FINAL; он заменяет две предыдущие сборки этой задачи.
+
+
+23.10.2026: дополнительная сборка кастомизации со служебными якорями Spy,
+защитой от устаревшего ответа фона и обновлением смещения поиска после настроек.
+Full Debug `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` —
+BUILD SUCCESSFUL за 11m 10s (306 tasks: 14 executed, 292 up-to-date).
+APK: `output/BYgram-customization-checked-full-debug.apk`, 137338647 байт;
+SHA-256 `10e74dec461297b2163a0c15df68ef34b3956efebeafce397090a7c1a21f9c5a`.
+Лог: `output/build-customization-final-full-debug-2026-10-23.log`.
+APK отправлен через telegram-cli в «Избранное» 23.10.2026 в 22:51 МСК;
+Telegram подтвердил сообщение `200551` и размер 137338647 байт.
+Следующая сборка дополнительно исправляет подложку под белым именем цветного профиля.
+
+
+23.10.2026: фон профиля (изображения/GIF) с общим сервером Android/iOS,
+событие удаления чата с привязкой к последнему сохранённому сообщению,
+постоянно свёрнутый поиск, предпросмотр заголовка/эмодзи, разделы кастомизации
+и форма фона аватара обычного чата. Full Debug
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 8m 4s (306 tasks: 21 executed, 285 up-to-date).
+APK: `output/BYgram-customization-full-debug.apk`, 132321217 байт;
+SHA-256 `cad673add6111d56e54c56001876df1898e197622b6adebdd42cb4159f365c85`.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), прежний сертификат и подпись
+v1/v2, локализация en/ru 295/295 и uk 155/155.
+Сериализация Spy/кошелька/нового времени удаления, 79 ссылок, 16 retention-сценариев,
+55 settings contracts, 23 JVM-граничных проверки кастомизации, заголовки/MD3 — PASS.
+PHP self-test и реальный подписанный HTTP API на отдельной тестовой БД — PASS.
+Production API и миграция обновлены, проверены 200/401/400 и байты файлов по FTP.
+ADB devices пуст; iOS без Xcode на Windows не собирался и на устройстве не проверен.
+Лог: `output/build-customization-full-debug-2026-10-23.log`.
+APK этой сборки отправлен через telegram-cli в «Избранное» 23.10.2026 в 22:37 МСК;
+Telegram подтвердил сообщение `200539` и размер 132321217 байт.
+Подробности: [фон и история](bygram-settings/profile-backgrounds-and-history-2026-10-23.md).
+
+
+23.10.2026: отдельный подпункт «Вибрация при звонке» и сверка каталога переводов.
+Full Debug `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` —
+BUILD SUCCESSFUL за 7m 28s (306 tasks: 32 executed, 274 up-to-date).
+APK: `output/BYgram-call-vibration-full-debug.apk`, 127302235 байт;
+SHA-256 `fb18baa18e40266cf58834a55cf4dc9ab29c9220e3bb950a23d51cacf7c2983d`.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), подпись v1/v2 прежним
+сертификатом, бинарная локализация en/ru 281/281 и uk 141/141.
+Проверены 158 ссылок на BYgram-ресурсы и соответствие каталогу PR #1,
+55 settings contracts, четыре сочетания переключателей вибрации и 13
+Java-граничных сценариев кастомизации. Тексты нового переключателя и Ghost Mode
+дополнительно прочитаны из бинарных ресурсов APK.
+ADB devices пуст: на устройстве не проверено.
+Лог: `output/build-call-vibration-translations-2026-10-23.log`.
+APK отправлен через `telegram-cli` в «Избранное» 23.10.2026 в 16:37 МСК;
+Telegram подтвердил сообщение `200436` и размер документа 127302235 байт.
+
+23.10.2026: оформление верхней панели всех страниц настроек BYgram:
+непрозрачная подложка с лёгким затемнением сверху, заголовки без стеклянной
+плашки, на главной только кнопка возврата. Full Debug
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 6m 40s (306 tasks: 16 executed, 290 up-to-date).
+APK: `output/BYgram-settings-header-full-debug.apk`, 127301467 байт;
+SHA-256 `b92e430d98e1f21c5c4a8916c8aa341773c09693919336bbdbeb20fc2c84536d`.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), подпись v1/v2,
+локализация en/ru 279/279 и uk 140/140. Проверки заголовков, MD3 и
+55 settings contracts — PASS. ADB devices пуст: на устройстве не проверено.
+Лог: `output/build-settings-header-2026-10-23.log`.
+APK отправлен через `telegram-cli` в «Избранное» 23.10.2026 в 15:42 МСК;
+Telegram подтвердил сообщение `200407` и размер 127301467 байт.
+
+23.10.2026: обложка музыки профиля и четыре настройки кастомизации (свой номер,
+относительный онлайн, свайп из архива, общий запрет вибрации).
+Full Debug `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` —
+BUILD SUCCESSFUL, 7m 23s. APK: `output/BYgram-profile-customization-full-debug.apk`,
+127301467 байт, SHA-256
+`464c9f04ad2ca39eb692383ab61cefab63ebb0e0dd99a6bb8e6ea49ff297ab24`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), подпись v1/v2 PASS,
+локализация en/ru 279/279 и uk 140/140 PASS. Проверены 55 settings contracts,
+профиль, MD3, 75 ссылок и 13 Java-граничных сценариев новой кастомизации.
+Android-устройств через adb нет; визуальная/аппаратная проверка не выполнена.
+Лог: `output/build-profile-customization-full-debug-2026-10-23.log`.
+APK отправлен через `telegram-cli` в «Избранное» 23.10.2026 в 12:39 МСК;
+Telegram подтвердил сообщение `200378` и размер документа 127301467 байт.
+Отдельная предварительная проверка компиляции пересеклась с запуском assemble
+и завершилась ошибкой упаковки промежуточных классов; итоговый assemble после
+завершения первого процесса прошёл полностью.
+
+23.10.2026: исправление пустых плашек скрытого заголовка и зазоров вокруг сторис.
+Full Debug `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` —
+BUILD SUCCESSFUL за 6m 32s (306 tasks: 14 executed, 292 up-to-date).
+`output/BYgram-full-debug.apk`: 130687950 байт,
+SHA-256 `ac80930c09e32579134a00ee6f071915c5dbcd73d8244a257e5f93fd237f14b0`.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), подпись v1/v2 с прежним
+сертификатом; бинарная локализация en/ru 274/274, uk 129/129 — PASS.
+JVM-проверки заголовков, MD3, 55 contracts настроек и diff check — PASS.
+На устройстве не запускался (ADB devices пуст).
+Лог: `output/build-full-debug-header-gaps-2026-10-23.log`.
+APK отправлен в Telegram «Избранное», сообщение `200377`.
+
+23.10.2026: Full Debug с общим оформлением заголовков страниц отдельными
+скруглёнными блоками Liquid Glass. Финальная сборка
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 5m 32s, 306 tasks (16 executed, 290 up-to-date).
+`output/BYgram-full-debug.apk`: 130687961 байт,
+SHA-256 `7b97181b243a12f537ed6233989b4b58d774bef682d8ddbc1e520289b4982c17`.
+Подтверждены `com.bygram.mobile`, 13.0.3 (71839), Full/debuggable,
+min 23 / target 36, четыре ABI, подпись v1/v2 (сертификат
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`).
+Бинарная локализация: en/ru 274/274, uk 129/129 — PASS.
+Пройдены JVM-проверки фона и геометрии заголовков, MD3 и 55 contracts настроек.
+На устройстве не запускался. Лог:
+`output/build-full-debug-page-headers-final-2026-10-23.log`.
+Описание: [заголовки](bygram-settings/customization.md#общий-стиль-заголовков-23102026).
+
 22.10.2026, актуальная Full Debug: Telegram 13.0.3, upstream `0aae959806`,
 вся история 14 коммитов после `f32ffee` включена через merge. Сборка
 `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
@@ -68,7 +193,14 @@ python Tools/sync_bygram_translations.py C:\project\BYgram-translations
 python Tools/sync_bygram_translations.py C:\project\BYgram-translations --check
 ```
 
-Если каталог уже клонирован, перед импортом выполните `git -C C:\project\BYgram-translations pull --ff-only`. Скрипт читает только XML, проверяет имена ресурсов, форматные аргументы и длины массивов, затем копирует переводы в приложение. Он требует, чтобы английские исходные XML-файлы в обоих репозиториях совпадали. После импорта проверьте diff и зафиксируйте его в закрытом репозитории. Обычная сборка не обращается к внешнему сервису переводов.
+Если каталог уже клонирован, перед импортом выполните `git -C C:\project\BYgram-translations pull --ff-only`. Скрипт читает только XML, проверяет имена ресурсов, форматные аргументы и длины массивов, затем копирует переводы в приложение. Он требует совпадения английских Android-ресурсов по именам, тексту и структуре; форматирование XML и строки `BygramDesktop*` не участвуют в сравнении. Строки Windows исключаются при импорте, остальные тексты и разметка сохраняются. После импорта проверьте diff и зафиксируйте его в закрытом репозитории. Обычная сборка не обращается к внешнему сервису переводов.
+
+Полная проверка Android-ссылок и каталога: `python Tools/check_bygram_translation_catalog.py C:\project\BYgram-translations`.
+23.10.2026 исправления отсутствующих текстов настроек и новый пункт вибрации звонков
+подготовлены в [BYgram-translations PR #1](https://github.com/BYxarek/BYgram-translations/pull/1),
+ветка `c-r/android-settings-call-vibration-2026-10-23`, коммит `cab944e6832002492b81e3952a097bf5e8f83758`.
+Android-ресурсы синхронизированы с этой веткой; PR ещё не слит в `main`.
+Украинский каталог настроек остаётся частичным с английским fallback, как указано в README каталога.
 
 ## Две редакции APK
 

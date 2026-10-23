@@ -2599,12 +2599,19 @@ public class LocaleController {
     }
 
     public static String formatDateOnline(long date, boolean[] madeShorter) {
+        return formatDateOnline(UserConfig.selectedAccount, date, madeShorter);
+    }
+
+    private static String formatDateOnline(int currentAccount, long date, boolean[] madeShorter) {
         try {
-            if (BygramConfig.getBoolean("bygram_relative_online")) {
-                long elapsed = ConnectionsManager.getInstance(UserConfig.selectedAccount).getCurrentTime() - date;
+            if (BygramConfig.getBoolean(BygramConfig.RELATIVE_ONLINE)) {
+                long elapsed = ConnectionsManager.getInstance(currentAccount).getCurrentTime() - date;
                 if (elapsed >= 0 && elapsed < 60) return getString(R.string.BygramLastSeenNow);
                 if (elapsed >= 60 && elapsed < 3600) return formatString(R.string.BygramLastSeenMinutes, elapsed / 60);
                 if (elapsed >= 3600 && elapsed < 86400) return formatString(R.string.BygramLastSeenHours, elapsed / 3600);
+                if (elapsed >= 86400 && elapsed < 30L * 86400) return formatString(R.string.BygramLastSeenDays, elapsed / 86400);
+                if (elapsed >= 30L * 86400 && elapsed < 365L * 86400) return formatString(R.string.BygramLastSeenMonths, elapsed / (30L * 86400));
+                if (elapsed >= 365L * 86400) return formatString(R.string.BygramLastSeenYears, elapsed / (365L * 86400));
             }
             date *= 1000;
             Calendar rightNow = Calendar.getInstance();
@@ -2950,14 +2957,14 @@ public class LocaleController {
             }
             int savedLastOnline = BygramConfig.getLastOnline(currentAccount, user.id);
             if (savedLastOnline > 0) {
-                return formatString(R.string.BygramObservedOnline, formatDateOnline(savedLastOnline, madeShorter));
+                return formatString(R.string.BygramObservedOnline, formatDateOnline(currentAccount, savedLastOnline, madeShorter));
             }
         }
         if (user == null || user.status == null || user.status.expires == 0 || UserObject.isDeleted(user) || user instanceof TLRPC.TL_userEmpty) {
             if (user != null) {
                 int savedLastOnline = BygramConfig.getLastOnline(currentAccount, user.id);
                 if (savedLastOnline > 0) {
-                    return formatDateOnline(savedLastOnline, madeShorter);
+                    return formatDateOnline(currentAccount, savedLastOnline, madeShorter);
                 }
             }
             return getString("ALongTimeAgo", R.string.ALongTimeAgo);
@@ -2978,7 +2985,7 @@ public class LocaleController {
                 } else if (user.status.expires == -102 || user.status.expires == -1002) {
                     return getString("WithinAMonth", R.string.WithinAMonth);
                 } else {
-                    return formatDateOnline(user.status.expires, madeShorter);
+                    return formatDateOnline(currentAccount, user.status.expires, madeShorter);
                 }
             }
         }

@@ -6,7 +6,6 @@ it never executes code from the public repository.
 
 import argparse
 import re
-import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -56,6 +55,20 @@ def validate_translation(source: dict[str, ET.Element], translated: dict[str, ET
             raise ValueError(f"Format placeholders differ in {path}: {name}")
 
 
+def android_xml(path: Path) -> bytes:
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r'(?m)^[ \t]*<(string|string-array)\b[^>]*\bname="BygramDesktop[^"]*"[^>]*>.*?</\1>[ \t]*\n?', '', text, flags=re.S)
+    return text.encode("utf-8")
+
+
+def android_entries(path: Path) -> dict:
+    def value(node):
+        if node.tag == "string-array":
+            return node.tag, node.attrib, [value(child) for child in node]
+        return node.tag, node.attrib, node.text or "", [(value(child), child.tail or "") for child in node]
+    return {name: value(node) for name, node in entries(path).items() if not name.startswith("BygramDesktop")}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("catalog", type=Path, help="local clone of BYxarek/BYgram-translations")
@@ -70,7 +83,7 @@ def main() -> None:
         public_source = locales / "en" / filename
         app_source = APP_RES / "values" / filename
         sources[filename] = entries(public_source)
-        if public_source.read_bytes() != app_source.read_bytes():
+        if android_entries(public_source) != android_entries(app_source):
             raise ValueError(f"English source differs from app; update both before import: {filename}")
 
     changes = []
@@ -86,14 +99,14 @@ def main() -> None:
             translated = entries(incoming)
             validate_translation(sources[filename], translated, incoming)
             destination = APP_RES / f"values-{directory.name}" / filename
-            if not destination.exists() or destination.read_bytes() != incoming.read_bytes():
+            if not destination.exists() or android_entries(destination) != android_entries(incoming):
                 changes.append((incoming, destination))
 
     if args.check and changes:
         raise ValueError("Catalog differs from app: " + ", ".join(str(path) for _, path in changes))
     for incoming, destination in changes:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(incoming, destination)
+        destination.write_bytes(android_xml(incoming))
         print(f"Imported {incoming.parent.name}/{incoming.name}")
     print(f"BYgram translations: {'in sync' if not changes else f'{len(changes)} file(s) imported'}")
 

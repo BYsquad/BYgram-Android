@@ -48,6 +48,46 @@ public final class BygramTypingController {
 
     private BygramTypingController() {}
 
+    public static void loadProfileBackground(long ownerId, ProfileViewsCallback callback) {
+        request(0, json("action", "profile_background_get", "owner_id", ownerId), false,
+                response -> callback.run(response, ""));
+    }
+
+    public static String profileBackgroundUrl(long ownerId, JSONObject response) {
+        String revision = response == null ? "" : response.optString("revision");
+        return revision.matches("[a-f0-9]{64}") ? ENDPOINT + "profile-background.php?user_id=" + ownerId + "&v=" + revision : "";
+    }
+
+    public static void publishProfileBackground(int account, android.net.Uri uri, Callback callback) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId <= 0) { callback.run(false, ""); return; }
+        Utilities.globalQueue.postRunnable(() -> {
+            String encoded = "";
+            try {
+                if (uri != null) {
+                    try (InputStream input = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri);
+                         java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+                        if (input == null) throw new java.io.IOException("No image");
+                        byte[] buffer = new byte[8192];
+                        int length;
+                        while ((length = input.read(buffer)) != -1) {
+                            if (output.size() + length > 4 * 1024 * 1024) throw new java.io.IOException("Image exceeds 4 MiB");
+                            output.write(buffer, 0, length);
+                        }
+                        encoded = android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP);
+                    }
+                }
+                request(userId, json("action", "profile_background_put", "user_id", userId, "image", encoded), true, response -> {
+                    if (response != null && response.optBoolean("needs_registration")) register(userId, callback);
+                    else callback.run(response != null && response.optBoolean("ok"), "");
+                });
+            } catch (Exception error) {
+                FileLog.e(error);
+                AndroidUtilities.runOnUIThread(() -> callback.run(false, ""));
+            }
+        });
+    }
+
     public static boolean profileViewsEnabled(int account) {
         long id = UserConfig.getInstance(account).getClientUserId();
         return id > 0 && ApplicationLoader.applicationContext.getSharedPreferences("bygram_profile_views", Context.MODE_PRIVATE).getBoolean("enabled_" + id, false);

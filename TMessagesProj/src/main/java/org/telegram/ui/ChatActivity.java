@@ -4774,6 +4774,9 @@ public class ChatActivity extends BaseFragment implements
             actionBar.setChatAvatarContainer(avatarContainer);
             actionBar.setForcedMenuMinWidth(dp(46));
             avatarContainer.setActionBar(actionBar);
+        } else {
+            actionBar.setChatAvatarContainer(avatarContainer);
+            avatarContainer.setActionBar(actionBar);
         }
 
         chatInputViewsContainer = new ChatInputViewsContainer(context);
@@ -23547,6 +23550,11 @@ public class ChatActivity extends BaseFragment implements
             for (int loadIndex = 0; loadIndex < messagesDict.length; loadIndex++) {
                 for (int messageId : ids) {
                     MessageObject messageObject = messagesDict[loadIndex].get(messageId);
+                    if (messageObject != null && args.length > 3 && messageId == (int) args[2]) {
+                        messageObject.messageOwner.bygramChatDeletedAt = (int) args[3];
+                        messageObject.forceUpdate = true;
+                        changed = true;
+                    }
                     if (messageObject != null && !messageObject.isBygramDeleted()) {
                         messageObject.messageOwner.bygramDeleted = true;
                         getMessagesStorage().updateMessageCustomParams(messageObject.getDialogId(), messageObject.messageOwner);

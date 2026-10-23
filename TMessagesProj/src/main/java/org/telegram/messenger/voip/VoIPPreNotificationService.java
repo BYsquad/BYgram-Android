@@ -342,7 +342,7 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
                 } else {
                     vibrate = prefs.getInt("vibrate_calls", 0);
                 }
-                if ((vibrate != 2 && vibrate != 4 && (am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE || am.getRingerMode() == AudioManager.RINGER_MODE_NORMAL)) || (vibrate == 4 && am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE)) {
+                if (org.telegram.messenger.BygramConfig.isCallVibrationEnabled() && ((vibrate != 2 && vibrate != 4 && (am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE || am.getRingerMode() == AudioManager.RINGER_MODE_NORMAL)) || (vibrate == 4 && am.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE))) {
                     vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
                     long duration = 700;
                     if (vibrate == 1) {

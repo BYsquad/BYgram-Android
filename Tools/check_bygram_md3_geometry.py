@@ -51,12 +51,22 @@ action_bar = source("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Actio
 assert "float rad = height / 2f;" not in reactions and reactions.count("BygramConfig.avatarRadius(height)") >= 2, "Reaction background and effect disagree on shape"
 assert "drawCircle(imageReceiver.getCenterX()" not in avatars and "BygramConfig.avatarRadius(avatar.getImageHeight())" in avatars, "Overlapping avatar masks are circular"
 assert "drawCircle(cx, cy, r" not in voters and "BygramConfig.avatarRadius(w)" in voters, "Poll voter avatar masks are circular"
-assert "BygramConfig.avatarRadius(dp(46))" in action_bar and "setRadius(leadingRadius, radius, radius, leadingRadius, false)" in action_bar, "Chat header edge ignores avatar shape"
+assert "BygramConfig.avatarRadius(chatAvatarContainer.avatarImageView.getMeasuredHeight())" in action_bar and "setRadius(leadingRadius, radius, radius, leadingRadius, false)" in action_bar, "Chat header edge ignores the actual avatar shape and inset"
+assert "storiesBackground.setRadius(leadingRadius, dp(23), dp(23), leadingRadius, false)" in dialogs, "Story background ignores avatar shape"
+assert "storiesBackground.setBounds(0, 0, getWidth(), getHeight() - dp(2))" in dialogs, "Story background removes the gaps to the header and search field"
+story_cell = source("TMessagesProj/src/main/java/org/telegram/ui/Stories/DialogStoriesCell.java")
+assert "canvas.drawCircle(cx, cy, radius + dpf2(1.5f), backgroundPaint)" not in story_cell and "BygramConfig.avatarRadius(finalSize)" in story_cell, "Collapsed story avatar masks are circular"
+for key in ("TITLE_TEXT", "TITLE_POSITION"):
+    assert f"case {key}:" in config and f"{key}.equals(key)" in config, f"{key} does not survive storage/export/reset"
+    assert f"BygramConfig.{key}" in settings, f"{key} is missing from customization"
+assert "setTitleGravity(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT)" in dialogs, "Title position is not applied"
+assert "int titleLeft = textLeft;" in action_bar and "titleRight - titleTextView[i].getMeasuredWidth()" in action_bar, "Title alignment does not move the text and emoji view"
+assert "BygramConfig.dialogsTitle(currentAccount)" in dialogs and story_cell.count("BygramConfig.dialogsTitle(currentAccount)") >= 3, "Expanded and collapsed headers disagree on name/username or emoji visibility"
 for selector in (dialogs, source("TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java")):
     account_view = selector.split("public LinearLayout accountView(", 1)[1].split("return btn;", 1)[0]
     assert "canvas.drawCircle(" not in account_view and "canvas.drawRoundRect(AndroidUtilities.rectTmp, BygramConfig.avatarRadius(dp(32))" in account_view, "Selected account outline ignores the BYgram avatar shape"
 main_settings, customization = settings.split("public static class CustomizationSettingsActivity", 1)
-assert "asButton(4," not in main_settings and "asButton(4," in customization.split("public static class TypingCustomizationActivity", 1)[0], "Typing statuses must live in Customization"
+assert "asButton(400," not in main_settings and "asButton(400," in customization and "new TypingCustomizationActivity()" in customization, "Typing statuses must live in Customization"
 assert "new EditText(" not in settings and "shape.setStroke(" in settings and "dialogInputContainer(input)" in chat, "BYgram dialogs must share the themed input style"
 icons = settings.split("AppIconsSelectorCell icons =", 1)[1].split("BackupImageView avatarPreview", 1)[0]
 launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")

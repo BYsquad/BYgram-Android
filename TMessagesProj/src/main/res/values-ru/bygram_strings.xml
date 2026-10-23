@@ -108,4 +108,19 @@
     <string name="BygramProfileViewsEmpty">Пока никто не просматривал ваш профиль</string>
     <string name="BygramProfileViewsVerify">Подтвердите свой аккаунт через Telegram-бота, затем вернитесь и включите функцию.</string>
     <string name="BygramProfileViewsNotification">%1$s просмотрел(а) ваш профиль</string>
+    <string name="BygramReadDateLabel">Прочитано: %1$s</string>
+    <string name="BygramKeepSearchCollapsed">Никогда не разворачивать поле поиска</string>
+    <string name="BygramChatListSection">Список чатов</string>
+    <string name="BygramFeedbackSection">Вибрация</string>
+    <string name="BygramHeaderSection">Заголовок и эмодзи</string>
+    <string name="BygramHeaderPreview">Предпросмотр заголовка</string>
+    <string name="BygramChatDeletedAt">Чат удалён %1$s</string>
+    <string name="BygramProfileBackground">Фон профиля</string>
+    <string name="BygramHideProfileBackgrounds">Не показывать чужие фоны профиля</string>
+    <string name="BygramProfileBackgroundInfo">Публичный фон виден пользователям BYgram. JPEG, PNG, WebP или GIF: до 4 МиБ, 4096 × 4096.</string>
+    <string name="BygramChooseBackground">Выбрать изображение или GIF</string>
+    <string name="BygramPublishBackground">Опубликовать выбранный фон</string>
+    <string name="BygramBackgroundPublished">Фон сохранён</string>
+    <string name="BygramBackgroundVerify">Подтвердите аккаунт в боте, затем нажмите «Опубликовать выбранный фон».</string>
+    <string name="BygramBackgroundFailed">Не удалось сохранить фон. Проверьте подключение и выберите поддерживаемое изображение до 4 МиБ.</string>
 </resources>

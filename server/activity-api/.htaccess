@@ -2,6 +2,6 @@ Options -Indexes
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
-<FilesMatch "^(config(\.example)?\.php|bootstrap\.php|cron\.php|schema\.sql|self-test\.php|badges\.json)$">
+<FilesMatch "^(config(\.example)?\.php|bootstrap\.php|cron\.php|schema\.sql|self-test\.php|profile-background-validation\.php|badges\.json)$">
     Require all denied
 </FilesMatch>

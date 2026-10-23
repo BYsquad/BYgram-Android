@@ -35,14 +35,23 @@ public final class BygramConfig {
     public static final String FIREBASE_CRASHLYTICS = "bygram_firebase_crashlytics";
     public static final String FIREBASE_ANALYTICS = "bygram_firebase_analytics";
     public static final String CUSTOM_PROFILE_MUSIC = "bygram_custom_profile_music";
+    public static final String HIDE_PHONE = "bygram_hide_phone";
+    public static final String RELATIVE_ONLINE = "bygram_relative_online";
+    public static final String NO_UNARCHIVE_SWIPE = "bygram_no_unarchive_swipe";
+    public static final String DISABLE_VIBRATION = "bygram_disable_vibration";
+    public static final String CALL_VIBRATION = "bygram_call_vibration";
     private static final String CUSTOM_TYPING_PREFIX = "bygram_custom_typing_";
     public static final String FILTER_ZALGO = "bygram_filter_zalgo";
     public static final String COLLAPSE_SEARCH_ON_START = "bygram_collapse_search_on_start";
+    public static final String KEEP_SEARCH_COLLAPSED = "bygram_keep_search_collapsed";
+    public static final String HIDE_PROFILE_BACKGROUNDS = "bygram_hide_profile_backgrounds";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
     public static final String MD3_LOADING = "bygram_md3_loading";
     public static final String MD3_SLIDERS = "bygram_md3_sliders";
     public static final String MD3_SWITCHES = "bygram_md3_switches";
     public static final String AVATAR_CORNERS = "bygram_avatar_corners";
+    public static final String TITLE_TEXT = "bygram_title_text";
+    public static final String TITLE_POSITION = "bygram_title_position";
     private static final int DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
     private static final String LEGACY_ACTIVITY_ENABLED = "bygram_activity_enabled";
     public static final int ACTIVITY_DIALOGS = 1;
@@ -152,13 +161,22 @@ public final class BygramConfig {
             case FIREBASE_CRASHLYTICS:
             case FIREBASE_ANALYTICS:
             case CUSTOM_PROFILE_MUSIC:
+            case HIDE_PHONE:
+            case RELATIVE_ONLINE:
+            case NO_UNARCHIVE_SWIPE:
+            case DISABLE_VIBRATION:
+            case CALL_VIBRATION:
             case FILTER_ZALGO:
             case COLLAPSE_SEARCH_ON_START:
+            case KEEP_SEARCH_COLLAPSED:
+            case HIDE_PROFILE_BACKGROUNDS:
             case PROFILE_ID_MODE:
             case MD3_LOADING:
             case MD3_SLIDERS:
             case MD3_SWITCHES:
             case AVATAR_CORNERS:
+            case TITLE_TEXT:
+            case TITLE_POSITION:
                 return true;
             default:
                 return false;
@@ -188,7 +206,8 @@ public final class BygramConfig {
     public static boolean getBoolean(String key) {
         if (!isActiveSetting(key)) return false;
         boolean defaultValue = GHOST_NO_READ.equals(key) || GHOST_NO_STORY_READ.equals(key)
-                || GHOST_NO_ONLINE.equals(key) || GHOST_NO_TYPING.equals(key) || FIREBASE_CRASHLYTICS.equals(key);
+                || GHOST_NO_ONLINE.equals(key) || GHOST_NO_TYPING.equals(key) || FIREBASE_CRASHLYTICS.equals(key)
+                || CALL_VIBRATION.equals(key);
         return preferences().getBoolean(key, defaultValue);
     }
 
@@ -210,12 +229,12 @@ public final class BygramConfig {
     }
 
     public static int getInt(String key, int fallback) {
-        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key)
+        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key)
                 ? preferences().getInt(key, fallback) : fallback;
     }
 
     public static void setInt(String key, int value) {
-        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key)) {
+        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key)) {
             preferences().edit().putInt(key, value).apply();
         }
     }
@@ -223,6 +242,19 @@ public final class BygramConfig {
     public static float avatarRadius(float size) {
         int corners = Math.max(0, Math.min(28, getInt(AVATAR_CORNERS, 28)));
         return size * corners / 56f;
+    }
+
+    public static String dialogsTitle(int account) {
+        TLRPC.User self = UserConfig.getInstance(account).getCurrentUser();
+        int mode = getInt(TITLE_TEXT, 0);
+        if (self != null) {
+            if (mode == 1 && self.username != null && !self.username.isEmpty()) return "@" + self.username;
+            if (mode == 2) {
+                String name = UserObject.getUserName(self);
+                if (!name.isEmpty()) return name;
+            }
+        }
+        return LocaleController.getString(R.string.AppName);
     }
 
     private static boolean isExportableSetting(String key) {
@@ -273,7 +305,15 @@ public final class BygramConfig {
     }
 
     public static int hapticFeedback(int effect) {
-        return effect;
+        return getBoolean(DISABLE_VIBRATION) ? android.view.HapticFeedbackConstants.NO_HAPTICS : effect;
+    }
+
+    public static boolean isCallVibrationEnabled() {
+        return !getBoolean(DISABLE_VIBRATION) || getBoolean(CALL_VIBRATION);
+    }
+
+    public static int callHapticFeedback(int effect) {
+        return isCallVibrationEnabled() ? effect : android.view.HapticFeedbackConstants.NO_HAPTICS;
     }
 
     public static boolean isGhostEnabled() {

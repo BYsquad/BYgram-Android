@@ -36,7 +36,7 @@ public class MessageCustomParamsHelper {
             message.translatedRichMessage == null &&
             message.errorAllowedPriceStars == 0 &&
             message.errorNewPriceStars == 0 &&
-            !message.bygramDeleted
+            !message.bygramDeleted && message.bygramChatDeletedAt == 0
         );
     }
 
@@ -61,6 +61,7 @@ public class MessageCustomParamsHelper {
         toMessage.translatedSummaryText = fromMessage.translatedSummaryText;
         toMessage.translatedSummaryLanguage = fromMessage.translatedSummaryLanguage;
         toMessage.bygramDeleted = fromMessage.bygramDeleted;
+        toMessage.bygramChatDeletedAt = fromMessage.bygramChatDeletedAt;
     }
 
 
@@ -125,6 +126,7 @@ public class MessageCustomParamsHelper {
             // Bit 14 belongs to existing BYgram Spy data; keep wallet state on a separate bit.
             flags = setFlag(flags, FLAG_14, message.bygramDeleted);
             flags = setFlag(flags, FLAG_15, isCommentEncryptionPreparing(message));
+            flags = setFlag(flags, FLAG_16, message.bygramChatDeletedAt != 0);
         }
 
         @Override
@@ -177,6 +179,7 @@ public class MessageCustomParamsHelper {
             if (hasFlag(flags, FLAG_13)) {
                 message.translatedRichMessage.serializeToStream(stream);
             }
+            if (hasFlag(flags, FLAG_16)) stream.writeInt32(message.bygramChatDeletedAt);
         }
 
         @Override
@@ -233,6 +236,7 @@ public class MessageCustomParamsHelper {
                 message.translatedRichMessage = TL_iv.RichMessage.TLdeserialize(stream, stream.readInt32(exception), exception);
             }
             message.bygramDeleted = hasFlag(flags, FLAG_14);
+            message.bygramChatDeletedAt = hasFlag(flags, FLAG_16) ? stream.readInt32(exception) : 0;
         }
 
     }

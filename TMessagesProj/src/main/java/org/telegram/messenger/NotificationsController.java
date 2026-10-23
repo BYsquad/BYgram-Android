@@ -3862,6 +3862,8 @@ public class NotificationsController extends BaseController implements Notificat
     @TargetApi(26)
     private String validateChannelId(long dialogId, long topicId, String name, long[] vibrationPattern, int ledColor, Uri sound, int importance, boolean isDefault, boolean isInApp, boolean isSilent, int type) {
         ensureGroupsCreated();
+        boolean disableVibration = BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION);
+        if (disableVibration) vibrationPattern = new long[]{0, 0};
 
         SharedPreferences preferences = getAccountInstance().getNotificationsSettings();
 
@@ -3920,6 +3922,8 @@ public class NotificationsController extends BaseController implements Notificat
             key = (isInApp ? "org.telegram.keyia" : "org.telegram.key") + dialogId + "_" + topicId;
         }
         key += "_" + soundHash;
+        // Keep the user's vibrating channels intact for when vibration is enabled again.
+        if (disableVibration) key += "_bygram_no_vibration";
         String channelId = preferences.getString(key, null);
         String settings = preferences.getString(key + "_s", null);
         boolean edited = false;
@@ -4032,7 +4036,7 @@ public class NotificationsController extends BaseController implements Notificat
                             edited = true;
                         }
                         boolean hasVibration = !isEmptyVibration(vibrationPattern);
-                        if (hasVibration != vibrate) {
+                        if (!disableVibration && hasVibration != vibrate) {
                             if (!isInApp) {
                                 if (editor == null) {
                                     editor = preferences.edit();
@@ -4775,7 +4779,7 @@ public class NotificationsController extends BaseController implements Notificat
                 if (ledColor != 0) {
                     mBuilder.setLights(ledColor, 1000, 1000);
                 }
-                if (vibrate == 2) {
+                if (BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION) || vibrate == 2) {
                     mBuilder.setVibrate(vibrationPattern = new long[]{0, 0});
                 } else if (vibrate == 1) {
                     mBuilder.setVibrate(vibrationPattern = new long[]{0, 100, 0, 100});

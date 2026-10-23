@@ -33,6 +33,7 @@ public class BygramMessageParamsCheck {
         TLRPC.Message legacyMessage = new TLRPC.TL_message();
         params(legacyMessage).readParams(legacyInput, true);
         check(legacyMessage.bygramDeleted, "12.10.5 deleted-message fixture lost its Spy flag");
+        check(legacyMessage.bygramChatDeletedAt == 0, "Legacy history invented a deletion time");
         legacyInput.cleanup();
         legacy.cleanup();
         for (boolean deleted : new boolean[]{false, true}) {
@@ -70,6 +71,22 @@ public class BygramMessageParamsCheck {
                 output.cleanup();
             }
         }
-        System.out.println("PASS: legacy Spy bit, independent wallet state, reload and copy");
+        TLRPC.Message anchor = new TLRPC.TL_message();
+        anchor.bygramChatDeletedAt = 1792764000;
+        check(!MessageCustomParamsHelper.isEmpty(anchor), "Chat deletion event discarded as empty");
+        SerializedData output = new SerializedData();
+        params(anchor).serializeToStream(output);
+        SerializedData input = new SerializedData(output.toByteArray());
+        input.readInt32(true);
+        TLRPC.Message restored = new TLRPC.TL_message();
+        params(restored).readParams(input, true);
+        check(restored.bygramChatDeletedAt == anchor.bygramChatDeletedAt, "Deletion event lost after restart");
+        check(!restored.bygramDeleted, "Deletion time overlaps another flag");
+        TLRPC.Message copy = new TLRPC.TL_message();
+        MessageCustomParamsHelper.copyParams(restored, copy);
+        check(copy.bygramChatDeletedAt == anchor.bygramChatDeletedAt, "Deletion event lost on message update");
+        input.cleanup();
+        output.cleanup();
+        System.out.println("PASS: legacy Spy bit, wallet state, anchored deletion time, reload and copy");
     }
 }

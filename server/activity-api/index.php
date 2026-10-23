@@ -8,10 +8,11 @@ set_exception_handler(static function (Throwable $error): never {
 });
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') jsonResponse(['ok' => false], 405);
-if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) jsonResponse(['ok' => false], 413);
+if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 6000000) jsonResponse(['ok' => false], 413);
 $raw = (string) file_get_contents('php://input');
-if (strlen($raw) > 16384 || !is_array($request = json_decode($raw, true))) jsonResponse(['ok' => false], 400);
+if (strlen($raw) > 6000000 || !is_array($request = json_decode($raw, true))) jsonResponse(['ok' => false], 400);
 $action = (string) ($request['action'] ?? '');
+if ($action !== 'profile_background_put' && strlen($raw) > 16384) jsonResponse(['ok' => false], 413);
 $GLOBALS['bygram_action'] = $action;
 $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 $pdo = db();
@@ -223,6 +224,36 @@ if ($action === 'badges') {
     foreach ($ids as $id) if (badgeFor($configured, 'user', $id)) $badges[] = ['peer_type' => 'user', 'peer_id' => $id];
     foreach ($chatIds as $id) if (badgeFor($configured, 'chat', $id)) $badges[] = ['peer_type' => 'chat', 'peer_id' => $id];
     jsonResponse(['ok' => true, 'badges' => $badges]);
+}
+if ($action === 'profile_background_get') {
+    $ownerId = filter_var($request['owner_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$ownerId || $ownerId < 1) jsonResponse(['ok' => false], 400);
+    $query = $pdo->prepare('SELECT revision,mime FROM profile_backgrounds WHERE telegram_id=?');
+    $query->execute([$ownerId]);
+    $image = $query->fetch();
+    jsonResponse(['ok' => true, 'revision' => $image ? $image['revision'] : '', 'mime' => $image ? $image['mime'] : '']);
+}
+if ($action === 'profile_background_put') {
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$userId || $userId < 1 || !is_string($request['image'] ?? null)) jsonResponse(['ok' => false], 400);
+    rateLimit($pdo, 'profile_background:' . $userId, 6);
+    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
+    $authorized = false;
+    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
+        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
+    }
+    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
+    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId, $nonce]); }
+    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    if ($request['image'] === '') {
+        $pdo->prepare('DELETE FROM profile_backgrounds WHERE telegram_id=?')->execute([$userId]);
+        jsonResponse(['ok' => true]);
+    }
+    require __DIR__ . '/profile-background-validation.php';
+    try { [$data, $mime, $revision] = profileBackgroundImage($request['image']); }
+    catch (InvalidArgumentException) { jsonResponse(['ok' => false, 'invalid_image' => true], 422); }
+    $pdo->prepare('INSERT INTO profile_backgrounds (telegram_id,image_data,mime,revision) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE image_data=VALUES(image_data),mime=VALUES(mime),revision=VALUES(revision)')->execute([$userId, $data, $mime, $revision]);
+    jsonResponse(['ok' => true]);
 }
 if ($action === 'typing_get') {
     rateLimit($pdo, 'typing_get:' . $ip, 120);

@@ -33,6 +33,11 @@
     <string name="BygramCustomProfileMusicInfo">Показывает музыку в профиле крупной карточкой. Выключите, чтобы использовать обычный компактный вид.</string>
     <string name="BygramRelativeOnline">Относительное время онлайна</string>
     <string name="BygramHidePhone">Скрыть номер телефона</string>
+    <string name="BygramHideOwnPhoneInfo">Скрывает ваш номер в вашем профиле и настройках. Не меняет видимость номера для других пользователей Telegram.</string>
+    <string name="BygramAppVibration">Вибрация в приложении</string>
+    <string name="BygramLastSeenDays">был(а) %1$d дн. назад</string>
+    <string name="BygramLastSeenMonths">был(а) %1$d мес. назад</string>
+    <string name="BygramLastSeenYears">был(а) %1$d г. назад</string>
     <string name="BygramScrollHideKeyboard">Скрывать клавиатуру при прокрутке</string>
     <string name="BygramLastSeenNow">был(а) только что</string>
     <string name="BygramLastSeenMinutes">был(а) %1$d мин. назад</string>
@@ -62,6 +67,12 @@
     <string name="BygramHideTitleStatus">Скрыть Premium-статус в заголовке</string>
     <string name="BygramCenterTitle">Заголовок по центру</string>
     <string name="BygramTitleText">Текст заголовка</string>
+    <string name="BygramTitlePosition">Положение заголовка и эмодзи</string>
+    <string-array name="BygramTitlePositionOptions">
+        <item>Слева</item>
+        <item>По центру</item>
+        <item>Справа</item>
+    </string-array>
     <string-array name="BygramTitleOptions">
         <item>BYgram</item>
         <item>Имя пользователя</item>
@@ -287,4 +298,5 @@
     <string name="BygramCollapseSearchOnStart">Сворачивать поиск при запуске</string>
     <string name="BygramCollapseSearchOnStartInfo">Открывать список чатов со свёрнутым поиском. Потяните список вниз или нажмите значок поиска, чтобы открыть его.</string>
     <string name="BygramHideArchiveInfo">Чтобы показать архив, дополнительно потяните вниз список чатов, находясь в самом верху.</string>
+    <string name="BygramCallVibration">Вибрация при звонке</string>
 </resources>

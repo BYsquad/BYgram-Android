@@ -13707,6 +13707,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         additionalPaddingHeight = Math.max(0, resultHeight - normHeight);
 
+        bygramDeletionLayout = null;
+        if (currentMessageObject != null && currentMessageObject.messageOwner.bygramChatDeletedAt != 0) {
+            bygramDeletionPaint.setTextSize(dp(13));
+            String text = formatString(R.string.BygramChatDeletedAt,
+                    LocaleController.formatDateTime(currentMessageObject.messageOwner.bygramChatDeletedAt, false));
+            bygramDeletionLayout = new StaticLayout(text, bygramDeletionPaint,
+                    Math.max(dp(40), MeasureSpec.getSize(widthMeasureSpec) - dp(64)), Layout.Alignment.ALIGN_CENTER, 1, 0, false);
+            resultHeight += bygramDeletionLayout.getHeight() + dp(24);
+        }
+
         setMeasuredDimension(
             isWidthAdaptive() ? getBoundsRight() - getBoundsLeft() : MeasureSpec.getSize(widthMeasureSpec),
             resultHeight
@@ -13714,6 +13724,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     private int additionalPaddingHeight;
+    private StaticLayout bygramDeletionLayout;
+    private final TextPaint bygramDeletionPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint bygramDeletionBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public int getAdditionalPaddingHeight() {
         return additionalPaddingHeight;
@@ -13782,7 +13795,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         int currentSize = getMeasuredHeight() + (getMeasuredWidth() << 16);
         if (lastSize != currentSize || !wasLayout || forcedLayout) {
             layoutWidth = getMeasuredWidth();
-            layoutHeight = getMeasuredHeight() - substractBackgroundHeight - getPaddingTop() - getPaddingBottom() - additionalPaddingHeight;
+            layoutHeight = getMeasuredHeight() - substractBackgroundHeight - getPaddingTop() - getPaddingBottom() - additionalPaddingHeight
+                    - (bygramDeletionLayout == null ? 0 : bygramDeletionLayout.getHeight() + dp(24));
             if (timeTextWidth < 0) {
                 timeTextWidth = dp(10);
             }
@@ -20168,6 +20182,18 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     public void drawInternal(Canvas canvas) {
         if (currentMessageObject == null) {
             return;
+        }
+        if (bygramDeletionLayout != null) {
+            bygramDeletionPaint.setColor(getThemedColor(Theme.key_chat_serviceText));
+            bygramDeletionBackground.setColor(getThemedColor(Theme.key_chat_serviceBackground));
+            float left = (getMeasuredWidth() - bygramDeletionLayout.getWidth()) / 2f;
+            float top = getMeasuredHeight() - bygramDeletionLayout.getHeight() - dp(12);
+            canvas.drawRoundRect(left - dp(12), top - dp(6), left + bygramDeletionLayout.getWidth() + dp(12),
+                    top + bygramDeletionLayout.getHeight() + dp(6), dp(12), dp(12), bygramDeletionBackground);
+            canvas.save();
+            canvas.translate(left, top);
+            bygramDeletionLayout.draw(canvas);
+            canvas.restore();
         }
         if (!wasLayout) {
             onLayout(false, getLeft(), getTop(), getRight(), getBottom());
@@ -27401,6 +27427,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                             }
                         };
                         sb.setSpan(underlineSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    if (currentMessageObject.messageOwner.bygramChatDeletedAt != 0) {
+                        sb.append("\n").append(formatString(R.string.BygramChatDeletedAt,
+                                LocaleController.formatDateTime(currentMessageObject.messageOwner.bygramChatDeletedAt, false)));
                     }
                     accessibilityText = sb;
                     accessibilityTextUnread = unread;

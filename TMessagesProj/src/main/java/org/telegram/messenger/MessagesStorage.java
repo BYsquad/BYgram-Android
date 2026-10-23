@@ -5799,7 +5799,7 @@ public class MessagesStorage extends BaseController {
             ArrayList<Integer> removeIds = new ArrayList<>();
             SQLiteCursor cursor = null;
             try {
-                cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ?", dialogId);
+                cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ? ORDER BY date DESC, mid DESC", dialogId);
                 while (cursor.next()) {
                     int id = cursor.intValue(0);
                     if (respectOwnDeletionSetting && cursor.intValue(1) != 0 && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
@@ -5810,6 +5810,14 @@ public class MessagesStorage extends BaseController {
                     }
                 }
                 for (int messageId : messageIds) markMessageAsBygramDeletedInternal(dialogId, messageId);
+                int anchorId = messageIds.isEmpty() ? 0 : messageIds.get(0);
+                int deletedAt = getConnectionsManager().getCurrentTime();
+                if (anchorId != 0) {
+                    TLRPC.Message anchor = getMessageWithCustomParamsOnlyInternal(anchorId, dialogId);
+                    anchor.id = anchorId;
+                    anchor.bygramChatDeletedAt = deletedAt;
+                    updateMessageCustomParamsInternal(dialogId, anchor);
+                }
                 if (!removeIds.isEmpty()) {
                     long channelId = DialogObject.isChatDialog(dialogId) && ChatObject.isChannel(getMessagesController().getChat(-dialogId)) ? -dialogId : 0;
                     markMessagesAsDeletedInternal(dialogId, removeIds, true, 0, 0);
@@ -5818,7 +5826,7 @@ public class MessagesStorage extends BaseController {
                             NotificationCenter.messagesDeleted, removeIds, channelId, false));
                 }
                 AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(
-                        NotificationCenter.bygramMessagesDeleted, dialogId, messageIds));
+                        NotificationCenter.bygramMessagesDeleted, dialogId, messageIds, anchorId, deletedAt));
             } catch (Exception e) {
                 checkSQLException(e);
             } finally {

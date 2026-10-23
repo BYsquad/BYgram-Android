@@ -15,6 +15,8 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
+import org.telegram.messenger.BuildConfig;
+import org.telegram.messenger.BygramSettingsLink;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LiteMode;
@@ -137,6 +139,9 @@ public class LinkManager {
 
         final String first = segments.get(0);
         final String second = segments.size() > 1 ? segments.get(1) : null;
+
+        if ("BYsettings".equalsIgnoreCase(first) && segments.size() == 1)
+            return handleBygramSettings(uri);
 
         if ("sendgrams".equalsIgnoreCase(first))
             return handleSendGrams(uri);
@@ -301,6 +306,9 @@ public class LinkManager {
         final String domain = uri.getQueryParameter("domain");
         final String startapp = uri.getQueryParameter("startapp");
 
+        if ("BYsettings".equalsIgnoreCase(domain))
+            return handleBygramSettings(uri);
+
         if ("sendgrams".equalsIgnoreCase(domain))
             return handleSendGrams(uri);
 
@@ -308,6 +316,21 @@ public class LinkManager {
             return handleOAuth(uri, startapp);
 
         return false;
+    }
+
+    private boolean handleBygramSettings(Uri uri) {
+        if (getUserConfig().isClientActivated()) {
+            BygramSettingsLink target = BygramSettingsLink.parse(uri.getQueryParameter("s"));
+            // Unknown or unavailable destinations fall back to the settings overview.
+            if (target == null || target.requiresFullEdition() && !BuildConfig.BYGRAM_FULL) {
+                target = BygramSettingsLink.parse(null);
+            }
+            BaseFragment settings = BygramSettingsActivity.forLink(target);
+            settings.setCurrentAccount(currentAccount);
+            presentFragment(settings);
+        }
+        done();
+        return true;
     }
 
     // tg://settings/*
@@ -1247,7 +1270,7 @@ public class LinkManager {
             return true;
         }
         if ("features".equalsIgnoreCase(first)) {
-            Browser.openUrl(activity, LocaleController.getString(R.string.TelegramFeaturesUrl));
+            Browser.openUrl(activity, "https://t.me/TelegramTips");
             return true;
         }
         if ("privacy-policy".equalsIgnoreCase(first)) {

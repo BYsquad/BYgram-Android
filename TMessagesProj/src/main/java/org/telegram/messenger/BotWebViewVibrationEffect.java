@@ -42,7 +42,11 @@ public enum BotWebViewVibrationEffect {
     }
 
     public void vibrate() {
-        if (BygramConfig.getBoolean("bygram_disable_vibration")) return;
+        vibrate(false);
+    }
+
+    public void vibrate(boolean forCall) {
+        if (forCall ? !BygramConfig.isCallVibrationEnabled() : BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AndroidUtilities.getVibrator().vibrate(getVibrationEffectForOreo());
         } else {

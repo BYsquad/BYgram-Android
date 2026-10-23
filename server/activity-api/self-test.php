@@ -4,16 +4,37 @@ require __DIR__ . '/bootstrap.php';
 
 if (PHP_SAPI !== 'cli') exit(1);
 if (getenv('BYGRAM_TEST_LOCAL') !== '1') throw new RuntimeException('Set BYGRAM_TEST_LOCAL=1; self-test never uses the configured production database.');
-$config = require __DIR__ . '/config.php';
+$testHost = getenv('BYGRAM_TEST_DB_HOST') ?: 'MySQL';
+$testUser = getenv('BYGRAM_TEST_DB_USER') ?: 'root';
+$testPassword = getenv('BYGRAM_TEST_DB_PASSWORD') ?: 'root';
 $database = 'bygram_self_test_' . getmypid();
-$admin = new PDO('mysql:host=127.0.0.1;port=3306;charset=utf8mb4', 'root', 'MySQL', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$admin = new PDO("mysql:host=$testHost;port=3306;charset=utf8mb4", $testUser, $testPassword, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $admin->exec("CREATE DATABASE `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 register_shutdown_function(static fn() => $admin->exec("DROP DATABASE IF EXISTS `$database`"));
-$config['db_dsn'] = "mysql:host=127.0.0.1;port=3306;dbname=$database;charset=utf8mb4";
-$config['db_user'] = 'root';
-$config['db_password'] = 'MySQL';
+$config['db_dsn'] = "mysql:host=$testHost;port=3306;dbname=$database;charset=utf8mb4";
+$config['db_user'] = $testUser;
+$config['db_password'] = $testPassword;
 $pdo = new PDO($config['db_dsn'], $config['db_user'], $config['db_password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec((string) file_get_contents(__DIR__ . '/schema.sql'));
+require __DIR__ . '/migrations/20261023_profile_backgrounds.php';
+require __DIR__ . '/migrations/20261023_profile_backgrounds.php';
+require __DIR__ . '/profile-background-validation.php';
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=');
+$gif = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+foreach ([$png => 'image/png', $gif => 'image/gif'] as $image => $mime) {
+    [$decoded, $detected, $revision] = profileBackgroundImage(base64_encode($image));
+    assert($decoded === $image && $detected === $mime && $revision === hash('sha256', $image));
+}
+foreach (['not-base64!', base64_encode('<svg/>'), base64_encode(str_repeat('a', 4194305)), base64_encode(substr_replace($gif, pack('vv', 4097, 1), 6, 4))] as $invalid) {
+    try { profileBackgroundImage($invalid); throw new RuntimeException('Invalid background accepted'); }
+    catch (InvalidArgumentException) {}
+}
+$pdo->prepare('INSERT INTO profile_backgrounds (telegram_id,image_data,mime,revision) VALUES (?,?,?,?)')->execute([123, $gif, 'image/gif', hash('sha256', $gif)]);
+$stored = $pdo->query('SELECT image_data,mime FROM profile_backgrounds WHERE telegram_id=123')->fetch(PDO::FETCH_ASSOC);
+assert($stored['image_data'] === $gif && $stored['mime'] === 'image/gif');
+$pdo->prepare('DELETE FROM profile_backgrounds WHERE telegram_id=?')->execute([123]);
+assert((int) $pdo->query('SELECT COUNT(*) FROM profile_backgrounds')->fetchColumn() === 0);
+echo "PASS: background migration, PNG/GIF, size/type/dimension rejection and binary storage\n";
 $widgetValues = ['auth_date' => '1700000000', 'first_name' => 'Owner', 'id' => '1243802669'];
 assert(telegramLoginHash($widgetValues, 'self-test-token') === '3d22bf85ec04879c0f627bfffc76a504f489d95a19f0d4fa410cb64340db44c7');
 echo "PASS: Telegram Login Widget signature\n";

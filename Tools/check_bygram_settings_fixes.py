@@ -101,7 +101,7 @@ checks = {
     "chat row rebuilds when fetched badge changes": 'boolean badgeChanged = (bygramNameBadge != null)' in dialog_cell and '!needUpdate && !badgeChanged' in dialog_cell,
     "cached badges appear before network refresh": badge_controller.index('getStringSet("assigned"') < badge_controller.index('Entry entry = cache.get'),
     "badge requests are deduplicated while loading": 'if (!entry.loading &&' in badge_controller and 'entry.loading = true;' in badge_controller and 'retryLater("chat"' in badge_controller,
-    "music cover falls back to local embedded art": 'ImageLocation.getForDocument(cover, document)' in music_view and 'AudioInfo.getAudioInfo(file)' in music_view,
+    "music cover falls back to local embedded art": 'ImageLocation.getForDocument(thumb, document)' in music_view and 'AudioInfo.getAudioInfo(audioFile)' in music_view,
     "profile header includes music at entry and after loading": 'extraHeight = getHeaderExtraHeight();\n        return fragmentView;' in profile and 'musicView.setMusicDocument(userInfo.saved_music);\n                int headerHeightDelta' in profile and 'adjustHeaderForMusicChange(headerHeightDelta);' in profile and 'savedScrollOffset = Math.max(0, header.getTop() + delta)' in profile,
     "legacy commerce is absent from admin panel": all(name not in admin_ui + admin_api for name in ('promo.save', 'method.save', 'referral.grant', 'requisite.save', 'payment_methods', 'referral_earnings')),
     "backend self-test cannot use production database": "self-test never uses the configured production database" in self_test and "CREATE DATABASE" in self_test and "DROP DATABASE IF EXISTS" in self_test,

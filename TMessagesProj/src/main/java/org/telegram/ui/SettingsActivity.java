@@ -544,7 +544,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         avatarView.setForUserOrChat(user, avatarDrawable);
         titleView.setText(UserObject.getUserName(user));
         final StringBuilder sb = new StringBuilder();
-        if (user != null && !org.telegram.messenger.BygramConfig.getBoolean("bygram_hide_phone")) {
+        if (user != null && !org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.HIDE_PHONE)) {
             sb.append(PhoneFormat.getInstance().format("+" + user.phone));
         }
         final String username = UserObject.getPublicUsername(user);
@@ -902,7 +902,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 if (MessagesController.getInstance(currentAccount).isFrozen()) {
                     AccountFrozenAlert.show(currentAccount);
                 } else {
-                    Browser.openUrl(getContext(), LocaleController.getString(R.string.TelegramFeaturesUrl));
+                    Browser.openUrl(getContext(), "https://t.me/TelegramTips");
                 }
                 break;
             }
@@ -918,6 +918,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
+        if (item.id == BYGRAM_SETTINGS_ID) {
+            return BygramSettingsActivity.showLinkMenu(this, view, listView, "root");
+        }
         if (item.object instanceof TLRPC.TL_attachMenuBot) {
             TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;
             BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, () -> listView.adapter.update(true));

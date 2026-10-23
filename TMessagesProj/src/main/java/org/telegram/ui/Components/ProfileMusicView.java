@@ -33,6 +33,9 @@ import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.MediaController;
+import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
@@ -45,7 +48,7 @@ import org.telegram.ui.ProfileActivity;
 
 import java.io.File;
 
-public class ProfileMusicView extends View {
+public class ProfileMusicView extends View implements NotificationCenter.NotificationCenterDelegate {
 
     public static final int ACTIVITY_CARD_HEIGHT = 56;
     private static final int MUSIC_CARD_HEIGHT = 100;
@@ -65,6 +68,7 @@ public class ProfileMusicView extends View {
     private final Drawable icon;
     private final ImageReceiver coverImage;
     private long coverDocumentId;
+    private TLRPC.Document musicDocument;
     private final Drawable activityIcon;
 
     private final RectF rect = new RectF();
@@ -86,6 +90,7 @@ public class ProfileMusicView extends View {
 
         icon = context.getResources().getDrawable(R.drawable.files_music).mutate();
         coverImage = new ImageReceiver(this);
+        coverImage.setCurrentAccount(account);
         coverImage.setRoundRadius(dp(16));
         activityIcon = context.getResources().getDrawable(R.drawable.msg_message).mutate();
 
@@ -173,28 +178,8 @@ public class ProfileMusicView extends View {
 
     public void setMusicDocument(TLRPC.Document document) {
         hasMusicDocument = document != null && (profileList || !BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC));
-        long documentId = document == null ? 0 : document.id;
-        TLRPC.PhotoSize cover = document == null ? null : FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 144);
-        if (coverDocumentId != documentId || (cover == null && !coverImage.hasImageLoaded())) {
-            coverDocumentId = documentId;
-            if (cover instanceof TLRPC.TL_photoSize || cover instanceof TLRPC.TL_photoSizeProgressive) {
-                coverImage.setImage(ImageLocation.getForDocument(cover, document), "72_72", null, null, document, 0);
-            } else {
-                coverImage.setImageBitmap((Drawable) null);
-                if (document != null) {
-                    File file = FileLoader.getInstance(account).getPathToAttach(document);
-                    if (file.isFile()) {
-                        Utilities.globalQueue.postRunnable(() -> {
-                            AudioInfo info = AudioInfo.getAudioInfo(file);
-                            Bitmap bitmap = info == null ? null : info.getSmallCover();
-                            if (bitmap != null) AndroidUtilities.runOnUIThread(() -> {
-                                if (coverDocumentId == documentId) coverImage.setImageBitmap(bitmap);
-                            });
-                        });
-                    }
-                }
-            }
-        }
+        musicDocument = document;
+        updateCover();
         CharSequence author = getAuthor(document);
         CharSequence title = getTitle(document);
         cardAuthor = new Text(TextUtils.isEmpty(author) ? getString(R.string.AudioUnknownArtist) : author, 14);
@@ -217,14 +202,64 @@ public class ProfileMusicView extends View {
         invalidate();
     }
 
+    private void updateCover() {
+        if (!profileList) return;
+        final TLRPC.Document document = musicDocument;
+        final long documentId = coverDocumentId = document == null ? 0 : document.id;
+        if (document == null) {
+            coverImage.setImageBitmap((Drawable) null);
+            return;
+        }
+        MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+        boolean sameTrack = playing != null && playing.currentAccount == account
+                && playing.getDocument() != null && playing.getDocument().id == documentId;
+        AudioInfo playingInfo = sameTrack ? MediaController.getInstance().getAudioInfo() : null;
+        if (playingInfo != null && playingInfo.getCover() != null) {
+            coverImage.setImageBitmap(playingInfo.getCover());
+            return;
+        }
+        TLRPC.PhotoSize thumb = FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 144);
+        ImageLocation thumbLocation = thumb instanceof TLRPC.TL_photoSize || thumb instanceof TLRPC.TL_photoSizeProgressive
+                ? ImageLocation.getForDocument(thumb, document) : null;
+        String artworkUrl = MessageObject.getArtworkUrl(document, true);
+        coverImage.setImage(artworkUrl == null ? null : ImageLocation.getForPath(artworkUrl), null,
+                thumbLocation, "72_72", null, 0, null, document, 1);
+        File file = sameTrack && !TextUtils.isEmpty(playing.messageOwner.attachPath)
+                ? new File(playing.messageOwner.attachPath) : FileLoader.getInstance(account).getPathToAttach(document);
+        if (!file.isFile()) file = FileLoader.getInstance(account).getPathToAttach(document);
+        if (file.isFile()) {
+            final File audioFile = file;
+            Utilities.globalQueue.postRunnable(() -> {
+                AudioInfo info = AudioInfo.getAudioInfo(audioFile);
+                Bitmap bitmap = info == null ? null : info.getSmallCover();
+                if (bitmap != null) AndroidUtilities.runOnUIThread(() -> {
+                    if (coverDocumentId == documentId) coverImage.setImageBitmap(bitmap);
+                });
+            });
+        }
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id != NotificationCenter.fileLoaded || musicDocument != null && args.length > 0
+                && FileLoader.getAttachFileName(musicDocument).equals(args[0])) updateCover();
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         coverImage.onAttachedToWindow();
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.fileLoaded);
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messagePlayingDidStart);
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
+        updateCover();
     }
 
     @Override
     protected void onDetachedFromWindow() {
+        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         coverImage.onDetachedFromWindow();
         super.onDetachedFromWindow();
     }
@@ -472,7 +507,7 @@ public class ProfileMusicView extends View {
         cover.set(dp(22), dp(14), dp(94), dp(86));
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundGray, resourcesProvider));
         canvas.drawRoundRect(cover, dp(16), dp(16), backgroundPaint);
-        if (coverImage.hasImageLoaded()) {
+        if (coverImage.hasBitmapImage()) {
             coverImage.setImageCoords(cover);
             coverImage.draw(canvas);
         } else {

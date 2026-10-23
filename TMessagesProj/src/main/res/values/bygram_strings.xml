@@ -108,4 +108,19 @@
     <string name="BygramProfileViewsEmpty">No one has viewed your profile yet</string>
     <string name="BygramProfileViewsVerify">Verify your account with the Telegram bot, then return and enable this feature.</string>
     <string name="BygramProfileViewsNotification">%1$s viewed your profile</string>
+    <string name="BygramReadDateLabel">Read on: %1$s</string>
+    <string name="BygramKeepSearchCollapsed">Keep the search field collapsed</string>
+    <string name="BygramChatListSection">Chat list</string>
+    <string name="BygramFeedbackSection">Vibration</string>
+    <string name="BygramHeaderSection">Title and emoji</string>
+    <string name="BygramHeaderPreview">Title preview</string>
+    <string name="BygramChatDeletedAt">Chat deleted on %1$s</string>
+    <string name="BygramProfileBackground">Profile background</string>
+    <string name="BygramHideProfileBackgrounds">Hide other profile backgrounds</string>
+    <string name="BygramProfileBackgroundInfo">Public background visible to BYgram users. JPEG, PNG, WebP or GIF, up to 4 MiB, 4096 × 4096.</string>
+    <string name="BygramChooseBackground">Choose image or GIF</string>
+    <string name="BygramPublishBackground">Publish selected background</string>
+    <string name="BygramBackgroundPublished">Background saved</string>
+    <string name="BygramBackgroundVerify">Confirm your account in the bot, then tap Publish selected background.</string>
+    <string name="BygramBackgroundFailed">Could not save background. Check connection and choose a supported image up to 4 MiB.</string>
 </resources>

@@ -131,7 +131,7 @@ public class GroupCallPip implements NotificationCenter.NotificationCenterDelega
                         }
                         AndroidUtilities.runOnUIThread(micRunnable, 90);
                         try {
-                            performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                            performHapticFeedback(org.telegram.messenger.BygramConfig.callHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
                         } catch (Exception ignore) {}
                         pressed = true;
                     }
@@ -257,7 +257,7 @@ public class GroupCallPip implements NotificationCenter.NotificationCenterDelega
                             if (VoIPService.getSharedInstance() != null) {
                                 VoIPService.getSharedInstance().setMicMute(true, false, false);
                                 try {
-                                    performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                                    performHapticFeedback(org.telegram.messenger.BygramConfig.callHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
                                 } catch (Exception ignored) {}
                             }
                             pressed = false;
@@ -894,7 +894,7 @@ public class GroupCallPip implements NotificationCenter.NotificationCenterDelega
             }
             if (prepare) {
                 try {
-                    button.performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                    button.performHapticFeedback(org.telegram.messenger.BygramConfig.callHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
                 } catch (Exception ignored) {}
             }
         }
