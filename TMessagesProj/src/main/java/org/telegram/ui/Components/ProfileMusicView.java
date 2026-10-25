@@ -474,6 +474,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
         }
 
         final float alpha = 1f;
+        backgroundPaint.setColor(buttonColor);
         final float scale = bounce.getScale(0.02f);
 
         final int padding = dp(12);

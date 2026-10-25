@@ -384,16 +384,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         listView.addEdgeEffectListener(() -> listView.postOnAnimation(this::blur3_InvalidateBlur));
         contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
-        actionBarBackground = new View(context) {
-            private final Paint blurScrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            @Override
-            protected void onDraw(@NonNull Canvas canvas) {
-                int top = actionBar.getHeight();
-                AndroidUtilities.rectTmp2.set(0, 0, getMeasuredWidth(), top);
-                blurScrimPaint.setColor(Theme.getColor(Theme.key_actionBarDefault, resourceProvider));
-                // The ActionBar owns the individual glass blocks, including during search.
-            }
-        };
+        // The ActionBar owns the individual glass blocks, including during search.
+        actionBarBackground = new View(context);
         contentView.addView(actionBarBackground, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 200, Gravity.TOP));
         contentView.addView(actionBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.FILL_HORIZONTAL | Gravity.TOP));
 
@@ -538,12 +530,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         setInfo(getUserConfig().getCurrentUser());
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        setInfo();
-    }
-
     public void setInfo(TLRPC.User user) {
         if (avatarView == null) return;
         if (avatarUploadingRequest != -1) return;
@@ -634,6 +620,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     @Override
     public void onResume() {
         super.onResume();
+        setInfo();
         if (listView.adapter != null) {
             listView.adapter.notifyDataSetChanged();
         }
