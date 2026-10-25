@@ -380,10 +380,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 int top = actionBar.getHeight();
                 AndroidUtilities.rectTmp2.set(0, 0, getMeasuredWidth(), top);
                 blurScrimPaint.setColor(Theme.getColor(Theme.key_actionBarDefault, resourceProvider));
-                contentView.drawBlurRect(canvas, 0, AndroidUtilities.rectTmp2, blurScrimPaint, true);
-                if (getParentLayout() != null) {
-                    getParentLayout().drawHeaderShadow(canvas, top);
-                }
+                // The ActionBar owns the individual glass blocks, including during search.
             }
         };
         contentView.addView(actionBarBackground, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 200, Gravity.TOP));

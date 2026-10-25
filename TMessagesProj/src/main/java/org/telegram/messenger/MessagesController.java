@@ -9346,7 +9346,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                     TLRPC.Message storedMessage = messageObject == null ? getMessagesStorage().getMessage(dialogId, messageId) : messageObject.messageOwner;
                     if (alreadySaved.contains(messageId) || messageObject != null && messageObject.isBygramDeleted()
-                            || !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED) && (storedMessage == null || storedMessage.out)) {
+                            || !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED) && (dialogId == getUserConfig().getClientUserId() || storedMessage == null || storedMessage.out)) {
                         locallyDeletedMessages.add(messageId);
                     } else {
                         bygramDeletedMessages.add(messageId);
@@ -17689,18 +17689,23 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     protected void deleteMessagesByPush(long dialogId, ArrayList<Integer> ids, long channelId) {
-        if (BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
-            for (int id : ids) shouldKeepBygramDeletedMessage(id, dialogId);
-            getMessagesStorage().getStorageQueue().postRunnable(() -> getMessagesStorage().deletePushMessages(dialogId, ids));
-            getNotificationCenter().postNotificationName(NotificationCenter.bygramMessagesDeleted, dialogId, ids);
-            return;
+        ArrayList<Integer> keptIds = new ArrayList<>();
+        ArrayList<Integer> removedIds = new ArrayList<>();
+        for (int id : ids) {
+            if (shouldKeepBygramDeletedMessage(id, dialogId)) keptIds.add(id);
+            else removedIds.add(id);
         }
+        if (!keptIds.isEmpty()) {
+            getMessagesStorage().getStorageQueue().postRunnable(() -> getMessagesStorage().deletePushMessages(dialogId, keptIds));
+            getNotificationCenter().postNotificationName(NotificationCenter.bygramMessagesDeleted, dialogId, keptIds);
+        }
+        if (removedIds.isEmpty()) return;
         getMessagesStorage().getStorageQueue().postRunnable(() -> {
             AndroidUtilities.runOnUIThread(() -> {
-                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, ids, channelId, false);
+                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, removedIds, channelId, false);
                 if (channelId == 0) {
-                    for (int b = 0, size2 = ids.size(); b < size2; b++) {
-                        Integer id = ids.get(b);
+                    for (int b = 0, size2 = removedIds.size(); b < size2; b++) {
+                        Integer id = removedIds.get(b);
                         MessageObject obj = dialogMessagesByIds.get(id);
                         if (obj != null) {
                             obj.deleted = true;
@@ -17711,8 +17716,8 @@ public class MessagesController extends BaseController implements NotificationCe
                     if (objs != null) {
                         for (int i = 0; i < objs.size(); ++i) {
                             MessageObject obj = objs.get(i);
-                            for (int b = 0, size2 = ids.size(); b < size2; b++) {
-                                if (obj.getId() == ids.get(b)) {
+                            for (int b = 0, size2 = removedIds.size(); b < size2; b++) {
+                                if (obj.getId() == removedIds.get(b)) {
                                     obj.deleted = true;
                                     break;
                                 }
@@ -17721,9 +17726,9 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }
             });
-            getMessagesStorage().deletePushMessages(dialogId, ids);
-            ArrayList<Long> dialogIds = getMessagesStorage().markMessagesAsDeleted(dialogId, ids, false, true, 0, 0);
-            getMessagesStorage().updateDialogsWithDeletedMessages(dialogId, channelId, ids, dialogIds);
+            getMessagesStorage().deletePushMessages(dialogId, removedIds);
+            ArrayList<Long> dialogIds = getMessagesStorage().markMessagesAsDeleted(dialogId, removedIds, false, true, 0, 0);
+            getMessagesStorage().updateDialogsWithDeletedMessages(dialogId, channelId, removedIds, dialogIds);
         });
     }
 
@@ -17952,13 +17957,26 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     private boolean shouldKeepBygramDeletedMessage(int messageId, long dialogId) {
-        if (!BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) return false;
+        boolean keepDeleted = BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED);
+        if (!keepDeleted && !BygramConfig.getBoolean(BygramConfig.SPY_NOTIFY_DELETED)) return false;
         long resolvedDialogId = dialogId;
         if (resolvedDialogId == 0) {
             MessageObject object = dialogMessagesByIds.get(messageId);
             if (object != null) resolvedDialogId = object.getDialogId();
             if (resolvedDialogId == 0) resolvedDialogId = getMessagesStorage().getDialogIdForMessageSync(messageId);
         }
+        if (resolvedDialogId == 0) return false;
+        ArrayList<Integer> ids = new ArrayList<>();
+        ids.add(messageId);
+        if (getMessagesStorage().getBygramDeletedMessageIdsSync(resolvedDialogId, ids).contains(messageId)) return true;
+        TLRPC.Message message = getMessagesStorage().getMessage(resolvedDialogId, messageId);
+        if (message == null) return false;
+        if (DialogObject.isUserDialog(resolvedDialogId) && resolvedDialogId != getUserConfig().getClientUserId()) {
+            final long peerId = resolvedDialogId;
+            AndroidUtilities.runOnUIThread(() -> getNotificationsController().notifyBygramDeletedMessage(peerId));
+        }
+        if (!keepDeleted || !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
+                && (message.out || resolvedDialogId == getUserConfig().getClientUserId())) return false;
         getMessagesStorage().markMessageAsBygramDeleted(resolvedDialogId, messageId);
         return true;
     }

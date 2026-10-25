@@ -1296,6 +1296,11 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             useOnlineColor = true;
             setTypingAnimation(true);
         }
+        if (user != null && !user.self && parentFragment.getChatMode() == ChatActivity.MODE_DEFAULT
+                && TextUtils.isEmpty(printString)) {
+            String activity = parentFragment.getBygramActivitySubtitle();
+            if (!activity.isEmpty()) { newSubtitle = activity; useOnlineColor = true; }
+        }
         lastSubtitleColorKey = useOnlineColor ? Theme.key_chat_status : Theme.key_actionBarDefaultSubtitle;
         if (lastSubtitle == null) {
             if (subtitleTextView != null) {

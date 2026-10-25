@@ -312,7 +312,15 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         super.createView(context);
         tabletLayout = false;
 
-        tabsView = new MainTabsLayout(context, resourceProvider);
+        tabsView = new MainTabsLayout(context, resourceProvider) {
+            private final org.telegram.ui.Components.BygramSnowEffect snow = new org.telegram.ui.Components.BygramSnowEffect();
+            private final android.graphics.RectF snowBounds = new android.graphics.RectF();
+            @Override protected void dispatchDraw(Canvas canvas) {
+                snowBounds.set(dp(8), dp(8), getWidth() - dp(8), getHeight() - dp(8));
+                snow.draw(this, canvas, BygramConfig.SNOW_NAVIGATION, snowBounds, dp(28));
+                super.dispatchDraw(canvas);
+            }
+        };
         tabsView.setClipChildren(false);
         tabsView.setPadding(dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4));
         tabsView.setMaxWidth(dp(328 + DialogsActivity.MAIN_TABS_MARGIN * 2));

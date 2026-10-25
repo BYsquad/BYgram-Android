@@ -311,6 +311,9 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
                     if (drawable instanceof ChatBackgroundDrawable) {
                         ((ChatBackgroundDrawable) drawable).setParent(this);
                     }
+                    if (drawable instanceof BygramVideoWallpaper) {
+                        ((BygramVideoWallpaper) drawable).setParent(this);
+                    }
                     float x = -getMeasuredWidth() * (parallaxScale - 1f) / 2f + translationX;
                     float y = -getRootView().getMeasuredHeight() * (parallaxScale - 1f) / 2f + translationY;
                     drawable.setBounds(
@@ -558,7 +561,7 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
     }
 
     private void checkSnowflake(Canvas canvas) {
-        if (backgroundView != null && (Theme.canStartHolidayAnimation() || org.telegram.messenger.BygramConfig.getBoolean("bygram_force_snow")) && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND)) {
+        if (backgroundView != null && (Theme.canStartHolidayAnimation() || org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SNOW_CHATS)) && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND) && (android.os.Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())) {
             if (snowflakesEffect == null) {
                 snowflakesEffect = new SnowflakesEffect(1);
                 snowflakesEffect.setForcedColor(0xFFFFFFFF);

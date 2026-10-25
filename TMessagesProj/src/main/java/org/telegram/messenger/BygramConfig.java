@@ -29,6 +29,7 @@ public final class BygramConfig {
 
     public static final String SPY_SAVE_DELETED = "bygram_spy_save_deleted";
     public static final String SPY_SAVE_OWN_DELETED = "bygram_spy_save_own_deleted";
+    public static final String SPY_NOTIFY_DELETED = "bygram_spy_notify_deleted";
     public static final String SPY_SAVE_EDITS = "bygram_spy_save_edits";
     public static final String SPY_SAVE_READ_DATE = "bygram_spy_save_read_date";
     public static final String SPY_SAVE_LAST_ONLINE = "bygram_spy_save_last_online";
@@ -45,6 +46,9 @@ public final class BygramConfig {
     public static final String COLLAPSE_SEARCH_ON_START = "bygram_collapse_search_on_start";
     public static final String KEEP_SEARCH_COLLAPSED = "bygram_keep_search_collapsed";
     public static final String HIDE_PROFILE_BACKGROUNDS = "bygram_hide_profile_backgrounds";
+    public static final String FULL_PROFILE_BACKGROUND = "bygram_full_profile_background";
+    public static final String COLLAPSE_FOLDERS_ON_SCROLL = "bygram_collapse_folders_on_scroll";
+    public static final String COLLAPSE_NAVIGATION_ON_SCROLL = "bygram_collapse_navigation_on_scroll";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
     public static final String MD3_LOADING = "bygram_md3_loading";
     public static final String MD3_SLIDERS = "bygram_md3_sliders";
@@ -52,6 +56,14 @@ public final class BygramConfig {
     public static final String AVATAR_CORNERS = "bygram_avatar_corners";
     public static final String TITLE_TEXT = "bygram_title_text";
     public static final String TITLE_POSITION = "bygram_title_position";
+    public static final String HIDE_STORIES = "bygram_hide_stories";
+    public static final String FOLDER_STYLE = "bygram_folder_style";
+    public static final String HIDE_FOLDER_COUNTERS = "bygram_hide_folder_counters";
+    public static final String HIDE_ALL_TAB = "bygram_hide_all_tab";
+    public static final String SNOW_CHATS = "bygram_snow_chats";
+    public static final String SNOW_PROFILES = "bygram_snow_profiles";
+    public static final String SNOW_HEADER = "bygram_snow_header";
+    public static final String SNOW_NAVIGATION = "bygram_snow_navigation";
     private static final int DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
     private static final String LEGACY_ACTIVITY_ENABLED = "bygram_activity_enabled";
     public static final int ACTIVITY_DIALOGS = 1;
@@ -155,6 +167,7 @@ public final class BygramConfig {
             case GHOST_READ_ON_ACTIONS:
             case SPY_SAVE_DELETED:
             case SPY_SAVE_OWN_DELETED:
+            case SPY_NOTIFY_DELETED:
             case SPY_SAVE_EDITS:
             case SPY_SAVE_READ_DATE:
             case SPY_SAVE_LAST_ONLINE:
@@ -170,6 +183,9 @@ public final class BygramConfig {
             case COLLAPSE_SEARCH_ON_START:
             case KEEP_SEARCH_COLLAPSED:
             case HIDE_PROFILE_BACKGROUNDS:
+            case FULL_PROFILE_BACKGROUND:
+            case COLLAPSE_FOLDERS_ON_SCROLL:
+            case COLLAPSE_NAVIGATION_ON_SCROLL:
             case PROFILE_ID_MODE:
             case MD3_LOADING:
             case MD3_SLIDERS:
@@ -177,6 +193,14 @@ public final class BygramConfig {
             case AVATAR_CORNERS:
             case TITLE_TEXT:
             case TITLE_POSITION:
+            case HIDE_STORIES:
+            case FOLDER_STYLE:
+            case HIDE_FOLDER_COUNTERS:
+            case HIDE_ALL_TAB:
+            case SNOW_CHATS:
+            case SNOW_PROFILES:
+            case SNOW_HEADER:
+            case SNOW_NAVIGATION:
                 return true;
             default:
                 return false;
@@ -229,12 +253,13 @@ public final class BygramConfig {
     }
 
     public static int getInt(String key, int fallback) {
-        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key)
+        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)
                 ? preferences().getInt(key, fallback) : fallback;
     }
 
     public static void setInt(String key, int value) {
-        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key)) {
+        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)) {
+            if (FOLDER_STYLE.equals(key)) value = Math.max(0, Math.min(2, value));
             preferences().edit().putInt(key, value).apply();
         }
     }

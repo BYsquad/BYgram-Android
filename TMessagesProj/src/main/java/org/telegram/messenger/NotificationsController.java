@@ -101,6 +101,30 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
 public class NotificationsController extends BaseController implements NotificationCenter.NotificationCenterDelegate {
+    public void notifyBygramDeletedMessage(long dialogId) {
+        if (!BygramConfig.getBoolean(BygramConfig.SPY_NOTIFY_DELETED) || BygramChatPrivacy.hidesNotification(currentAccount, dialogId)) return;
+        android.content.Context context = ApplicationLoader.applicationContext;
+        android.app.NotificationManager manager = (android.app.NotificationManager) context.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        String channel = "bygram_spy_deletions";
+        if (android.os.Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(new android.app.NotificationChannel(channel,
+                LocaleController.getString(R.string.BygramSpyMode), android.app.NotificationManager.IMPORTANCE_DEFAULT));
+        android.content.Intent intent = new android.content.Intent(context, org.telegram.ui.LaunchActivity.class);
+        intent.setAction("com.tmessages.openchat.bygram.spy." + currentAccount + "." + dialogId);
+        intent.putExtra("currentAccount", currentAccount);
+        intent.putExtra("userId", dialogId);
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        android.app.PendingIntent pending = android.app.PendingIntent.getActivity(context, 0, intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
+        String name = UserObject.getUserName(getMessagesController().getUser(dialogId));
+        android.app.Notification notification = new androidx.core.app.NotificationCompat.Builder(context, channel)
+                .setSmallIcon(R.drawable.notification).setContentTitle(LocaleController.getString(R.string.BygramSpyMode))
+                .setContentText(LocaleController.formatString(R.string.BygramDeletedNotification, name))
+                .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(true).build();
+        try { manager.notify("bygram_spy_" + currentAccount + "_" + dialogId, 0, notification); }
+        catch (SecurityException error) { FileLog.e(error); }
+    }
+
 
     public static final String EXTRA_VOICE_REPLY = "extra_voice_reply";
     public static String OTHER_NOTIFICATIONS_CHANNEL = null;

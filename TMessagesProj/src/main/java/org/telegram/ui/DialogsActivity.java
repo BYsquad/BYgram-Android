@@ -307,6 +307,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private static final int ANIMATOR_ID_FORWARD_BUTTON_VISIBLE = 7;
     private static final int ANIMATOR_ID_FILTER_TABS_VISIBLE = 8;
     private static final int ANIMATOR_ID_SEARCH_FILTER_TABS_VISIBLE = 9;
+    private static final int ANIMATOR_ID_SCROLL_FOLDERS_HIDDEN = 10;
+    private final BoolAnimator bygramFoldersHidden = new BoolAnimator(ANIMATOR_ID_SCROLL_FOLDERS_HIDDEN,
+            this, CubicBezierInterpolator.EASE_OUT_QUINT, 250);
+    private boolean bygramNavigationHidden;
 
     private final BoolAnimator animatorSearchVisible = new BoolAnimator(ANIMATOR_ID_SEARCH_VISIBLE,
             this, CubicBezierInterpolator.EASE_OUT_QUINT, 350);
@@ -1014,6 +1018,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             rightSlidingDialogContainer.setCurrentTop(top + actionBarHeight);
             float storiesAlpha = 1f;
+            final boolean separateHeaderBlocks = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                    && communityId == 0 && searchAnimationProgress == 0 && progressToActionMode == 0;
+            canvas.save();
+            if (separateHeaderBlocks) canvas.clipRect(0, actionBar.getBottom(), getWidth(), getHeight());
             if (whiteActionBar) {
                 if (searchAnimationProgress == 1f) {
                     actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
@@ -1044,9 +1052,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
                 } else {
                     blurBounds.set(0, Math.max(0, top), getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
+                    if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0
+                            && searchAnimationProgress == 0) {
+                        // The header already draws separate glass blocks; keep the backdrop only below them.
+                        blurBounds.top = Math.max(blurBounds.top, (int) actionBar.getBottom());
+                    }
                     drawBlurRect(canvas, 0, blurBounds, actionBarDefaultPaint, true);
                 }
             }
+            canvas.restore();
             tabsYOffset = 0;
             storiesYOffset = 0;
             tabsYOffset -= Math.min(
@@ -1093,7 +1107,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             updateContextViewPosition();
             updateStoriesViewAlpha(storiesAlpha);
             super.dispatchDraw(canvas);
-            drawHeaderShadow(canvas, top + actionBarHeight);
+            if (!separateHeaderBlocks) drawHeaderShadow(canvas, top + actionBarHeight);
 
             /*if (fragmentContextView != null && fragmentContextView.isCallStyle()) {
                 canvas.save();
@@ -4530,6 +4544,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
                 @Override
                 public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                    if (viewPage == viewPages[0] && !onlySelect && folderId == 0 && communityId == 0
+                            && !searching && !actionBar.isActionModeShowed()
+                            && scrollingManually && dy != 0) {
+                        boolean hide = dy > 0 && recyclerView.canScrollVertically(-1);
+                        bygramFoldersHidden.setValue(hide && BygramConfig.getBoolean(BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL), true);
+                        bygramNavigationHidden = hide && BygramConfig.getBoolean(BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL);
+                        checkUi_mainTabsVisible();
+                    }
                     if (contentView != null) {
                         contentView.updateBlurContent();
                     }
@@ -6780,6 +6802,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return;
         }
         final ActionBarMenu actionMode = actionBar.createActionMode(false, tag);
+        if (!hasMainTabs && actionBar.getBackButton() != null) actionBar.getBackButton().setTranslationX(dp(4));
         // actionMode.setBackgroundColor(Color.TRANSPARENT);
         // actionMode.drawBlur = false;
 
@@ -6790,7 +6813,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             actionModeCloseView.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_actionBarActionModeDefaultIcon), PorterDuff.Mode.MULTIPLY));
             actionModeCloseView.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_actionBarActionModeDefaultSelector)));
             actionModeCloseView.setOnClickListener(v -> hideActionMode(true));
-            actionMode.addView(actionModeCloseView, LayoutHelper.createLinear(54, 54, Gravity.CENTER_VERTICAL));
+            actionMode.addView(actionModeCloseView, LayoutHelper.createLinear(54, 54, Gravity.CENTER_VERTICAL, 4, 0, 0, 0));
             actionModeViews.add(actionModeCloseView);
         }
 
@@ -6798,7 +6821,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         selectedDialogsCountTextView.setTextSize(18);
         selectedDialogsCountTextView.setTypeface(AndroidUtilities.bold());
         selectedDialogsCountTextView.setTextColor(getThemedColor(Theme.key_actionBarActionModeDefaultIcon));
-        actionMode.addView(selectedDialogsCountTextView, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, hasMainTabs ? 18 : 72, 0, 0, 0));
+        actionMode.addView(selectedDialogsCountTextView, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, hasMainTabs ? 0 : 56, 0, 0, 0));
         selectedDialogsCountTextView.setOnTouchListener((v, event) -> true);
 
         pinItem = actionMode.addItemWithWidth(pin, R.drawable.msg_pin, dp(48));
@@ -7091,6 +7114,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onResume() {
+        bygramFoldersHidden.setValue(false, false);
+        bygramNavigationHidden = false;
         super.onResume();
         if (!onlySelect && folderId == 0 && communityId == 0) {
             BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_DIALOGS, 0, null, null);
@@ -14020,6 +14045,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             checkUi_searchFiltersVisibility();
         } else if (id == ANIMATOR_ID_SEARCH_FILTER_TABS_VISIBLE) {
             checkUi_searchFiltersVisibility();
+        } else if (id == ANIMATOR_ID_SCROLL_FOLDERS_HIDDEN) {
+            checkUi_filterTabsVisible();
+            if (fragmentView != null) fragmentView.invalidate();
         }
     }
 
@@ -14148,7 +14176,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor1 = includeSearch ? (1f - animatorSearchVisible.getFloatValue()) : 1f;
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = animatorFilterTabsVisible.getFloatValue();
-        return factor1 * factor2 * factor3;
+        return factor1 * factor2 * factor3 * (1f - bygramFoldersHidden.getFloatValue());
     }
 
     private void checkUi_filterTabsVisible() {
@@ -14170,7 +14198,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void checkUi_mainTabsVisible() {
-        final boolean mainTabsVisible = !searching && (blurredView == null || blurredView.getBackground() == null || blurredView.getAlpha() < 0.01f || blurredView.getVisibility() == View.GONE);
+        final boolean mainTabsVisible = !searching && !bygramNavigationHidden && (blurredView == null || blurredView.getBackground() == null || blurredView.getAlpha() < 0.01f || blurredView.getVisibility() == View.GONE);
         if (mainTabsActivityController != null) {
             mainTabsActivityController.setTabsVisible(mainTabsVisible);
         }

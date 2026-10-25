@@ -65,6 +65,7 @@ public class TextCell extends FrameLayout {
     public int imageLeft = 16;
     private boolean inDialogs;
     private boolean prioritizeTitleOverValue;
+    private boolean multiline;
     private Theme.ResourcesProvider resourcesProvider;
     private boolean attached;
     private int loadingSize;
@@ -203,6 +204,10 @@ public class TextCell extends FrameLayout {
             textView.measure(MeasureSpec.makeMeasureSpec(Math.max(0, width - dp(71 + leftPadding) - valueWidth), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.EXACTLY));
             subtitleView.measure(MeasureSpec.makeMeasureSpec(width - dp(71 + leftPadding) - valueWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.EXACTLY));
         }
+        if (multiline) {
+            textView.measure(MeasureSpec.makeMeasureSpec(textView.getMeasuredWidth(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+            height = Math.max(height, textView.getTextHeight() + dp(24));
+        }
         if (imageView.getVisibility() == VISIBLE) {
             imageView.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
         }
@@ -213,6 +218,12 @@ public class TextCell extends FrameLayout {
             checkBox.measure(MeasureSpec.makeMeasureSpec(dp(Switch.layoutWidth()), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(Switch.layoutHeight()), MeasureSpec.EXACTLY));
         }
         setMeasuredDimension(width, height + (needDivider ? 1 : 0));
+    }
+
+    public void setMultiline(boolean multiline) {
+        this.multiline = multiline;
+        textView.setMaxLines(multiline ? Integer.MAX_VALUE : 1);
+        requestLayout();
     }
 
     @Override

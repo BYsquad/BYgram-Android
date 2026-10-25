@@ -1252,6 +1252,55 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    private final int[] bygramBackgroundRootPosition = new int[2];
+    private final int[] bygramBackgroundTargetPosition = new int[2];
+
+    private boolean drawBygramPageBackground(Canvas canvas, View target) {
+        if (topView == null || !BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)
+                || !topView.bygramBackground.hasImageLoaded()) return false;
+        fragmentView.getLocationInWindow(bygramBackgroundRootPosition);
+        target.getLocationInWindow(bygramBackgroundTargetPosition);
+        canvas.save();
+        canvas.translate(bygramBackgroundRootPosition[0] - bygramBackgroundTargetPosition[0], bygramBackgroundRootPosition[1] - bygramBackgroundTargetPosition[1]);
+        topView.bygramBackground.setImageCoords(0, 0, fragmentView.getWidth(), fragmentView.getHeight());
+        topView.bygramBackground.draw(canvas);
+        if (target != topView) canvas.drawColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundGray), 0.63f));
+        canvas.restore();
+        return true;
+    }
+
+    private Drawable bygramPageBackground(View target, Drawable fallback, boolean glass) {
+        BlurredBackgroundDrawable glassBackground = glass
+                ? iBlur3FactoryLiquidGlass.create(target, BlurredBackgroundProviderImpl.topPanel(resourcesProvider)) : null;
+        if (glassBackground != null) {
+            glassBackground.setRadius(dp(14));
+            glassBackground.setCallback(target);
+        }
+        return new Drawable() {
+            @Override public void draw(Canvas canvas) {
+                if (drawBygramPageBackground(canvas, target)) {
+                    if (glassBackground != null) {
+                        Rect bounds = getBounds();
+                        glassBackground.setBounds(bounds.left + dp(8), bounds.top + dp(1), bounds.right - dp(8), bounds.bottom - dp(1));
+                        glassBackground.draw(canvas);
+                    }
+                } else if (fallback != null) {
+                    fallback.setBounds(getBounds());
+                    fallback.draw(canvas);
+                }
+            }
+            @Override public void setAlpha(int alpha) {
+                if (fallback != null) fallback.setAlpha(alpha);
+                if (glassBackground != null) glassBackground.setAlpha(alpha);
+            }
+            @Override public void setColorFilter(ColorFilter filter) {
+                if (fallback != null) fallback.setColorFilter(filter);
+                if (glassBackground != null) glassBackground.setColorFilter(filter);
+            }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
+    }
+
     private class TopView extends FrameLayout {
         private final ImageReceiver bygramBackground = new ImageReceiver(this);
         private int bygramBackgroundGeneration;
@@ -1261,7 +1310,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         public TopView(Context context) {
             super(context);
+            bygramBackground.setInvalidateAll(true);
             setWillNotDraw(false);
+        }
+
+        @Override public void invalidate() {
+            super.invalidate();
+            if (listView != null && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)) listView.invalidate();
         }
 
         void loadBygramBackground() {
@@ -1428,14 +1483,19 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
                 }
-                bygramBackground.setImageCoords(0, 0, getMeasuredWidth(), y1);
-                bygramBackground.draw(canvas);
+                canvas.save();
+                canvas.clipRect(0, 0, getMeasuredWidth(), y1);
+                if (!drawBygramPageBackground(canvas, this)) {
+                    bygramBackground.setImageCoords(0, 0, getMeasuredWidth(), y1);
+                    bygramBackground.draw(canvas);
+                }
                 if (bygramBackground.hasImageLoaded()) {
                     paint.setColor(peerColor != null ? Color.BLACK : currentColor);
                     paint.setAlpha(160);
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
                     paint.setAlpha(255);
                 }
+                canvas.restore();
                 if (hasEmoji) {
                     final float loadedScale = emojiLoadedT.set(isEmojiLoaded());
                     boolean shoudIgnore = openAnimationInProgress && playProfileAnimation == 2;
@@ -1447,6 +1507,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         StarGiftPatterns.drawProfileAnimatedPattern(canvas, emoji, getMeasuredWidth(), maxExpand, calculateHeaderExtraDiff(), avatarContainer, 1.0f);
                         canvas.restore();
                     }
+                }
+                if (userId != 0) {
+                    AndroidUtilities.rectTmp.set(0, 0, getMeasuredWidth(), y1);
+                    bygramSnow.draw(this, canvas, BygramConfig.SNOW_PROFILES, AndroidUtilities.rectTmp, 0);
                 }
                 if (previousTransitionFragment != null) {
                     ActionBar actionBar = previousTransitionFragment.getActionBar();
@@ -1468,6 +1532,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
+        private final org.telegram.ui.Components.BygramSnowEffect bygramSnow = new org.telegram.ui.Components.BygramSnowEffect();
         private Rect blurBounds = new Rect();
     }
 
@@ -2540,6 +2605,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
         actionBar.setForceSkipTouches(true);
         actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setupGlass(iBlur3FactoryLiquidGlass, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+        actionBar.setDrawGlassTitle(false);
         actionBar.setItemsBackgroundColor(peerColor != null ? 0x20ffffff : getThemedColor(Theme.key_avatar_actionBarSelectorBlue), false);
         actionBar.setItemsColor(getThemedColor(Theme.key_actionBarDefaultIcon), false);
         actionBar.setItemsColor(getThemedColor(Theme.key_actionBarDefaultIcon), true);
@@ -3377,7 +3444,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         //if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
                         final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
                         c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
-                        if (SharedConfig.chatBlurEnabled()) {
+                        boolean bygramBackdrop = drawBygramPageBackground(c, fragmentView);
+                        if (!bygramBackdrop && topView != null) {
+                            c.save();
+                            c.translate(topView.getX(), topView.getY());
+                            topView.draw(c);
+                            c.restore();
+                        }
+                        if (!bygramBackdrop && SharedConfig.chatBlurEnabled()) {
                             scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
                         }
                         iBlur3SourceGlass.endRecording();
@@ -3952,7 +4026,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             });
 
             if (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
-                bygramMusicView = new ProfileMusicView(context, resourcesProvider, currentAccount, true);
+                bygramMusicView = new ProfileMusicView(context, resourcesProvider, currentAccount, true) {
+                    private final BlurredBackgroundDrawable glassBackground = iBlur3FactoryLiquidGlass.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+
+                    @Override protected void drawCardBackground(Canvas canvas, RectF bounds) {
+                        if (topView != null && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)
+                                && topView.bygramBackground.hasImageLoaded()) {
+                            glassBackground.setRadius(dp(22));
+                            glassBackground.setBounds((int) bounds.left, (int) bounds.top, (int) bounds.right, (int) bounds.bottom);
+                            glassBackground.draw(canvas);
+                        } else {
+                            super.drawCardBackground(canvas, bounds);
+                        }
+                    }
+                };
                 bygramMusicView.setMusicDocument(userInfo == null ? null : userInfo.saved_music);
                 bygramMusicView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                 bygramMusicView.setOnClickListener(v -> musicView.performClick());
@@ -4189,7 +4276,28 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         listView = new ClippedListView(context, resourcesProvider) {
 
+            private final BlurredBackgroundDrawable sectionGlass = iBlur3FactoryLiquidGlass.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+
+            @Override
+            public void drawBackgroundRect(Canvas canvas, RectF rect, float topRadius, float bottomRadius, float alpha) {
+                if (topView != null && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)
+                        && topView.bygramBackground.hasImageLoaded()) {
+                    sectionGlass.setRadius(topRadius, topRadius, bottomRadius, bottomRadius);
+                    sectionGlass.setBounds((int) rect.left, (int) rect.top, (int) rect.right, (int) rect.bottom);
+                    sectionGlass.setAlpha((int) (255 * alpha * (iBlur3SourceGlass == null ? 0.76f : 1f)));
+                    sectionGlass.draw(canvas);
+                } else {
+                    super.drawBackgroundRect(canvas, rect, topRadius, bottomRadius, alpha);
+                }
+            }
+
             private VelocityTracker velocityTracker;
+
+            @Override
+            public void setBackgroundColor(int color) {
+                super.setBackgroundColor(color);
+                setBackground(bygramPageBackground(this, getBackground(), false));
+            }
 
             @Override
             protected boolean canHighlightChildAt(View child, float x, float y) {
@@ -13654,6 +13762,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            Drawable background = holder.itemView.getBackground();
+            if (background instanceof ColorDrawable && ((ColorDrawable) background).getColor() != Color.TRANSPARENT) {
+                holder.itemView.setBackground(bygramPageBackground(holder.itemView, background, holder.itemView != bygramMusicView));
+            }
             switch (holder.getItemViewType()) {
                 case VIEW_TYPE_HEADER:
                     HeaderCell headerCell = (HeaderCell) holder.itemView;

@@ -117,7 +117,7 @@ checks = {
     "spy can physically remove previously saved messages": "getBygramDeletedMessageIdsSync" in storage and "locallyDeletedMessages.add(messageId)" in messages and "toSend.removeAll(alreadySaved)" in messages,
     "spy own deletion preference is persisted and exposed": all(value in config for value in ['SPY_SAVE_OWN_DELETED = "bygram_spy_save_own_deleted"', 'case SPY_SAVE_OWN_DELETED:']) and "case 3: return BygramConfig.SPY_SAVE_OWN_DELETED" in settings and "storedMessage.out" in messages,
     "spy keeps the first removed chat and purges saved-only history": "hasSaved && !hasLive ? 2 : canKeep ? 1 : 0" in storage and "getBygramDialogRetentionStateSync(did, onlyHistory == 0 || BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)) == 1" in messages and "markDialogMessagesAsBygramDeleted(did, onlyHistory != 0)" in messages,
-    "whole-chat deletion retains outgoing history during Undo": "getBygramDialogRetentionStateSync(did, true) != 1" in messages and "respectOwnDeletionSetting && cursor.intValue(1) != 0" in storage,
+    "whole-chat deletion retains outgoing history during Undo": "getBygramDialogRetentionStateSync(did, true) != 1" in messages and "respectOwnDeletionSetting && (dialogId == getUserConfig().getClientUserId() || cursor.intValue(1) != 0)" in storage,
     "story title follows actual avatar bounds in both lists": story_cells.count("getAvatarRight(cell.getMeasuredWidth(), cell.progressToCollapsed)") == 2 and "lastViewRight += dp(12)" in story_cells and "int cellWidth = dp(72)" not in story_cells,
     "private chats cover list, search, notification, navigation and accessibility": all((
         "BygramChatPrivacy" in dialogs, "BygramChatPrivacy" in search,

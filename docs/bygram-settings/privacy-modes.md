@@ -1,5 +1,7 @@
 # Ghost Mode и Spy Mode
 
+24.10.2026: [автопубликация фона, индикатор загрузки и уведомления об удалениях](spy-notifications-and-background-2026-10-24.md).
+
 ## Ghost Mode
 
 `GHOST_ENABLED` — master. Поднастройки сохраняются при выключении master, но predicates возвращают блокировку только при включённом master.

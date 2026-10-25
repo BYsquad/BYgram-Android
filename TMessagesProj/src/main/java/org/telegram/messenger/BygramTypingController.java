@@ -78,7 +78,10 @@ public final class BygramTypingController {
                     }
                 }
                 request(userId, json("action", "profile_background_put", "user_id", userId, "image", encoded), true, response -> {
-                    if (response != null && response.optBoolean("needs_registration")) register(userId, callback);
+                    if (response != null && response.optBoolean("needs_registration")) register(userId, (registered, botUrl) -> {
+                        if (registered) publishProfileBackground(account, uri, callback);
+                        else callback.run(false, botUrl);
+                    });
                     else callback.run(response != null && response.optBoolean("ok"), "");
                 });
             } catch (Exception error) {
@@ -99,7 +102,10 @@ public final class BygramTypingController {
         try { data.put("user_id", id); } catch (Exception e) { FileLog.e(e); callback.run(null, ""); return; }
         request(id, data, true, response -> {
             if (response != null && response.optBoolean("needs_registration") && "profile_views_set".equals(data.optString("action"))) {
-                register(id, (ok, botUrl) -> callback.run(response, botUrl));
+                register(id, (registered, botUrl) -> {
+                    if (registered) profileViewsRequest(account, data, callback);
+                    else callback.run(response, botUrl);
+                });
                 return;
             }
             if (response != null && response.optBoolean("ok") && response.has("enabled")) {
@@ -271,7 +277,10 @@ public final class BygramTypingController {
                 cache.put(userId, entry);
                 callback.run(true, "");
             } else if (registerIfNeeded && result != null && result.optBoolean("needs_registration")) {
-                register(userId, callback);
+                register(userId, (registered, botUrl) -> {
+                    if (registered) publish(account, false, callback);
+                    else callback.run(false, botUrl);
+                });
             } else callback.run(false, "");
         });
     }
@@ -281,7 +290,7 @@ public final class BygramTypingController {
             request(userId, json("action", "typing_register", "user_id", userId,
                     "public_key", BygramDeviceKey.publicKey(userId),
                     "proof", BygramDeviceKey.sign(userId, "BYGRAM_TYPING_V1\n" + userId)), false,
-                    result -> callback.run(false, result == null ? "" : result.optString("bot_url", "")));
+                    result -> callback.run(result != null && result.optBoolean("registered"), result == null ? "" : result.optString("bot_url", "")));
         } catch (Exception e) { FileLog.e(e); callback.run(false, ""); }
     }
 

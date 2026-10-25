@@ -856,18 +856,37 @@ public class ChatActivity extends BaseFragment implements
     private boolean scrollToTopUnReadOnResume;
     private long dialog_id;
     private Long dialog_id_Long;
+    private org.telegram.messenger.BygramGroupActivity bygramGroupActivity;
+    private String bygramRemoteActivity = "";
+    private long bygramRemoteActivityTime;
+    private org.telegram.ui.Components.BygramVideoWallpaper bygramVideoWallpaper;
+    private boolean bygramDestroyed;
+
+    private void updateBygramVideoWallpaper() {
+        if (contentView == null || bygramDestroyed) return;
+        org.telegram.ui.Components.BygramVideoWallpaper previous = bygramVideoWallpaper;
+        File file = org.telegram.ui.Components.BygramVideoWallpaper.file(currentAccount, dialog_id);
+        bygramVideoWallpaper = !paused && file != null ? new org.telegram.ui.Components.BygramVideoWallpaper(file, currentAccount, themeDelegate.getWallpaperDrawable()) : null;
+        contentView.setBackgroundImage(bygramVideoWallpaper != null ? bygramVideoWallpaper : themeDelegate.getWallpaperDrawable(), false);
+        if (previous != null) previous.release();
+        contentView.invalidate();
+    }
+
+    public String getBygramActivitySubtitle() {
+        if (bygramGroupActivity != null && !bygramGroupActivity.text().isEmpty()) return bygramGroupActivity.text();
+        return System.currentTimeMillis() - bygramRemoteActivityTime < 60_000 ? bygramRemoteActivity : "";
+    }
     private final Runnable bygramActivityRunnable = new Runnable() {
         @Override
         public void run() {
             if (paused) return;
-            if (currentUser != null && currentUser.id != getUserConfig().getClientUserId()) {
+            if (currentUser != null && currentUser.id != getUserConfig().getClientUserId()
+                    && (bygramGroupActivity == null || bygramGroupActivity.loaded() && bygramGroupActivity.text().isEmpty())) {
                 BygramActivityController.get(currentAccount, currentUser.id, activity -> {
                     if (paused || avatarContainer == null) return;
-                    if (activity != null && !activity.isEmpty()) {
-                        avatarContainer.setSubtitle(activity);
-                    } else {
-                        avatarContainer.updateSubtitle();
-                    }
+                    bygramRemoteActivity = activity == null ? "" : activity;
+                    bygramRemoteActivityTime = System.currentTimeMillis();
+                    avatarContainer.updateSubtitle();
                 });
             }
             AndroidUtilities.runOnUIThread(this, 7_000);
@@ -3537,6 +3556,9 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        bygramDestroyed = true;
+        if (bygramGroupActivity != null) { bygramGroupActivity.stop(); bygramGroupActivity = null; }
+        if (bygramVideoWallpaper != null) { bygramVideoWallpaper.release(); bygramVideoWallpaper = null; }
         if (messageMetricsView != null) {
             messageMetricsView.finish();
         }
@@ -4206,6 +4228,15 @@ public class ChatActivity extends BaseFragment implements
                     }
                 } else if (id == change_colors) {
                     showChatThemeBottomSheet();
+                } else if (id == 28001) {
+                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.setType("video/*");
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    try { startActivityForResult(intent, 28001); }
+                    catch (Exception error) { FileLog.e(error); showAttachmentError(); }
+                } else if (id == 28002) {
+                    org.telegram.ui.Components.BygramVideoWallpaper.clear(currentAccount, dialog_id);
+                    updateBygramVideoWallpaper();
                 } else if (id == topic_close) {
                     if (forumTopic == null)
                         return;
@@ -4621,6 +4652,8 @@ public class ChatActivity extends BaseFragment implements
             if (themeDelegate.isThemeChangeAvailable(true)) {
                 headerItem.lazilyAddSubItem(change_colors, R.drawable.msg_background, LocaleController.getString(R.string.SetWallpapers));
             }
+            headerItem.lazilyAddSubItem(28001, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaper));
+            headerItem.lazilyAddSubItem(28002, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaperReset));
             if (currentUser != null && currentUser.self && getDialogId() != UserObject.VERIFY) {
                 headerItem.lazilyAddSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
             }
@@ -18888,11 +18921,13 @@ public class ChatActivity extends BaseFragment implements
         }
 
         protected Drawable getNewDrawable() {
+            if (bygramVideoWallpaper != null) return bygramVideoWallpaper;
             Drawable drawable = themeDelegate.getWallpaperDrawable();
             return drawable != null ? drawable : super.getNewDrawable();
         }
 
         protected boolean getNewDrawableMotion() {
+            if (bygramVideoWallpaper != null) return false;
             if (themeDelegate.wallpaper == null) {
                 return super.getNewDrawableMotion();
             }
@@ -20516,6 +20551,17 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 28001) {
+            if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
+                org.telegram.ui.Components.BygramVideoWallpaper.importVideo(currentAccount, dialog_id, data.getData(), success -> {
+                    if (success) updateBygramVideoWallpaper();
+                    else if (getParentActivity() != null) new AlertDialog.Builder(getParentActivity())
+                            .setMessage(LocaleController.getString(R.string.BygramVideoWallpaperError))
+                            .setPositiveButton(LocaleController.getString(R.string.OK), null).show();
+                });
+            }
+            return;
+        }
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == 0 || requestCode == 2) {
                 createChatAttachView();
@@ -30104,6 +30150,13 @@ public class ChatActivity extends BaseFragment implements
 
         paused = false;
         pausedOnLastMessage = false;
+        updateBygramVideoWallpaper();
+        if (currentUser != null && !currentUser.bot && !currentUser.self && currentEncryptedChat == null && chatMode == MODE_DEFAULT) {
+            if (bygramGroupActivity != null) bygramGroupActivity.stop();
+            bygramGroupActivity = new org.telegram.messenger.BygramGroupActivity(currentAccount, currentUser.id, classGuid, () -> {
+                if (!paused && avatarContainer != null) avatarContainer.updateSubtitle();
+            });
+        }
         BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_CHAT, dialog_id, currentUser, currentChat);
         AndroidUtilities.cancelRunOnUIThread(bygramActivityRunnable);
         bygramActivityRunnable.run();
@@ -30221,6 +30274,8 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onPause() {
         super.onPause();
+        if (bygramGroupActivity != null) { bygramGroupActivity.stop(); bygramGroupActivity = null; }
+        if (bygramVideoWallpaper != null) { bygramVideoWallpaper.release(); bygramVideoWallpaper = null; }
         AndroidUtilities.cancelRunOnUIThread(bygramActivityRunnable);
         BygramActivityController.clearCurrentActivity(currentAccount, BygramConfig.ACTIVITY_CHAT, dialog_id);
         scrolling = false;

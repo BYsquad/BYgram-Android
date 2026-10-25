@@ -45,10 +45,12 @@ public class SpyRetentionCheck {
         boolean fail;
         SQLiteCursor queryFinalized(String sql, long did) {
             if (fail) throw new IllegalStateException("unavailable");
-            if (!sql.equals("SELECT out, custom_params FROM messages_v2 WHERE uid = ?") || did != 42) throw new AssertionError(sql);
+            if (!sql.equals("SELECT out, custom_params FROM messages_v2 WHERE uid = ?") || (did != 42 && did != 99)) throw new AssertionError(sql);
             return cursor = new SQLiteCursor(rows);
         }
     }
+    static class UserConfig { long getClientUserId() { return 99; } }
+    UserConfig getUserConfig() { return new UserConfig(); }
     final Queue storageQueue = new Queue();
     final Database database = new Database();
     void checkSQLException(Exception e) {}
@@ -79,10 +81,16 @@ public class SpyRetentionCheck {
         check(false, true, 2, new int[]{1, 1}, new int[]{1, 1});
         check(false, true, 1, new int[]{1, 1}, new int[]{1, 0});
         check(false, true, 0);
+        SpyRetentionCheck saved = new SpyRetentionCheck();
+        saved.database.rows = new int[][]{ {0, 0} };
+        BygramConfig.keepOwn = false;
+        if (saved.getBygramDialogRetentionStateSync(99) != 0) throw new AssertionError("Saved Messages must count as own even with out=0");
+        BygramConfig.keepOwn = true;
+        if (saved.getBygramDialogRetentionStateSync(99) != 1) throw new AssertionError("Explicit own retention must work in Saved Messages");
         SpyRetentionCheck unavailable = new SpyRetentionCheck();
         unavailable.database.fail = true;
         if (unavailable.getBygramDialogRetentionStateSync(42) != 1) throw new AssertionError("Failure must keep history");
-        System.out.println("PASS: 16 storage retention scenarios (first/repeat delete, whole chats with own toggle off, new messages, unavailable DB)");
+        System.out.println("PASS: 18 storage retention scenarios (first/repeat delete, whole chats with own toggle off, new messages, unavailable DB)");
     }
 }
 """.replace("// INSERT_METHOD", method)

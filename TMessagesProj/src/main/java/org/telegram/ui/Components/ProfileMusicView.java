@@ -499,9 +499,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
         if (cardTitle == null || cardAuthor == null) return;
 
         rect.set(dp(12), dp(4), getWidth() - dp(12), dp(96));
-        backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
-        backgroundPaint.setAlpha((int) (255 * alpha));
-        canvas.drawRoundRect(rect, dp(22), dp(22), backgroundPaint);
+        drawCardBackground(canvas, rect);
 
         RectF cover = AndroidUtilities.rectTmp;
         cover.set(dp(22), dp(14), dp(94), dp(86));
@@ -521,5 +519,11 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
         float maxWidth = getWidth() - dp(128);
         cardTitle.ellipsize(maxWidth).draw(canvas, dp(112), dp(39), textColor, alpha);
         cardAuthor.ellipsize(maxWidth).draw(canvas, dp(112), dp(65), subtextColor, alpha);
+    }
+
+    protected void drawCardBackground(Canvas canvas, RectF bounds) {
+        backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
+        backgroundPaint.setAlpha(255);
+        canvas.drawRoundRect(bounds, dp(22), dp(22), backgroundPaint);
     }
 }

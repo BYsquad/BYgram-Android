@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="BygramHideStories">Hide stories above chats</string>
+    <string name="BygramFoldersAppearance">Folder appearance</string>
+    <string name="BygramFolderStyle">Folder titles</string>
+    <string name="BygramFolderNames">Names only</string>
+    <string name="BygramFolderNamesIcons">Names and icons</string>
+    <string name="BygramFolderIcons">Icons only</string>
+    <string name="BygramHideFolderCounters">Hide folder unread counters</string>
+    <string name="BygramHideAllTab">Hide All Chats tab</string>
+    <string name="BygramFoldersPreviewInfo">Preview uses your folders. All Chats stays available when there are no other folders.</string>
+    <string name="BygramWinter">Winter</string>
+    <string name="BygramSnowChats">Falling snow on chat backgrounds</string>
+    <string name="BygramSnowProfiles">Falling snow on user profiles</string>
+    <string name="BygramSnowHeader">Falling snow in top navigation blocks</string>
+    <string name="BygramSnowNavigation">Falling snow in bottom navigation</string>
+    <string name="BygramSnowInfo">Animations respect power saving and reduced motion. All effects are off by default.</string>
+    <string-array name="BygramFolderStyleOptions">
+        <item>@string/BygramFolderNames</item>
+        <item>@string/BygramFolderNamesIcons</item>
+        <item>@string/BygramFolderIcons</item>
+    </string-array>
+</resources>

@@ -5774,7 +5774,7 @@ public class MessagesStorage extends BaseController {
                     boolean saved = message.bygramDeleted;
                     hasSaved |= saved;
                     hasLive |= !saved;
-                    canKeep |= saved || cursor.intValue(0) == 0 || keepOwn;
+                    canKeep |= saved || keepOwn || dialogId != getUserConfig().getClientUserId() && cursor.intValue(0) == 0;
                     if (hasLive && canKeep) break;
                 }
                 state[0] = hasSaved && !hasLive ? 2 : canKeep ? 1 : 0;
@@ -5802,7 +5802,7 @@ public class MessagesStorage extends BaseController {
                 cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ? ORDER BY date DESC, mid DESC", dialogId);
                 while (cursor.next()) {
                     int id = cursor.intValue(0);
-                    if (respectOwnDeletionSetting && cursor.intValue(1) != 0 && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
+                    if (respectOwnDeletionSetting && (dialogId == getUserConfig().getClientUserId() || cursor.intValue(1) != 0) && !BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)
                             && !getMessageWithCustomParamsOnlyInternal(id, dialogId).bygramDeleted) {
                         removeIds.add(id);
                     } else {

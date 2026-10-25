@@ -31,7 +31,7 @@ public class BygramSettingsLinkCheck {
         check(BygramSettingsLink.parse("typing.100").requiresFullEdition(), "Typing requires Full");
         check(!BygramSettingsLink.parse("ghost.2").requiresFullEdition(), "Ghost works in Lite");
         check(BygramSettingsLink.parse("general.202").row == 202, "Collapsed MD3 destination");
-        for (String target : new String[]{"general.8", "general.9", "profile.3", "profile.4"}) {
+        for (String target : new String[]{"general.8", "general.9", "general.12", "general.13", "profile.3", "profile.4", "profile.7"}) {
             check(BygramSettingsLink.parse(target) != null, "Customization destination: " + target);
         }
         check(BygramSettingsLink.target("activity", 100_000) == null, "Never share a selected viewer index");

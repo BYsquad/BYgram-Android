@@ -1,5 +1,264 @@
 # Сборка BYgram на Windows
 
+## 25.10.2026 — очистка верхней панели, v2
+
+APK отправлен через `telegram-cli` в Telegram «Избранное»: сообщение `200679`,
+25.10.2026 17:45:44 Europe/Moscow. Подтверждены `ok=true`, `out=true`,
+имя `BYgram-settings-header-clear-v2-2026-10-25.apk` и размер 135824373 байта.
+Журнал: `output/telegram-settings-header-clear-v2-2026-10-25.json`.
+
+Первый APK ниже не устранил дефект на телефоне. Повторная правка отключает
+пропуск `ActionBar.draw()` Android-контейнером без фона (`setWillNotDraw(false)`).
+Дефект старого APK воспроизведён на эмуляторе API 36; новый APK на том же
+маршруте убирает остаток аватара, меню и следы стрелок/заголовков после возврата
+из «Кастомизации» и «Шпиона». Сохранены скриншоты `output/header-v1-*.png`
+и `output/header-v2-*.png`. Crash buffer пуст.
+
+Один итоговый Full Debug APK этой повторной задачи:
+`output/BYgram-settings-header-clear-v2-2026-10-25.apk`, 135824373 байта.
+SHA-256: `ce7c483d6a83f40fb01e78c2a90dfa5d85055959005c3e0da951b9710c3b4987`.
+BUILD SUCCESSFUL за 7m 9s, 306 задач (14 выполнено), лог:
+`output/build-settings-header-clear-v2-2026-10-25.log`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), minSdk 23.
+Подпись v1/v2 и прежний сертификат проверены (`output/header-v2-signature.txt`).
+Бинарная локализация en/ru 303/303 и uk 163/163 — PASS.
+Обновлённый JVM-тест проходит с правкой и падает на предыдущем коде;
+проверки заголовков и 55 контрактов настроек — PASS.
+APK установлен через `adb install -r` с сохранением данных.
+Настоящий телефон не подключён. Существующие изменения рабочего дерева включены.
+
+Повторные переходы проверены в светлой и тёмной теме; в обеих темах нет
+остатков аватара/меню и наложения навигации. Тёмная тема проверена после
+перезапуска приложения, скриншоты `output/header-v2-dark-*.png`.
+
+## 25.10.2026 — очистка верхней панели настроек
+
+Один итоговый Full Debug APK: `output/BYgram-settings-header-clear-2026-10-25.apk`.
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 6m 56s, 306 задач (16 выполнено). Лог:
+`output/build-settings-header-clear-2026-10-25.log`.
+
+Размер 135824373 байта; SHA-256
+`7ea578a66c8cb41fb759b10ced864a97c589b9b97f1cff716feccc7069f283df`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), minSdk 23, `BYGRAM_FULL=true`.
+Подпись v1/v2 проверена, прежний сертификат SHA-256:
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+Бинарная локализация en/ru 303/303 и uk 163/163 — PASS.
+JVM-проверка очистки панели, проверки заголовков и 55 контрактов настроек — PASS.
+ADB не обнаружил устройств: переходы на телефоне не проверены.
+APK включает существующие изменения Android-кода рабочего дерева.
+Описание изменения системного интерфейса:
+[очистка верхней панели](bygram-settings/header-navigation-clear-2026-10-25.md).
+
+APK отправлен через `telegram-cli` в Telegram «Избранное»: сообщение `200675`,
+25.10.2026 17:25:19 Europe/Moscow. Подтверждены `ok=true`, `out=true`,
+имя файла и размер 135824373 байта. Журнал:
+`output/telegram-settings-header-clear-2026-10-25.json`.
+
+## 25.10.2026 — стекло секции профиля и подложки заголовков
+
+Один итоговый Full Debug APK: `output/BYgram-profile-glass-headers-2026-10-25.apk`.
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` — BUILD SUCCESSFUL
+за 5m 34s, 306 задач (16 выполнено). Лог:
+`output/build-profile-glass-headers-2026-10-25.log`.
+
+Размер 135824373 байта; SHA-256
+`0bb3ed3cb6daa8295e35d9aaa468f13667660bfbcc6860012ec9e6ae769e5d0b`.
+Пакет `com.bygram.mobile`, версия 13.0.3 (71839), minSdk 23,
+`BYGRAM_FULL=true`. Подпись v1/v2 проверена, сертификат прежний:
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+Бинарная локализация en 303/303, ru 303/303, uk 163/163 — PASS.
+Проверки profile_section_glass, page_headers, profile_scroll, settings_layout
+и settings_fixes (55 контрактов) — PASS. ADB не обнаружил устройств,
+визуальная проверка на телефоне не выполнена. Сборка включает текущие
+незавершённые изменения рабочей папки.
+
+APK отправлен через `telegram-cli` в Telegram «Избранное»: сообщение `200660`,
+25.10.2026 01:18:32 Europe/Moscow. Подтверждены `ok=true`, `out=true`, имя файла
+и размер 135824373 байта. Журнал: `output/telegram-profile-glass-headers-2026-10-25.json`.
+
+## 24.10.2026 — release APK и публикация на сайте
+
+Собран один итоговый release APK со всеми функциями BYgram:
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatRelease`.
+BUILD SUCCESSFUL за 41m 52s, 341 задача (337 выполнено, 4 up-to-date).
+Полностью пересобраны нативные release-зависимости четырёх ABI.
+Лог: `output/build-release-site-2026-10-24.log`.
+
+Файл: `output/BYgram-13.0.3.apk`, 76632613 байт (73,1 МиБ).
+SHA-256: `53eaca16c2faecc64b707ce299fafbb5ce33bfe38050293eb27db38946fb2bdc`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), Android 6.0+;
+четыре ABI, `BYGRAM_FULL=true`, `DEBUG=false`, без `application-debuggable`.
+Проверены подпись v2 и zipalign с параметром 16 КиБ.
+Сертификат SHA-256 `a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`
+совпадает с прежним публичным APK 12.10.3, загруженным с сайта для сравнения.
+Бинарная локализация: en 303/303, ru 303/303, uk 163/163 — PASS.
+Полный отчёт: `output/release-site-2026-10-24/verification.txt`.
+
+Пройдены runnable-проверки local_activity, settings_fixes (55 контрактов),
+spy_deletions, profile_scroll, settings_layout, spy_retention (18 сценариев).
+Release установлен через `adb install -r` поверх прежнего приложения на
+`medium_phone`; открыты главная настроек BYgram и «Шпион», строки отображаются.
+Журнал crash пуст. Скриншоты: `output/release-site-2026-10-24/*-smoke.png`.
+Полный прогон функций на настоящем телефоне не выполнялся.
+
+Опубликован: https://byxarek.site/TEST-PROJECT/BYgram/BYgram-13.0.3.apk
+Обновлены страницы и `api/release.json`, включая размер и SHA-256.
+На сайте удалены сведения о происхождении скриншотов, внутренний versionCode,
+Package и предупреждение о прежнем APK. Fallback данных релиза использует тот же
+`server/activity-api/release.json`, что и публикация. Новых APK после этого не собирали.
+Загрузка через временное имя, сверка SHA-256 и переименование; затем страницы
+и metadata. Все 9 файлов, включая APK целиком, повторно сверены через HTTPS.
+Резервные копии: `output/release-site-2026-10-24/backup`;
+манифест выкладки: `output/release-site-2026-10-24/deployed.json`.
+Предыдущий публичный APK сохранён. API приложения и админка не изменялись.
+
+APK отправлен через `telegram-cli` в Telegram «Избранное»: сообщение `200658`,
+24.10.2026 21:24:59 Europe/Moscow. Подтверждены `ok=true`, `out=true`,
+имя `BYgram-13.0.3.apk` и размер 76632613 байт. Журнал доставки:
+`output/release-site-2026-10-24/telegram-delivery.json`.
+
+
+## 24.10.2026 — локальная активность общих групп и видеообои
+
+Финальный APK: `output/BYgram-local-activity-video-FINAL-debug.apk`,
+130391617 байт, SHA-256
+`a43bfb64095197203f6d69235601fb1067c134f6401e5e145cce706b9f73aeba`.
+Full Debug — BUILD SUCCESSFUL за 8m 29s, 306 задач (28 выполнено).
+Лог: `output/build-local-activity-video-final-2026-10-24.log`.
+Подпись проверена, сертификат SHA-256 совпадает с предыдущими сборками:
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+Бинарная локализация: en 303/303, ru 303/303, uk 163/163 — PASS.
+
+Финальный APK доставлен в Telegram «Избранное»: message `200651`,
+24.10.2026 20:12:00 Europe/Moscow. CLI подтвердил `ok=true`, `out=true`,
+точное имя файла и размер 130391617 байт.
+Журнал: `output/telegram-local-activity-video-final-delivery.jsonl`.
+
+Промежуточный `output/BYgram-local-activity-video-intermediate-debug.apk`,
+127328940 байт, SHA-256
+`18fb5e3c4d916a44409ca14b26b57b4d0ee79d1e5cfbf4be49424a2a616819b2`.
+Первая сборка — BUILD SUCCESSFUL за 8m 34s, 306 задач (32 выполнено).
+Доставлен в Telegram «Избранное» по AGENTS.md: message `200650`,
+24.10.2026 20:01:40 Europe/Moscow; CLI подтвердил `ok=true`, `out=true`,
+имя файла и размер. Для установки использовать FINAL.
+
+Поведение, проверки Java/iOS и ограничения:
+[локальная активность и видеообои](bygram-settings/local-group-activity-and-video-wallpapers-2026-10-24.md).
+ADB не видит устройств; на телефоне не запускалось. iOS не собран без Xcode.
+
+
+## 24.10.2026 — переносы настроек и стекло профиля
+
+`output/BYgram-profile-glass-FINAL-debug.apk`, 132279904 байт, SHA-256
+`8b211e42206e835b35cdcca3b2610675e7fa0f2fa4a418a059257bca32def056`.
+Full Debug — BUILD SUCCESSFUL за 5m 18s, 306 задач (16 выполнено).
+Java-компиляция принудительно повторена после последней правки музыкальной
+карточки; метод drawCardBackground присутствует в скомпилированном классе.
+Лог: `output/build-profile-glass-settings-final-2026-10-24.log`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), minSdk 23 / target 36;
+`BYGRAM_FULL = true`, подпись v1/v2 и прежний сертификат — PASS.
+Бинарная локализация en 300/300, ru 300/300, uk 160/160 — PASS.
+Дополнительно 15 новых формулировок en/ru/uk найдены непосредственно
+в бинарных языковых assets итогового APK.
+Итоговый APK доставлен в Telegram «Избранное»: message `200645`,
+24.10.2026 15:53:54 Europe/Moscow. CLI подтвердил `ok=true`, `out=true`,
+имя файла и размер 132279904 байт.
+
+Промежуточный `output/BYgram-profile-glass-intermediate-debug.apk`
+(127326584 байт, SHA-256
+`9580544ebeb63697a1959010c1489109658d33dd85c3c9789c96a8b2d5f7ea0f`)
+также отправлен в Telegram «Избранное» по AGENTS.md: message `200644`,
+24.10.2026 15:47:43 Europe/Moscow. Для установки использовать FINAL.
+Первый проход: BUILD SUCCESSFUL за 5m 40s, 306 задач (28 выполнено),
+`output/build-profile-glass-settings-2026-10-24.log`.
+
+Проверки, каталог переводов и ограничения:
+[отчёт](bygram-settings/settings-wrap-and-profile-glass-2026-10-24.md).
+ADB не видит устройств; внешний вид на телефоне не проверен.
+
+## 24.10.2026 — отключаемые проверки доступа
+
+`output/BYgram-access-policy-full-debug.apk`, 135819516 байт, SHA-256
+`ce1a86ee9e4287fc659590cf3b4abfb6488f2e2801bd3497e93b03071d1fff9e`.
+Full Debug — BUILD SUCCESSFUL за 3m 52s, 306 задач (14 выполнено).
+Лог: `output/build-access-policy-2026-10-24.log`. Пакет `com.bygram.mobile`,
+13.0.3 (71839), minSdk 23 / target 36; подпись v1/v2 и прежний сертификат — PASS.
+Бинарная локализация en 300/300, ru 300/300, uk 160/160 — PASS.
+
+Доставлен в Telegram «Избранное»: message `200642`, 24.10.2026 15:13:44
+Europe/Moscow; CLI подтвердил `ok=true`, `out=true`, имя и размер файла.
+Android и iOS повторяют публикацию после регистрации без бота. Серверные флаги,
+миграция, проверки и риск подмены ID:
+[отчёт](bygram-settings/access-policy-flags-2026-10-24.md).
+На устройстве не запускалось. iOS не собран без Xcode/Apple SDK.
+
+## 24.10.2026 — стекло профиля, фон всей страницы и прокрутка
+
+Итоговый Full Debug: `output/BYgram-profile-scroll-FINAL-full-debug.apk`,
+130389081 байт. SHA-256:
+`0ab132003ca82f8b08c6891a6aed94b2fb1de6c59b457d83f7afc57e22d35863`.
+Пакет `com.bygram.mobile`, 13.0.3 (71839), minSdk 23 / target 36;
+подпись v1/v2 — PASS, сертификат SHA-256
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+Бинарная локализация en 300/300, ru 300/300, uk 160/160 — PASS.
+Финальная сборка — BUILD SUCCESSFUL за 5m 7s, 306 задач (14 выполнено).
+Лог: `output/build-profile-scroll-delivery-2026-10-24.log`.
+Окончательный APK доставлен в Telegram «Избранное»: message `200638`,
+24.10.2026 14:44:07 Europe/Moscow; CLI подтвердил `ok=true`, `out=true`,
+имя файла и размер 130389081 байт. Сертификат совпадает с предыдущим APK.
+
+Проверки поведения, новых опций, сервера, ограничений окружения и обратного
+включения лицензии: [подробный отчёт](bygram-settings/profile-scroll-and-free-full-2026-10-24.md).
+На production обновлены только API bootstrap/index, с сохранением серверных
+функций, отсутствующих в локальном HEAD. Платная лицензия временно не требуется.
+
+Промежуточные APK отправлены в Telegram «Избранное» по AGENTS.md:
+`BYgram-profile-scroll-intermediate-full-debug.apk` — message 200635;
+`BYgram-profile-scroll-check-full-debug.apk` — message 200636;
+`BYgram-profile-scroll-contrast-full-debug.apk` — message 200637.
+Для второго CLI завершился ошибкой блокировки SQLite при обработке обновлений;
+доставка подтверждена отдельным чтением по точному имени файла, повтор не выполнен.
+Использовать окончательный файл с FINAL в имени.
+
+ADB не видит устройств; визуальные сценарии и анимации не проверены.
+iOS: исходники и XCTest добавлены, сборка и XCTest не запускались без Xcode.
+
+
+## 24.10.2026 — фон профиля и уведомления Шпиона
+
+Full Debug, `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` —
+BUILD SUCCESSFUL, итоговый проход 5m 17s (306 задач: 14 выполнено, 292 up-to-date).
+Файл: `output/BYgram-spy-background-FINAL-full-debug.apk`, 127325857 байт.
+SHA-256: `5a112afa2ebe0e615025892b60ba8d29948f2cc013797bcea610a3b04f7826ec`.
+Пакет `com.bygram.mobile`, версия `13.0.3` (`71839`), minSdk 23,
+`BYGRAM_FULL = true`, подпись v1/v2 — PASS. Бинарная локализация:
+en 297/297, ru 297/297, uk 157/157 — PASS.
+Лог: `output/build-spy-background-complete-2026-10-24.log`.
+Итоговый файл отправлен в Telegram «Избранное»: message `200605`,
+24.10.2026 09:18:44 Europe/Moscow; CLI подтвердил `out=true`, имя файла
+и размер 127325857 байт.
+
+Предыдущие проверочные APK также отправлены в «Избранное» по AGENTS.md:
+
+- `BYgram-spy-background-intermediate-full-debug.apk`, 128064820 байт,
+  SHA-256 `5c026467d7f8af4a1aac4dd7b0713909324ccb618d16217f395bb717d2dcddaa`,
+  Telegram message `200572`. Лог `output/build-spy-background-2026-10-24.log`,
+  6m 57s, 32 выполненных задачи. Без последних правок push/возврата из background.
+- `BYgram-spy-background-check-full-debug.apk`, 127325968 байт,
+  SHA-256 `2e663c23d60595cf50c9a93a9ac73684c287f6857b8a548bc787350af8bb4a3a`,
+  Telegram message `200587`. Лог `output/build-spy-background-final-2026-10-24.log`,
+  6m 1s, 16 выполненных задач. Без последнего расширения уведомлений на исходящие
+  сообщения, удалённые удалённо. Использовать итоговый файл с `FINAL` в имени.
+
+Пройдены 18 JVM-сценариев хранения, тест реальных Java-решений обычного и
+push-удаления, 55 контрактов настроек и проверка MD3/геометрии. Документация
+поведения: [фон и уведомления](bygram-settings/spy-notifications-and-background-2026-10-24.md).
+ADB не видит устройств; APK на устройстве не запускался. Для iOS добавлены
+исходники и XCTest; сборка, Swift typecheck, XCTest и видео анимаций не выполнены
+в Windows без Xcode/Apple SDK.
+
+
 23.10.2026, итоговый APK кастомизации: цветной профиль с белым именем получает
 тёмную подложку фона; сохранены служебные якоря Spy, защита от устаревших ответов
 и корректное смещение свёрнутого поиска. Full Debug

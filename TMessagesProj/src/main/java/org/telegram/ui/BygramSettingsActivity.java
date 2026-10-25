@@ -44,6 +44,7 @@ import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Cells.AppIconsSelectorCell;
 import org.telegram.ui.Cells.SlideIntChooseView;
 import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Cells.TextCell;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -62,7 +63,8 @@ abstract class BygramSettingsPage extends BaseFragment {
     public ActionBar createActionBar(Context context) {
         ActionBar bar = super.createActionBar(context);
         bar.setDrawGlassTitle(false);
-        bar.setOpaquePageBackground();
+        bar.setTitleCentered(true);
+        bar.setOpaquePageBackground(Theme.key_windowBackgroundGray);
         return bar;
     }
 }
@@ -156,7 +158,20 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         SettingsList(BaseFragment fragment, Utilities.Callback2<ArrayList<UItem>, UniversalAdapter> fill,
                 Utilities.Callback5<UItem, View, Integer, Float, Float> click,
                 Utilities.Callback5Return<UItem, View, Integer, Float, Float, Boolean> longClick) {
-            super(fragment, fill, click, longClick);
+            super(fragment, (items, adapter) -> {
+                fill.run(items, adapter);
+                for (UItem item : items) {
+                    if (item.viewType == UniversalAdapter.VIEW_TYPE_CHECK
+                            || item.viewType == UniversalAdapter.VIEW_TYPE_TEXT) {
+                        Utilities.Callback<View> bind = item.bind;
+                        item.onBind(view -> {
+                            if (bind != null) bind.run(view);
+                            if (view instanceof TextCheckCell) ((TextCheckCell) view).setMultilineTextAndValue(null);
+                            else if (view instanceof TextCell) ((TextCell) view).setMultiline(true);
+                        });
+                    }
+                }
+            }, click, longClick);
             this.fragment = fragment;
             setOnItemLongClickListener((view, position, x, y) -> {
                 UItem item = adapter.getItem(position);
@@ -737,22 +752,64 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         private final org.telegram.ui.Components.AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emoji;
         TitlePreview(Context context, int account) {
             super(context);
-            setMinimumHeight(AndroidUtilities.dp(72));
-            org.telegram.ui.ActionBar.SimpleTextView title = new org.telegram.ui.ActionBar.SimpleTextView(context);
-            title.setTextSize(17);
+            setMinimumHeight(AndroidUtilities.dp(180));
+            ActionBar bar = new ActionBar(context);
+            bar.setOccupyStatusBar(false);
+            bar.setTitle(BygramConfig.dialogsTitle(account));
+            bar.createMenu().addItem(1, R.drawable.ic_ab_search).setContentDescription(getString(R.string.Search));
+            bar.createMenu().addItem(2, R.drawable.msg_edit).setContentDescription(getString(R.string.Edit));
+            org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor color = new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor();
+            color.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            bar.setupGlass(new org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawableViewFactory(color),
+                    org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl.topPanel(null));
+            org.telegram.ui.ActionBar.SimpleTextView title = bar.getTitleTextView();
             title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-            title.setText(BygramConfig.dialogsTitle(account));
             int position = BygramConfig.getInt(BygramConfig.TITLE_POSITION, 0);
-            title.setGravity(Gravity.CENTER_VERTICAL | (position == 1 ? Gravity.CENTER_HORIZONTAL : position == 2 ? Gravity.RIGHT : Gravity.LEFT));
+            bar.setTitleGravity(position == 1 ? Gravity.CENTER_HORIZONTAL : position == 2 ? Gravity.RIGHT : Gravity.LEFT);
             emoji = new org.telegram.ui.Components.AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(title, AndroidUtilities.dp(26));
             Long documentId = UserObject.getEmojiStatusDocumentId(org.telegram.messenger.UserConfig.getInstance(account).getCurrentUser());
             if (documentId != null) emoji.set(documentId, false);
             title.setRightDrawable(emoji);
-            addView(title, LayoutHelper.createFrame(-1, 48, Gravity.CENTER_VERTICAL, 20, 0, 20, 0));
+            addView(bar, LayoutHelper.createFrame(-1, 60, Gravity.TOP, 8, 4, 8, 0));
+            TextView search = new TextView(context);
+            search.setText(getString(R.string.Search));
+            search.setTextSize(16);
+            search.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            search.setGravity(Gravity.CENTER_VERTICAL);
+            search.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
+            search.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20), Theme.getColor(Theme.key_windowBackgroundWhite)));
+            addView(search, LayoutHelper.createFrame(-1, 40, Gravity.TOP, 16, 72, 16, 0));
+            addView(folderPreview(context, account), LayoutHelper.createFrame(-1, 48, Gravity.TOP, 12, 120, 12, 0));
             setContentDescription(getString(R.string.BygramHeaderPreview));
         }
         @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); emoji.attach(); }
         @Override protected void onDetachedFromWindow() { emoji.detach(); super.onDetachedFromWindow(); }
+    }
+
+    private static View folderPreview(Context context, int account) {
+        ArrayList<org.telegram.messenger.MessagesController.DialogFilter> filters = org.telegram.messenger.MessagesController.getInstance(account).getDialogFilters();
+        org.telegram.ui.Components.FilterTabsView tabs = new org.telegram.ui.Components.FilterTabsView(context, null);
+        tabs.setDelegate(new org.telegram.ui.Components.FilterTabsView.FilterTabsViewDelegate() {
+            public void onPageSelected(org.telegram.ui.Components.FilterTabsView.Tab tab, boolean forward) {}
+            public void onPageScrolled(float progress) {}
+            public void onSamePageSelected() {}
+            public int getTabCounter(int id) { return id >= 0 && id < filters.size() ? Math.max(0, filters.get(id).unreadCount) : 0; }
+            public boolean didSelectTab(org.telegram.ui.Components.FilterTabsView.TabView view, boolean selected) { return false; }
+            public boolean isTabMenuVisible() { return false; }
+            public void onDeletePressed(int id) {}
+            public void onPageReorder(int from, int to) {}
+            public boolean canPerformActions() { return false; }
+        });
+        boolean hideAll = BygramConfig.getBoolean(BygramConfig.HIDE_ALL_TAB) && filters.size() > 1;
+        for (int i = 0; i < filters.size(); i++) {
+            org.telegram.messenger.MessagesController.DialogFilter filter = filters.get(i);
+            if (filter.isDefault() && hideAll) continue;
+            tabs.addTab(i, filter.localId, filter.isDefault() ? getString(R.string.FilterAllChats) : filter.name,
+                    filter.entities, filter.title_noanimate, filter.isDefault(), false);
+        }
+        if (filters.isEmpty()) tabs.addTab(0, 0, getString(R.string.FilterAllChats), null, false, true, false);
+        tabs.finishAddingTabs(false);
+        return tabs;
     }
 
     public static class GeneralCustomizationActivity extends ProfileCustomizationActivity {
@@ -812,6 +869,22 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                         .setChecked(BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO)));
                 items.add(UItem.asShadow(getString(R.string.BygramFilterZalgoInfo)));
                 items.add(UItem.asHeader(getString(R.string.BygramChatListSection)));
+                items.add(UItem.asCheck(14, getString(R.string.BygramHideStories)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_STORIES)));
+                items.add(UItem.asHeader(getString(R.string.BygramFoldersAppearance)));
+                items.add(UItem.asCustom(folderPreview(context, currentAccount), 48));
+                items.add(UItem.asButton(15, getString(R.string.BygramFolderStyle), getContext().getResources().getStringArray(R.array.BygramFolderStyleOptions)[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.FOLDER_STYLE, 0)))]));
+                items.add(UItem.asCheck(16, getString(R.string.BygramHideFolderCounters)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_FOLDER_COUNTERS)));
+                items.add(UItem.asCheck(17, getString(R.string.BygramHideAllTab)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_ALL_TAB)));
+                items.add(UItem.asShadow(getString(R.string.BygramFoldersPreviewInfo)));
+                items.add(UItem.asHeader(getString(R.string.BygramWinter)));
+                String[] snowKeys = {BygramConfig.SNOW_CHATS, BygramConfig.SNOW_PROFILES, BygramConfig.SNOW_HEADER, BygramConfig.SNOW_NAVIGATION};
+                int[] snowTitles = {R.string.BygramSnowChats, R.string.BygramSnowProfiles, R.string.BygramSnowHeader, R.string.BygramSnowNavigation};
+                for (int i = 0; i < snowKeys.length; i++) items.add(UItem.asCheck(18 + i, getString(snowTitles[i])).setChecked(BygramConfig.getBoolean(snowKeys[i])));
+                items.add(UItem.asShadow(getString(R.string.BygramSnowInfo)));
+                items.add(UItem.asCheck(12, getString(R.string.BygramCollapseFoldersOnScroll))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL)));
+                items.add(UItem.asCheck(13, getString(R.string.BygramCollapseNavigationOnScroll))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL)));
                 items.add(UItem.asCheck(4, getString(R.string.BygramCollapseSearchOnStart))
                         .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)));
                 if (BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)) {
@@ -860,7 +933,19 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                 items.add(UItem.asCustom(avatarCorners).setId(-2));
                 items.add(UItem.asShadow(null));
             }, (item, view, position, x, y) -> {
-                if (item.id == 1) {
+                if (item.id == 15) {
+                    showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                            .setTitle(getString(R.string.BygramFolderStyle))
+                            .setItems(getContext().getResources().getStringArray(R.array.BygramFolderStyleOptions), (dialog, which) -> {
+                                BygramConfig.setInt(BygramConfig.FOLDER_STYLE, which);
+                                listView.adapter.update(true);
+                            }).create());
+                    return;
+                } else if (item.id == 14 || item.id >= 16 && item.id <= 21) {
+                    String[] keys = {BygramConfig.HIDE_FOLDER_COUNTERS, BygramConfig.HIDE_ALL_TAB, BygramConfig.SNOW_CHATS, BygramConfig.SNOW_PROFILES, BygramConfig.SNOW_HEADER, BygramConfig.SNOW_NAVIGATION};
+                    String key = item.id == 14 ? BygramConfig.HIDE_STORIES : keys[item.id - 16];
+                    BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
+                } else if (item.id == 1) {
                     BygramConfig.setBoolean(BygramConfig.FILTER_ZALGO, !BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO));
                 } else if (item.id == 3) {
                     md3Expanded = !md3Expanded;
@@ -869,6 +954,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                             !BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START));
                 } else if (item.id == 11) {
                     BygramConfig.setBoolean(BygramConfig.KEEP_SEARCH_COLLAPSED, !BygramConfig.getBoolean(BygramConfig.KEEP_SEARCH_COLLAPSED));
+                } else if (item.id == 12 || item.id == 13) {
+                    String key = item.id == 12 ? BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL : BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL;
+                    BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
                 } else if (item.id > 300 && item.id < 400) {
                     String key = keyFor(item.id - 300);
                     if (key != null) BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
@@ -916,14 +1004,16 @@ public class BygramSettingsActivity extends BygramSettingsPage {
 
     public static class ProfileCustomizationActivity extends ToggleSettingsActivity {
         private android.net.Uri pendingBackground;
-        private boolean pendingBackgroundChange;
         private boolean backgroundPublishing;
+        private boolean verifyBackgroundOnResume;
 
         @Override int getTitleRes() { return R.string.BygramProfile; }
 
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             items.add(UItem.asHeader(getString(R.string.BygramProfile)).setId(-1));
             items.add(UItem.asButton(5, getString(R.string.BygramProfileBackground)));
+            items.add(UItem.asCheck(7, getString(R.string.BygramFullProfileBackground))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)));
             items.add(UItem.asCheck(6, getString(R.string.BygramHideProfileBackgrounds))
                     .setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_PROFILE_BACKGROUNDS)));
             items.add(UItem.asShadow(getString(R.string.BygramProfileBackgroundInfo)));
@@ -945,21 +1035,21 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         @Override String keyFor(int id) {
             return id == 1 ? BygramConfig.CUSTOM_PROFILE_MUSIC
                     : id == 3 ? BygramConfig.HIDE_PHONE : id == 4 ? BygramConfig.RELATIVE_ONLINE
-                    : id == 6 ? BygramConfig.HIDE_PROFILE_BACKGROUNDS : null;
+                    : id == 6 ? BygramConfig.HIDE_PROFILE_BACKGROUNDS
+                    : id == 7 ? BygramConfig.FULL_PROFILE_BACKGROUND : null;
         }
 
         @Override void onCustomClick(int id) {
             if (id == 5) {
                 showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                         .setTitle(getString(R.string.BygramProfileBackground))
-                        .setItems(new CharSequence[]{getString(R.string.BygramChooseBackground), getString(R.string.Delete), getString(R.string.BygramPublishBackground)}, (dialog, which) -> {
+                        .setItems(new CharSequence[]{getString(R.string.BygramChooseBackground), getString(R.string.Delete)}, (dialog, which) -> {
                             if (which == 0) {
                                 android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
                                 intent.setType("image/*");
                                 intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
                                 startActivityForResult(intent, 5081);
-                            } else if (which == 1) { pendingBackground = null; pendingBackgroundChange = true; publishBackground(); }
-                            else if (pendingBackgroundChange) publishBackground();
+                            } else if (which == 1) { pendingBackground = null; publishBackground(); }
                         }).create());
                 return;
             }
@@ -977,7 +1067,6 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             super.onActivityResultFragment(requestCode, resultCode, data);
             if (requestCode == 5081 && resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null) {
                 pendingBackground = data.getData();
-                pendingBackgroundChange = true;
                 publishBackground();
             }
         }
@@ -985,25 +1074,53 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         private void publishBackground() {
             if (backgroundPublishing) return;
             backgroundPublishing = true;
+            org.telegram.ui.ActionBar.AlertDialog progress = new org.telegram.ui.ActionBar.AlertDialog(getContext(), 3);
+            progress.setCanCancel(false);
+            showDialog(progress);
+            progress.setCanceledOnTouchOutside(false);
+            progress.setCancelable(false);
             BygramTypingController.publishProfileBackground(currentAccount, pendingBackground, (ok, botUrl) -> {
                 backgroundPublishing = false;
+                progress.dismiss();
                 if (getContext() == null) return;
                 if (ok) {
                     pendingBackground = null;
-                    pendingBackgroundChange = false;
                     BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, getString(R.string.BygramBackgroundPublished)).show();
                 } else if (!botUrl.isEmpty()) {
                     showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                             .setTitle(getString(R.string.BygramProfileBackground))
                             .setMessage(getString(R.string.BygramBackgroundVerify))
                             .setNegativeButton(getString(R.string.Cancel), null)
-                            .setPositiveButton(getString(R.string.BygramTypingOpenBot), (dialog, which) -> org.telegram.messenger.browser.Browser.openUrl(getContext(), botUrl)).create());
+                            .setPositiveButton(getString(R.string.BygramTypingOpenBot), (dialog, which) -> {
+                                verifyBackgroundOnResume = true;
+                                org.telegram.messenger.browser.Browser.openUrl(getContext(), botUrl);
+                            }).create());
                 } else {
                     showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                             .setTitle(getString(R.string.BygramProfileBackground)).setMessage(getString(R.string.BygramBackgroundFailed))
                             .setPositiveButton(getString(R.string.OK), null).create());
                 }
             });
+        }
+
+        @Override public void onResume() {
+            super.onResume();
+            if (verifyBackgroundOnResume) {
+                verifyBackgroundOnResume = false;
+                publishBackground();
+            }
+        }
+
+        @Override public boolean onBackPressed(boolean invoked) {
+            return !backgroundPublishing && super.onBackPressed(invoked);
+        }
+
+        @Override public boolean canBeginSlide() {
+            return !backgroundPublishing && super.canBeginSlide();
+        }
+
+        @Override public boolean dismissDialogOnPause(android.app.Dialog dialog) {
+            return !backgroundPublishing && super.dismissDialogOnPause(dialog);
         }
 
     }
@@ -1277,14 +1394,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             });
             FrameLayout content = new FrameLayout(context);
             content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-            listView = new SettingsList(this, (items, adapter) -> {
-                fillToggleItems(items, adapter);
-                for (UItem item : items) {
-                    if (item.viewType == UniversalAdapter.VIEW_TYPE_CHECK) {
-                        item.onBind(view -> ((TextCheckCell) view).setMultilineTextAndValue(null));
-                    }
-                }
-            }, this::onClick, null);
+            listView = new SettingsList(this, this::fillToggleItems, this::onClick, null);
             listView.setSections();
             listView.adapter.setApplyBackground(false);
             content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -1349,6 +1459,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             items.add(UItem.asHeader(getString(R.string.BygramSpyMode)).setId(-1));
             items.add(UItem.asCheck(1, getString(R.string.BygramSaveDeleted)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)));
             items.add(UItem.asCheck(3, getString(R.string.BygramSaveOwnDeleted)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED)));
+            items.add(UItem.asCheck(7, getString(R.string.BygramNotifyDeleted)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_NOTIFY_DELETED)));
             items.add(UItem.asCheck(2, getString(R.string.BygramSaveEdits)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_EDITS)));
             items.add(UItem.asShadow(null));
             items.add(UItem.asCheck(4, getString(R.string.BygramSaveReadDate)).setChecked(BygramConfig.getBoolean(BygramConfig.SPY_SAVE_READ_DATE)));
@@ -1363,6 +1474,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             switch (id) {
                 case 1: return BygramConfig.SPY_SAVE_DELETED;
                 case 3: return BygramConfig.SPY_SAVE_OWN_DELETED;
+                case 7: return BygramConfig.SPY_NOTIFY_DELETED;
                 case 2: return BygramConfig.SPY_SAVE_EDITS;
                 case 4: return BygramConfig.SPY_SAVE_READ_DATE;
                 case 5: return BygramConfig.SPY_SAVE_LAST_ONLINE;

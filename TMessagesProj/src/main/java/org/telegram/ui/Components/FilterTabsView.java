@@ -1707,9 +1707,7 @@ public class FilterTabsView extends FrameLayout {
         int mode = org.telegram.messenger.BygramConfig.getInt("bygram_folder_style", 0);
         if (mode == 0) return title;
         SpannableStringBuilder result = new SpannableStringBuilder("\uFFFC");
-        int pack = org.telegram.messenger.BygramConfig.getInt("bygram_icon_pack", 0);
-        ColoredImageSpan icon = new ColoredImageSpan(pack == 1 ? R.drawable.msg_contacts : pack == 2 ? R.drawable.settings_folders
-                : isDefault ? R.drawable.settings_chat : R.drawable.settings_folders, ColoredImageSpan.ALIGN_CENTER);
+        ColoredImageSpan icon = new ColoredImageSpan(isDefault ? R.drawable.settings_chat : R.drawable.settings_folders, ColoredImageSpan.ALIGN_CENTER);
         icon.setSize(dp(20));
         result.setSpan(icon, 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         if (mode == 1) result.append(" ").append(title);
