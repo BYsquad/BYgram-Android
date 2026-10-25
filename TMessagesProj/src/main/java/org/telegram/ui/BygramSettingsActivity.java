@@ -750,9 +750,12 @@ public class BygramSettingsActivity extends BygramSettingsPage {
 
     private static class TitlePreview extends FrameLayout {
         private final org.telegram.ui.Components.AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emoji;
-        TitlePreview(Context context, int account) {
+        TitlePreview(Context context, int account, BaseFragment owner) {
             super(context);
-            setMinimumHeight(AndroidUtilities.dp(180));
+            boolean storiesVisible = !BygramConfig.getBoolean(BygramConfig.HIDE_STORIES)
+                    && org.telegram.messenger.MessagesController.getInstance(account).getStoriesController().hasStories();
+            int storiesHeight = storiesVisible ? org.telegram.ui.Stories.DialogStoriesCell.HEIGHT_IN_DP : 0;
+            setMinimumHeight(AndroidUtilities.dp(180 + storiesHeight));
             ActionBar bar = new ActionBar(context);
             bar.setOccupyStatusBar(false);
             bar.setTitle(BygramConfig.dialogsTitle(account));
@@ -771,6 +774,15 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             if (documentId != null) emoji.set(documentId, false);
             title.setRightDrawable(emoji);
             addView(bar, LayoutHelper.createFrame(-1, 60, Gravity.TOP, 8, 4, 8, 0));
+            if (storiesVisible) {
+                org.telegram.ui.Stories.DialogStoriesCell stories = new org.telegram.ui.Stories.DialogStoriesCell(context, owner, account, org.telegram.ui.Stories.DialogStoriesCell.TYPE_DIALOGS) {
+                    @Override public boolean onInterceptTouchEvent(android.view.MotionEvent event) { return true; }
+                    @Override public boolean onTouchEvent(android.view.MotionEvent event) { return true; }
+                };
+                stories.setActionBar(bar);
+                stories.setProgressToCollapse(0, false);
+                addView(stories, LayoutHelper.createFrame(-1, storiesHeight, Gravity.TOP, 12, 68, 12, 0));
+            }
             TextView search = new TextView(context);
             search.setText(getString(R.string.Search));
             search.setTextSize(16);
@@ -778,8 +790,8 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             search.setGravity(Gravity.CENTER_VERTICAL);
             search.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
             search.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20), Theme.getColor(Theme.key_windowBackgroundWhite)));
-            addView(search, LayoutHelper.createFrame(-1, 40, Gravity.TOP, 16, 72, 16, 0));
-            addView(folderPreview(context, account), LayoutHelper.createFrame(-1, 48, Gravity.TOP, 12, 120, 12, 0));
+            addView(search, LayoutHelper.createFrame(-1, 40, Gravity.TOP, 16, 72 + storiesHeight, 16, 0));
+            addView(folderPreview(context, account), LayoutHelper.createFrame(-1, 48, Gravity.TOP, 12, 120 + storiesHeight, 12, 0));
             setContentDescription(getString(R.string.BygramHeaderPreview));
         }
         @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); emoji.attach(); }
@@ -907,7 +919,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                 }
                 items.add(UItem.asShadow(null));
                 items.add(UItem.asHeader(getString(R.string.BygramHeaderSection)));
-                items.add(UItem.asCustom(new TitlePreview(context, currentAccount)));
+                items.add(UItem.asCustom(new TitlePreview(context, currentAccount, this)));
                 String[] titles = getContext().getResources().getStringArray(R.array.BygramTitleOptions);
                 String[] positions = getContext().getResources().getStringArray(R.array.BygramTitlePositionOptions);
                 items.add(UItem.asButton(6, getString(R.string.BygramTitleText),

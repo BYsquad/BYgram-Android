@@ -119,6 +119,7 @@ public class FilterTabsView extends FrameLayout {
     public class Tab {
         public int id;
         public CharSequence title;
+        public CharSequence accessibilityTitle;
         public int titleWidth;
         public int counter;
         public boolean isDefault;
@@ -128,6 +129,7 @@ public class FilterTabsView extends FrameLayout {
         public Tab(int i, CharSequence title, boolean noanimate) {
             this.id = i;
             this.title = title;
+            this.accessibilityTitle = title;
             this.noanimate = noanimate;
         }
 
@@ -165,6 +167,7 @@ public class FilterTabsView extends FrameLayout {
                 return false;
             }
             title = folderTitle(text(newTitle, newEntities), isDefault);
+            accessibilityTitle = newTitle;
             this.noanimate = noanimate;
             return true;
         }
@@ -239,7 +242,7 @@ public class FilterTabsView extends FrameLayout {
         public void setTab(Tab tab, int position) {
             currentTab = tab;
             currentPosition = position;
-            setContentDescription(tab.title);
+            setContentDescription(tab.accessibilityTitle);
             requestLayout();
 
             if (currentNoanimate != (currentTab != null && currentTab.noanimate)) {
@@ -730,7 +733,7 @@ public class FilterTabsView extends FrameLayout {
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, LocaleController.getString(R.string.AccDescrOpenMenu2)));
             if (currentTab != null) {
                 StringBuilder sb = new StringBuilder();
-                sb.append(currentTab.title);
+                sb.append(currentTab.accessibilityTitle);
                 int unread = currentTab != null ? currentTab.counter : 0;
                 if (unread > 0) {
                     sb.append("\n");
@@ -1269,6 +1272,7 @@ public class FilterTabsView extends FrameLayout {
         }
 
         Tab tab = new Tab(id, folderTitle(text(text, entities), isDefault), noanimate);
+        tab.accessibilityTitle = text;
         tab.isDefault = isDefault;
         tab.isLocked = isLocked;
         allTabsWidth += tab.getWidth(true) + dp(TAB_PADDING_WIDTH);

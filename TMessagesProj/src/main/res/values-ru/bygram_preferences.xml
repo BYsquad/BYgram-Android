@@ -14,7 +14,7 @@
     <string name="BygramArchive">Архив чатов</string>
     <string name="BygramHideArchive">Скрывать архив над списком чатов</string>
     <string name="BygramChatList">Список чатов</string>
-    <string name="BygramHideStories">Скрыть истории</string>
+    <string name="BygramHideStories">Скрыть истории над списком чатов</string>
     <string name="BygramHideFab">Скрыть плавающую кнопку</string>
     <string name="BygramHideSearch">Скрыть строку поиска</string>
     <string name="BygramFolders">Папки с чатами</string>
@@ -126,8 +126,8 @@
     <string name="BygramHideSendAs">Скрыть «Отправить от имени»</string>
     <string name="BygramSendAs">Отправить от имени</string>
     <string name="BygramSendAsPremium">Для выбора этого отправителя требуется Telegram Premium.</string>
-    <string name="BygramFolderStyle">Оформление вкладок папок</string>
-    <string name="BygramHideFolderCounters">Скрыть счётчики непрочитанных</string>
+    <string name="BygramFolderStyle">Заголовки папок</string>
+    <string name="BygramHideFolderCounters">Скрыть счётчики уведомлений папок</string>
     <string name="BygramEditFolders">Управление папками</string>
     <string-array name="BygramFolderStyles">
         <item>Текст</item>
@@ -299,4 +299,25 @@
     <string name="BygramCollapseSearchOnStartInfo">Открывать список чатов со свёрнутым поиском. Потяните список вниз или нажмите значок поиска, чтобы открыть его.</string>
     <string name="BygramHideArchiveInfo">Чтобы показать архив, дополнительно потяните вниз список чатов, находясь в самом верху.</string>
     <string name="BygramCallVibration">Вибрация при звонке</string>
+
+    
+    <string name="BygramFoldersAppearance">Вид папок</string>
+    
+    <string name="BygramFolderNames">Только названия</string>
+    <string name="BygramFolderNamesIcons">Названия и иконки</string>
+    <string name="BygramFolderIcons">Только иконки</string>
+    
+    
+    <string name="BygramFoldersPreviewInfo">Предпросмотр использует ваши папки. Если других папок нет, «Все чаты» остаётся доступна.</string>
+    <string name="BygramWinter">Зима</string>
+    <string name="BygramSnowChats">Падающий снег на фоне чатов</string>
+    <string name="BygramSnowProfiles">Падающий снег в профилях пользователей</string>
+    <string name="BygramSnowHeader">Падающий снег в верхних блоках списка чатов</string>
+    <string name="BygramSnowNavigation">Падающий снег в нижней навигации</string>
+    <string name="BygramSnowInfo">Анимации учитывают энергосбережение и уменьшение движения. По умолчанию все эффекты выключены.</string>
+    <string-array name="BygramFolderStyleOptions">
+        <item>@string/BygramFolderNames</item>
+        <item>@string/BygramFolderNamesIcons</item>
+        <item>@string/BygramFolderIcons</item>
+    </string-array>
 </resources>

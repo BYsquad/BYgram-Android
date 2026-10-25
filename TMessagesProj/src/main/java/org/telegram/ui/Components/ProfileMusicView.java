@@ -11,12 +11,15 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
 import android.graphics.RenderNode;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
@@ -24,7 +27,6 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BygramConfig;
@@ -61,7 +63,18 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
 
     private Text author, title, cardAuthor, cardTitle, activity;
     private String activityValue;
-    private boolean hasMusicDocument;
+    protected boolean hasMusicDocument;
+    private ProfileMusicView trailingView;
+    private ProfileMusicView leadingView;
+
+    // The two pills share a centered row and the same profile/blur animation state.
+    public void setTrailingView(ProfileMusicView view) {
+        trailingView = view;
+        view.leadingView = this;
+        invalidate();
+        view.invalidate();
+    }
+
     private final Paint iconPaint = new Paint();
     private final Paint arrowPaint = new Paint();
     private final Path arrowPath = new Path();
@@ -72,9 +85,17 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     private final Drawable activityIcon;
 
     private final RectF rect = new RectF();
+
+    public void getButtonBoundsOnScreen(RectF bounds) {
+        int[] location = new int[2];
+        getLocationOnScreen(location);
+        bounds.set(rect);
+        bounds.offset(location[0], location[1]);
+    }
+
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path clipPath = new Path();
+    private final Path clipAvatarPath = new Path();
 
     private final ButtonBounce bounce = new ButtonBounce(this);
 
@@ -120,7 +141,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     }
 
     public int getContentHeight() {
-        int height = hasMusicDocument ? (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? MUSIC_CARD_HEIGHT : 37) : 0;
+        int height = hasMusicDocument || hasVisibleCompanion() ? (profileList && BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? MUSIC_CARD_HEIGHT : 37) : 0;
         if (activity != null) height += (height == 0 ? 0 : 4) + ACTIVITY_CARD_HEIGHT;
         return dp(height);
     }
@@ -128,36 +149,42 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     public int getHeaderHeight() {
         // The first profile section already supplies the lower gap. Reserve less header space
         // while keeping the activity card's measured height and position intact.
-        return getContentHeight() - (activity != null && !hasMusicDocument ? dp(24) : 0);
+        return getContentHeight() - (activity != null && !hasMusicDocument && !hasVisibleCompanion() ? dp(24) : 0);
     }
 
-    private int textColor = Color.WHITE;
+    protected int textColor = Color.WHITE;
+    protected boolean hasProfileColor;
     private float parentExpanded;
-    private int backgroundColor;
-    private boolean withShadows;
+    private int buttonColor;
+    private boolean hasColorById;
+    private RadialGradient radialGradient;
+    private float radialGradientWidth;
+    private final Paint shaderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Matrix matrix = new Matrix();
 
     public void setColor(MessagesController.PeerColor peerColor) {
-        int color1, color2;
-        if (peerColor == null) {
-            color1 = color2 = Theme.getColor(Theme.key_actionBarDefault, resourcesProvider);
-        } else {
-            color1 = peerColor.getBgColor1(Theme.isCurrentThemeDark());
-            color2 = peerColor.getBgColor2(Theme.isCurrentThemeDark());
-        }
+        hasProfileColor = peerColor != null;
+        if (trailingView != null) trailingView.setColor(peerColor);
+        invalidate();
+    }
 
-        if (peerColor == null) {
-            backgroundColor = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
-            withShadows = true;
-        } else {
-            backgroundColor = Theme.adaptHSV(ColorUtils.blendARGB(color1, color2, .15f), +.04f, -.09f);
-            withShadows = false;
-        }
-        backgroundPaint.setColor(backgroundColor);
+    // Same color as ProfileActionsView buttons.
+    public void setButtonColor(int color, boolean hasColorById) {
+        if (trailingView != null) trailingView.setButtonColor(color, hasColorById);
+        if (buttonColor == color && this.hasColorById == hasColorById) return;
+        buttonColor = color;
+        this.hasColorById = hasColorById;
+        radialGradient = null;
+        backgroundPaint.setColor(color);
         checkTextColor();
     }
 
+    private boolean isButtonColorLight() {
+        return AndroidUtilities.computePerceivedBrightness(buttonColor) > 0.72f;
+    }
+
     private void checkTextColor() {
-        final boolean useBlackText = parentExpanded < 0.8f && AndroidUtilities.computePerceivedBrightness(backgroundColor) > 0.85f;
+        final boolean useBlackText = parentExpanded < 0.8f && isButtonColorLight();
         textColor = useBlackText ? Color.BLACK : Color.WHITE;
         icon.setColorFilter(useBlackText ? filterColorBlack : filterColorWhite);
         activityIcon.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.SRC_IN));
@@ -167,6 +194,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     }
 
     public void setParentExpanded(float expanded) {
+        if (trailingView != null) trailingView.setParentExpanded(expanded);
         if (parentExpanded != expanded) {
             parentExpanded = expanded;
             checkTextColor();
@@ -325,6 +353,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     private float renderNodeTranslateY;
 
     public void drawingBlur(boolean drawing) {
+        if (trailingView != null) trailingView.drawingBlur(drawing);
         if (ignoreRect != drawing || renderNode != null) {
             ignoreRect = drawing;
             renderNode = null;
@@ -334,6 +363,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     }
 
     public void drawingBlur(RenderNode renderNode, ProfileActivity.AvatarImageView avatarView, float scale, float dy) {
+        if (trailingView != null) trailingView.drawingBlur(renderNode, avatarView, scale, dy);
         this.ignoreRect = false;
         this.renderNode = renderNode;
         this.avatarView = avatarView;
@@ -344,7 +374,18 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
 
     private float currentHeight;
 
+    @Override
+    public void setAlpha(float alpha) {
+        super.setAlpha(alpha);
+        if (trailingView != null) trailingView.setAlpha(alpha);
+    }
+
+    protected boolean isOnProfilePhoto() {
+        return parentExpanded >= 0.8f;
+    }
+
     public void updatePosition(float y, float newHeight) {
+        if (trailingView != null) trailingView.updatePosition(y, newHeight);
         currentHeight = newHeight;
         setTranslationY(y - dp(12));
         invalidate();
@@ -372,6 +413,40 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
         return bounce.isPressed();
     }
 
+    protected float getContentWidth(float maxWidth) {
+        final float textWidth = Math.max(0, maxWidth - dp(16) - dp(16.6f) - dp(8));
+        this.author.ellipsize(textWidth / 2f);
+        this.title.ellipsize(Math.max(0, textWidth - this.author.getWidth()));
+        return dp(16.6f) + this.author.getWidth() + this.title.getWidth() + dp(8);
+    }
+
+    protected void drawContent(Canvas canvas, float alpha) {
+        final float cy = dpf2(18.5f);
+
+        final int iconSz = dp(13);
+        icon.setBounds(0, (int) cy - iconSz / 2, iconSz, (int) cy + iconSz / 2);
+        icon.draw(canvas);
+
+        canvas.translate(dp(16.6f), 0);
+        this.author.draw(canvas, 0, cy, textColor, alpha);
+        canvas.translate(this.author.getWidth(), 0);
+        this.title.draw(canvas, 0, cy, textColor, 0.85f * alpha);
+        canvas.translate(this.title.getWidth(), 0);
+
+        arrowPaint.setStrokeWidth(dpf2(1.16f));
+        canvas.translate(dpf2(4.8f), cy);
+        canvas.drawPath(arrowPath, arrowPaint);
+    }
+
+    private boolean hasVisibleCompanion() {
+        ProfileMusicView companion = trailingView != null ? trailingView : leadingView;
+        return companion != null && companion.getVisibility() == VISIBLE;
+    }
+
+    private float getPillWidth(float maxWidth) {
+        return dp(16) + getContentWidth(maxWidth);
+    }
+
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         if (this.author == null || this.title == null) return;
@@ -391,7 +466,7 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
             return;
         }
 
-        if (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
+        if (profileList && BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
             drawCard(canvas);
             drawActivityCard(canvas);
             canvas.restoreToCount(saveCount);
@@ -404,67 +479,87 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
         final int padding = dp(12);
         final int maxWidth = getWidth() - padding * 2;
 
-        this.author.ellipsize((maxWidth - dp(35)) / 2f);
-        this.title.ellipsize(maxWidth - this.author.getWidth() - dp(35));
+        float containerWidth;
+        float left;
+        if (hasVisibleCompanion()) {
+            ProfileMusicView leading = leadingView != null ? leadingView : this;
+            ProfileMusicView trailing = trailingView != null ? trailingView : this;
+            // Reserve the balance first so long song titles cannot push it offscreen.
+            float trailingWidth = trailing.getPillWidth(maxWidth / 2f);
+            float leadingWidth = leading.getPillWidth(Math.max(0, maxWidth - trailingWidth - dp(6)));
+            left = (getWidth() - leadingWidth - dp(6) - trailingWidth) / 2f;
+            containerWidth = leadingView != null ? trailingWidth : leadingWidth;
+            if (leadingView != null) left += leadingWidth + dp(6);
+        } else {
+            containerWidth = getPillWidth(maxWidth);
+            left = (getWidth() - containerWidth) / 2f;
+        }
 
-        final float width = dp(16.6f) + this.author.getWidth() + this.title.getWidth() + dp(8);
-        final float containerWidth = dp(16) + width;
-
+        rect.set(left, dp(10), left + containerWidth, dp(10) + dp(17) * alpha);
         canvas.save();
-        canvas.scale(scale, scale, getWidth() / 2f, getHeight() / 2f);
+        canvas.scale(scale, scale, rect.centerX(), getHeight() / 2f);
 
-        rect.set(
-            (getWidth() - containerWidth) / 2f,
-            dp(10),
-            (getWidth() + containerWidth) / 2f,
-            dp(10) + dp(17) * alpha
-        );
-        if (withShadows && SharedConfig.shadowsInSections) {
-            backgroundPaint.setShadowLayer(dpf2(2), 0, dpf2(0.33f), multAlpha(0x0a000000, alpha));
-            strokePaint.setShadowLayer(dpf2(0.33f), 0, 0, multAlpha(0x0c000000, alpha));
-            strokePaint.setColor(0);
+        final boolean withShadows = SharedConfig.shadowsInSections && isButtonColorLight() && parentExpanded < 0.5f;
+        final float bgAlpha = hasColorById ? 0.1f : 1f;
+        if (withShadows) {
+            backgroundPaint.setShadowLayer(dpf2(1.5f), 0, 0, Theme.multAlpha(Color.BLACK & 0x20FFFFFF, alpha * bgAlpha));
         } else {
             backgroundPaint.setShadowLayer(0, 0, 0, 0);
         }
         int wasAlpha = backgroundPaint.getAlpha();
-        backgroundPaint.setAlpha((int) (wasAlpha * alpha));
-        if (withShadows && SharedConfig.shadowsInSections) {
-            canvas.drawRoundRect(rect, rect.height() / 2f, rect.height() / 2f, strokePaint);
-        }
+        backgroundPaint.setAlpha((int) (wasAlpha * alpha * bgAlpha));
         canvas.drawRoundRect(rect, rect.height() / 2f, rect.height() / 2f, backgroundPaint);
         backgroundPaint.setAlpha(wasAlpha);
+        if (hasColorById && buttonColor != 0) {
+            if (radialGradient == null || radialGradientWidth != rect.width()) {
+                radialGradientWidth = rect.width();
+                radialGradient = new RadialGradient(
+                    rect.width() / 2f, dp(17) / 2f, rect.width() * 0.65f,
+                    Theme.multAlpha(buttonColor, 0.8f), buttonColor,
+                    Shader.TileMode.CLAMP
+                );
+                shaderPaint.setShader(radialGradient);
+            }
+            matrix.setTranslate(rect.left, rect.top);
+            radialGradient.setLocalMatrix(matrix);
+            shaderPaint.setAlpha((int) (0xFF * alpha));
+            canvas.drawRoundRect(rect, rect.height() / 2f, rect.height() / 2f, shaderPaint);
+        }
 
         clipPath.rewind();
         clipPath.addRoundRect(rect, rect.height() / 2f, rect.height() / 2f, Path.Direction.CW);
 
         canvas.save();
         canvas.clipPath(clipPath);
-        if (!ignoreRect && renderNode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canvas.isHardwareAccelerated()) {
+        if (!ignoreRect && renderNode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && renderNode.hasDisplayList() && canvas.isHardwareAccelerated()) {
             canvas.save();
+            if (avatarView != null) {
+                View v = (View) avatarView.getParent();
+                float vl = v.getX() - getX();
+                float vt = v.getY() - getTranslationY();
+                float vw = v.getWidth() * v.getScaleX();
+                float vh = v.getHeight() * v.getScaleY();
+
+                clipAvatarPath.rewind();
+                clipAvatarPath.addRoundRect(
+                    vl,
+                    vt,
+                    vl + vw,
+                    vt + vh,
+                    avatarView.getRoundRadiusForExpand() * v.getScaleX(),
+                    avatarView.getRoundRadiusForExpand() * v.getScaleY(),
+                    Path.Direction.CCW
+                );
+                canvas.clipPath(clipAvatarPath);
+            }
             canvas.translate(0f, renderNodeTranslateY);
             canvas.scale(renderNodeScale, renderNodeScale);
             canvas.drawRenderNode(renderNode);
             canvas.restore();
         }
 
-        canvas.translate((getWidth() - width) / 2f, 0);
-
-//        final long now = System.currentTimeMillis();
-        final float cy = dpf2(18.5f);
-
-        final int iconSz = dp(13);
-        icon.setBounds(0, (int) cy - iconSz / 2, iconSz, (int) cy + iconSz / 2);
-        icon.draw(canvas);
-
-        canvas.translate(dp(16.6f), 0);
-        this.author.draw(canvas, 0, cy, textColor, alpha);
-        canvas.translate(this.author.getWidth(), 0);
-        this.title.draw(canvas, 0, cy, textColor, 0.85f * alpha);
-        canvas.translate(this.title.getWidth(), 0);
-
-        arrowPaint.setStrokeWidth(dpf2(1.16f));
-        canvas.translate(dpf2(4.8f), cy);
-        canvas.drawPath(arrowPath, arrowPaint);
+        canvas.translate(rect.left + dp(8), 0);
+        drawContent(canvas, alpha);
 
         canvas.restore();
 
@@ -477,11 +572,12 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
     private void drawActivityCard(Canvas canvas) {
         if (activity == null) return;
         float alpha = 1f;
-        float top = hasMusicDocument ? dp(BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? 104 : 41) : dp(4);
-        rect.set(dp(20), top, getWidth() - dp(20), top + dp(48));
+        float top = hasMusicDocument || hasVisibleCompanion() ? dp(profileList && BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC) ? 104 : 41) : dp(4);
+        RectF activityRect = AndroidUtilities.rectTmp;
+        activityRect.set(dp(20), top, getWidth() - dp(20), top + dp(48));
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
         backgroundPaint.setAlpha((int) (255 * alpha));
-        canvas.drawRoundRect(rect, dp(18), dp(18), backgroundPaint);
+        canvas.drawRoundRect(activityRect, dp(18), dp(18), backgroundPaint);
 
         RectF iconBackground = AndroidUtilities.rectTmp;
         iconBackground.set(dp(28), top + dp(8), dp(60), top + dp(40));

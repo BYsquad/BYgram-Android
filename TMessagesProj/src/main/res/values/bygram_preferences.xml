@@ -14,7 +14,7 @@
     <string name="BygramArchive">Archived chats</string>
     <string name="BygramHideArchive">Hide archive above the chat list</string>
     <string name="BygramChatList">Chat list</string>
-    <string name="BygramHideStories">Hide stories</string>
+    <string name="BygramHideStories">Hide stories above chats</string>
     <string name="BygramHideFab">Hide floating button</string>
     <string name="BygramHideSearch">Hide search bar</string>
     <string name="BygramFolders">Chat folders</string>
@@ -99,8 +99,8 @@
     <string name="BygramHideSendAs">Hide Send As</string>
     <string name="BygramSendAs">Send As</string>
     <string name="BygramSendAsPremium">Telegram Premium is required to select this sender.</string>
-    <string name="BygramFolderStyle">Folder tab style</string>
-    <string name="BygramHideFolderCounters">Hide unread counters</string>
+    <string name="BygramFolderStyle">Folder titles</string>
+    <string name="BygramHideFolderCounters">Hide folder unread counters</string>
     <string name="BygramEditFolders">Manage folders</string>
     <string-array name="BygramFolderStyles"><item>Text</item><item>Icons and text</item><item>Icons</item></string-array>
     <string name="BygramFabShape">Floating button shape</string>
@@ -156,7 +156,7 @@
     <string name="BygramAdminShortcuts">Admin actions first in message menu</string>
     <string name="BygramQuickTransitions">Faster chat and topic transitions</string>
     <string name="BygramInlineCalculator">Calculate expressions ending in =</string>
-    <string name="BygramHideAllTab">Hide “All chats” tab</string>
+    <string name="BygramHideAllTab">Hide All Chats tab</string>
     <string name="BygramMd3Sliders">Material 3 sliders</string>
     <string name="BygramNavigation">App navigation</string>
     <string name="BygramBottomNavigation">Bottom navigation</string>
@@ -192,4 +192,25 @@
     <string name="BygramCollapseSearchOnStartInfo">Start the chat list with search collapsed. Pull down or tap the search icon to open it.</string>
     <string name="BygramHideArchiveInfo">Pull down again at the top of the chat list to reveal the archive.</string>
     <string name="BygramCallVibration">Vibration during calls</string>
+
+    
+    <string name="BygramFoldersAppearance">Folder appearance</string>
+    
+    <string name="BygramFolderNames">Names only</string>
+    <string name="BygramFolderNamesIcons">Names and icons</string>
+    <string name="BygramFolderIcons">Icons only</string>
+    
+    
+    <string name="BygramFoldersPreviewInfo">Preview uses your folders. All Chats stays available when there are no other folders.</string>
+    <string name="BygramWinter">Winter</string>
+    <string name="BygramSnowChats">Falling snow on chat backgrounds</string>
+    <string name="BygramSnowProfiles">Falling snow on user profiles</string>
+    <string name="BygramSnowHeader">Falling snow in top navigation blocks</string>
+    <string name="BygramSnowNavigation">Falling snow in bottom navigation</string>
+    <string name="BygramSnowInfo">Animations respect power saving and reduced motion. All effects are off by default.</string>
+    <string-array name="BygramFolderStyleOptions">
+        <item>@string/BygramFolderNames</item>
+        <item>@string/BygramFolderNamesIcons</item>
+        <item>@string/BygramFolderIcons</item>
+    </string-array>
 </resources>

@@ -39,4 +39,25 @@
     <string name="BygramHideArchive">Ховати архів над списком чатів</string>
     <string name="BygramHideArchiveInfo">Щоб показати архів, додатково потягніть униз список чатів, перебуваючи в самому верху.</string>
     <string name="BygramCallVibration">Вібрація під час дзвінка</string>
+
+    <string name="BygramHideStories">Приховати історії над списком чатів</string>
+    <string name="BygramFoldersAppearance">Вигляд папок</string>
+    <string name="BygramFolderStyle">Заголовки папок</string>
+    <string name="BygramFolderNames">Лише назви</string>
+    <string name="BygramFolderNamesIcons">Назви та іконки</string>
+    <string name="BygramFolderIcons">Лише іконки</string>
+    <string name="BygramHideFolderCounters">Приховати лічильники сповіщень папок</string>
+    <string name="BygramHideAllTab">Приховати вкладку «Усі чати»</string>
+    <string name="BygramFoldersPreviewInfo">Перегляд використовує ваші папки. Якщо інших папок немає, «Усі чати» залишається доступною.</string>
+    <string name="BygramWinter">Зима</string>
+    <string name="BygramSnowChats">Падаючий сніг на фоні чатів</string>
+    <string name="BygramSnowProfiles">Падаючий сніг у профілях користувачів</string>
+    <string name="BygramSnowHeader">Падаючий сніг у верхніх блоках списку чатів</string>
+    <string name="BygramSnowNavigation">Падаючий сніг у нижній навігації</string>
+    <string name="BygramSnowInfo">Анімації враховують енергозбереження та зменшення руху. За замовчуванням усі ефекти вимкнено.</string>
+    <string-array name="BygramFolderStyleOptions">
+        <item>@string/BygramFolderNames</item>
+        <item>@string/BygramFolderNamesIcons</item>
+        <item>@string/BygramFolderIcons</item>
+    </string-array>
 </resources>
