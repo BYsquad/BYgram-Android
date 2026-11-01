@@ -64,6 +64,8 @@ public class UserConfig extends BaseController {
     public boolean showCallsTab;
     public boolean hasSecureData;
     public int loginTime;
+    // Changes on every auth reset, so plugin account grants cannot survive re-login.
+    public volatile String bygramPluginAuthGeneration = "";
     public TLRPC.TL_help_termsOfService unacceptedTermsOfService;
     public long autoDownloadConfigLoadTime;
 
@@ -159,6 +161,7 @@ public class UserConfig extends BaseController {
                     editor.putInt("webappRatingLoadTime", webappRatingLoadTime);
                     editor.putBoolean("contactsReimported", contactsReimported);
                     editor.putInt("loginTime", loginTime);
+                    if (BuildConfig.BYGRAM_FULL) editor.putString("bygramPluginAuthGeneration", bygramPluginAuthGeneration);
                     editor.putBoolean("syncContacts", syncContacts);
                     editor.putBoolean("showCallsTab", showCallsTab);
                     editor.putBoolean("suggestContacts", suggestContacts);
@@ -265,6 +268,7 @@ public class UserConfig extends BaseController {
             clientUserId = user.id;
             checkPremiumSelf(oldUser, user);
         }
+        PluginEntry.accountChanged(currentAccount, user.id, bygramPluginAuthGeneration);
     }
 
     private void checkPremiumSelf(TLRPC.User oldUser, TLRPC.User newUser) {
@@ -311,6 +315,13 @@ public class UserConfig extends BaseController {
             botGuestRatingLoadTime = preferences.getInt("botGuestRatingLoadTime", 0);
             webappRatingLoadTime = preferences.getInt("webappRatingLoadTime", 0);
             loginTime = preferences.getInt("loginTime", currentAccount);
+            if (BuildConfig.BYGRAM_FULL) {
+                bygramPluginAuthGeneration = preferences.getString("bygramPluginAuthGeneration", "");
+                if (!bygramPluginAuthGeneration.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")) {
+                    bygramPluginAuthGeneration = java.util.UUID.randomUUID().toString();
+                    preferences.edit().putString("bygramPluginAuthGeneration", bygramPluginAuthGeneration).apply();
+                }
+            }
             syncContacts = preferences.getBoolean("syncContacts", true);
             showCallsTab = preferences.getBoolean("showCallsTab", false);
             suggestContacts = preferences.getBoolean("suggestContacts", true);
@@ -459,12 +470,14 @@ public class UserConfig extends BaseController {
     }
 
     public void clearConfig() {
+        if (BuildConfig.BYGRAM_FULL) bygramPluginAuthGeneration = java.util.UUID.randomUUID().toString();
         getPreferences().edit().clear().apply();
 
         sharingMyLocationUntil = 0;
         lastMyLocationShareTime = 0;
         currentUser = null;
         clientUserId = 0;
+        PluginEntry.accountChanged(currentAccount, 0, "");
         registeredForPush = false;
         contactsSavedCount = 0;
         lastSendMessageId = -210000;

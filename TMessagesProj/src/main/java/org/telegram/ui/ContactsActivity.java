@@ -282,6 +282,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         searchWas = false;
 
         actionBar.setAllowOverlayTitle(true);
+        actionBar.setTitleCenteredInGlass();
         if (destroyAfterSelect) {
             if (returnAsResult) {
                 actionBar.setTitle(getString(R.string.SelectContact));

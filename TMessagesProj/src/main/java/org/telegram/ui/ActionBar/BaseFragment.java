@@ -540,9 +540,41 @@ public abstract class BaseFragment {
 
     public void onUserLeaveHint() {}
 
+    private String bygramSnowOption;
+    private android.graphics.drawable.Drawable bygramSnowOverlay;
+
+    public void inheritBygramSnow(BaseFragment source) {
+        bygramSnowOption = source.bygramSnowOption();
+    }
+
+    private String bygramSnowOption() {
+        if (getClass().getName().startsWith("org.telegram.ui.Bygram")) return org.telegram.messenger.BygramConfig.SNOW_BYGRAM_SETTINGS;
+        if (this instanceof org.telegram.ui.SettingsActivity
+                || this instanceof org.telegram.ui.ProfileActivity && ((org.telegram.ui.ProfileActivity) this).isSettings()) return org.telegram.messenger.BygramConfig.SNOW_SETTINGS;
+        if (bygramSnowOption != null) return bygramSnowOption;
+        if (this instanceof org.telegram.ui.DialogsActivity || this instanceof org.telegram.ui.ContactsActivity) return org.telegram.messenger.BygramConfig.SNOW_DIALOGS;
+        if (this instanceof org.telegram.ui.ChatActivity || this instanceof org.telegram.ui.ProfileActivity) return null;
+        return org.telegram.messenger.BygramConfig.SNOW_SETTINGS;
+    }
+
+    public void updateBygramSnow() {
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
+        String snowOption = bygramSnowOption();
+        if (snowOption == null && this instanceof org.telegram.ui.DialogsActivity) snowOption = org.telegram.messenger.BygramConfig.SNOW_DIALOGS;
+        if (fragmentView != null && bygramSnowOverlay != null) fragmentView.getOverlay().remove(bygramSnowOverlay);
+        bygramSnowOverlay = null;
+        if (fragmentView != null && snowOption != null) {
+            bygramSnowOverlay = org.telegram.ui.Components.BygramSnowEffect.overlay(fragmentView, snowOption);
+            bygramSnowOverlay.setBounds(0, 0, fragmentView.getWidth(), fragmentView.getHeight());
+            fragmentView.getOverlay().add(bygramSnowOverlay);
+        }
+    }
+
     @CallSuper
     public void onResume() {
         isPaused = false;
+        org.telegram.messenger.PluginEntry.pageEvent(this, true);
+        updateBygramSnow();
         if (actionBar != null) {
             actionBar.onResume();
         }
@@ -554,6 +586,9 @@ public abstract class BaseFragment {
 
     @CallSuper
     public void onPause() {
+        org.telegram.messenger.PluginEntry.pageEvent(this, false);
+        if (fragmentView != null && bygramSnowOverlay != null) fragmentView.getOverlay().remove(bygramSnowOverlay);
+        bygramSnowOverlay = null;
         if (actionBar != null) {
             actionBar.onPause();
         }
@@ -665,18 +700,22 @@ public abstract class BaseFragment {
     }
 
     public boolean presentFragment(BaseFragment fragment) {
+        fragment.bygramSnowOption = bygramSnowOption();
         return allowPresentFragment() && parentLayout != null && parentLayout.presentFragment(fragment);
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast) {
+        fragment.bygramSnowOption = bygramSnowOption();
         return allowPresentFragment() && parentLayout != null && parentLayout.presentFragment(fragment, removeLast);
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast, boolean forceWithoutAnimation) {
+        fragment.bygramSnowOption = bygramSnowOption();
         return allowPresentFragment() && parentLayout != null && parentLayout.presentFragment(fragment, removeLast, forceWithoutAnimation, true, false, null);
     }
 
     public boolean presentFragment(INavigationLayout.NavigationParams params) {
+        params.fragment.bygramSnowOption = bygramSnowOption();
         return allowPresentFragment() && parentLayout != null && parentLayout.presentFragment(params);
     }
 

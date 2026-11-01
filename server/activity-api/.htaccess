@@ -1,4 +1,10 @@
 Options -Indexes
+<Files "plugin-catalog.php">
+    Require all denied
+</Files>
+<Files "plugin-self-test.php">
+    Require all denied
+</Files>
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>

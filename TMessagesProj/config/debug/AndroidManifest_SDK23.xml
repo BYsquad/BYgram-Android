@@ -27,8 +27,8 @@
 
 
     <application
-        android:icon="@drawable/bygram_logo_new"
-        android:roundIcon="@drawable/bygram_logo_new"
+        android:icon="@drawable/bygram_launcher_icon"
+        android:roundIcon="@drawable/bygram_launcher_icon"
         android:label="@string/AppNameBeta"
         android:theme="@style/Theme.TMessages.Start"
         android:hardwareAccelerated="true"

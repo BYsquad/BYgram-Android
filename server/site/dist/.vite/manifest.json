@@ -3,76 +3,51 @@
     "file": "assets/jsx-runtime.js",
     "name": "jsx-runtime"
   },
-  "_main.css": {
-    "file": "assets/main.css",
-    "src": "_main.css"
-  },
-  "_main.js": {
-    "file": "assets/main.js",
+  "_main-BBBmszwC.js": {
+    "file": "assets/main-BBBmszwC.js",
     "name": "main",
     "imports": [
       "_jsx-runtime.js"
     ],
     "css": [
-      "assets/main.css"
+      "assets/main-BHsqtI7N.css"
     ],
     "assets": [
       "assets/bygram-logo.png",
-      "assets/settings.png",
+      "assets/settings-current.png",
       "assets/ghost.png",
-      "assets/spy.png",
-      "assets/customization.png",
-      "assets/profile.png",
-      "assets/activity.png",
-      "assets/custom-menu.png",
-      "assets/protected-chats-settings.png",
-      "assets/hidden-chats-settings.png",
-      "assets/hidden-chats-search.png"
+      "assets/spy-current.png",
+      "assets/customization-current.png",
+      "assets/profile-current.png"
     ]
   },
-  "assets/activity.png": {
-    "file": "assets/activity.png",
-    "src": "assets/activity.png"
+  "_main-BHsqtI7N.css": {
+    "file": "assets/main-BHsqtI7N.css",
+    "src": "_main-BHsqtI7N.css"
   },
   "assets/bygram-logo.png": {
     "file": "assets/bygram-logo.png",
     "src": "assets/bygram-logo.png"
   },
-  "assets/custom-menu.png": {
-    "file": "assets/custom-menu.png",
-    "src": "assets/custom-menu.png"
-  },
-  "assets/customization.png": {
-    "file": "assets/customization.png",
-    "src": "assets/customization.png"
+  "assets/customization-current.png": {
+    "file": "assets/customization-current.png",
+    "src": "assets/customization-current.png"
   },
   "assets/ghost.png": {
     "file": "assets/ghost.png",
     "src": "assets/ghost.png"
   },
-  "assets/hidden-chats-search.png": {
-    "file": "assets/hidden-chats-search.png",
-    "src": "assets/hidden-chats-search.png"
+  "assets/profile-current.png": {
+    "file": "assets/profile-current.png",
+    "src": "assets/profile-current.png"
   },
-  "assets/hidden-chats-settings.png": {
-    "file": "assets/hidden-chats-settings.png",
-    "src": "assets/hidden-chats-settings.png"
+  "assets/settings-current.png": {
+    "file": "assets/settings-current.png",
+    "src": "assets/settings-current.png"
   },
-  "assets/profile.png": {
-    "file": "assets/profile.png",
-    "src": "assets/profile.png"
-  },
-  "assets/protected-chats-settings.png": {
-    "file": "assets/protected-chats-settings.png",
-    "src": "assets/protected-chats-settings.png"
-  },
-  "assets/settings.png": {
-    "file": "assets/settings.png",
-    "src": "assets/settings.png"
-  },
-  "assets/spy.png": {
-    "file": "assets/spy.png",
-    "src": "assets/spy.png"
+  "assets/spy-current.png": {
+    "file": "assets/spy-current.png",
+    "src": "assets/spy-current.png"
   },
   "src/admin.jsx": {
     "file": "assets/admin.js",

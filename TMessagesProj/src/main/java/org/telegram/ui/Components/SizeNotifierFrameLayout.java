@@ -567,6 +567,8 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
                 snowflakesEffect.setForcedColor(0xFFFFFFFF);
             }
             snowflakesEffect.onDraw(backgroundView, canvas);
+        } else {
+            snowflakesEffect = null;
         }
     }
 

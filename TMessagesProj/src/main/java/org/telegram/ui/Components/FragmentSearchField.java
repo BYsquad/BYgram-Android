@@ -50,6 +50,9 @@ import me.vkryl.android.animator.FactorAnimator;
 
 @SuppressLint("ViewConstructor")
 public class FragmentSearchField extends FrameLayout implements FactorAnimator.Target, Theme.Colorable {
+    public boolean bygramSnowEnabled;
+    private final BygramSnowEffect bygramSnow = new BygramSnowEffect();
+    private final android.graphics.RectF bygramSnowBounds = new android.graphics.RectF();
     private static final int ANIMATOR_ID_CLOSE_BUTTON_VISIBLE = 0;
     private static final int ANIMATOR_ID_SEARCH_ICON_VISIBLE = 1;
     private static final int ANIMATOR_ID_SEARCH_FILTERS_WIDTH = 2;
@@ -203,6 +206,10 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
                     getWidth() - getPaddingRight() + dp(4),
                     (getHeight() - getPaddingBottom()) + dp(4));
             blurredBackgroundDrawable.draw(canvas);
+        }
+        if (bygramSnowEnabled) {
+            bygramSnowBounds.set(getPaddingLeft(), getPaddingTop(), getWidth() - getPaddingRight(), getHeight() - getPaddingBottom());
+            bygramSnow.draw(this, canvas, org.telegram.messenger.BygramConfig.SNOW_HEADER, bygramSnowBounds, dp(20));
         }
         super.dispatchDraw(canvas);
         canvas.restore();

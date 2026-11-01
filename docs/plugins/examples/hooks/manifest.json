@@ -1,0 +1,10 @@
+{
+  "manifest_version": 1, "id": "dev.bygram.hooks", "name": "Hook probe example",
+  "description": "Changes only the synthetic SDK probe, never a Telegram method",
+  "author": "BYgram SDK example", "version": "1.0.0", "entrypoint": "main.py:HookPlugin",
+  "sdk": {"min": 1, "max": 1}, "python": "3.11", "capabilities": ["hooks.raw"],
+  "account_scope": "global", "settings_schema": 1, "requires_hook_backend": true,
+  "bygram": {"min_build": 72379, "max_build": 72379},
+  "telegram": {"min_build": 7237, "max_build": 7237},
+  "hook_targets": [{"class": "org.telegram.messenger.plugins.HookBridge$Probe", "method": "value", "args": ["int"]}]
+}

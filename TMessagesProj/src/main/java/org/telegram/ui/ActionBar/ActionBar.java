@@ -133,6 +133,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     private boolean supportsHolidayImage;
     private SnowflakesEffect snowflakesEffect;
     private final org.telegram.ui.Components.BygramSnowEffect bygramHeaderSnow = new org.telegram.ui.Components.BygramSnowEffect();
+    private final org.telegram.ui.Components.BygramSnowEffect bygramMenuSnow = new org.telegram.ui.Components.BygramSnowEffect();
     private FireworksEffect fireworksEffect;
     private Paint.FontMetricsInt fontMetricsInt;
     private boolean manualStart;
@@ -206,7 +207,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     private boolean glassOnlyBack;
     private boolean glassModeIsForum;
     private BlurredBackgroundSourceColor pageGlassColor;
-    private Integer opaquePageBackgroundKey;
+    private android.graphics.drawable.GradientDrawable pageBackgroundShade;
     private BlurredBackgroundSourceRenderNode pageGlassSource;
     private final int[] pageGlassPosition = new int[2];
     private final int[] pageGlassRootPosition = new int[2];
@@ -270,6 +271,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private void setupPageGlass() {
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
         if (glassMode || parentFragment == null) {
             return;
         }
@@ -306,8 +308,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         setCastShadows(false);
     }
 
-    public void setOpaquePageBackground(int themeKey) {
-        opaquePageBackgroundKey = themeKey;
+    public void setPageBackgroundShade() {
+        pageBackgroundShade = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x18000000, 0x00000000});
         // Backgroundless ViewGroups otherwise skip draw() and call dispatchDraw() directly.
         setWillNotDraw(false);
         invalidate();
@@ -342,9 +346,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             glassDrawableBack.updateColors();
             glassDrawableMenu.updateColors();
         }
-        // Separate fragment content starts below this bar, so it cannot clear this area.
-        if (opaquePageBackgroundKey != null) {
-            canvas.drawColor(getThemedColor(opaquePageBackgroundKey));
+        if (pageBackgroundShade != null) {
+            pageBackgroundShade.setBounds(0, 0, getWidth(), getHeight());
+            pageBackgroundShade.draw(canvas);
         }
         super.draw(canvas);
     }
@@ -662,7 +666,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             return;
         }
         titleTextView[i] = new SimpleTextView(getContext());
-        titleTextView[i].setGravity(titleGravity | Gravity.CENTER_VERTICAL);
+        titleTextView[i].setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
         if (titleColorToSet != 0) {
             titleTextView[i].setTextColor(titleColorToSet);
         } else {
@@ -681,6 +685,17 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private int titleGravity = Gravity.LEFT;
+    private boolean titleGravityInGlass;
+
+    public void setTitleGravityInGlass(int gravity) {
+        titleGravityInGlass = true;
+        setTitleGravity(gravity);
+    }
+
+    public int getTitleBlockRight() {
+        return glassDrawable != null && !glassDrawable.getBounds().isEmpty()
+            ? glassDrawable.getBounds().right : getWidth();
+    }
 
     public void centerTitle() {
         setTitleCentered(true);
@@ -700,7 +715,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (titleTextView != null) {
             for (int a = 0; a < titleTextView.length; a++) {
                 if (titleTextView[a] != null) {
-                    titleTextView[a].setGravity(gravity | Gravity.CENTER_VERTICAL);
+                    titleTextView[a].setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
                 }
             }
         }
@@ -1587,7 +1602,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 // A closing search field keeps filling the menu during its fade-out; don't squeeze the title for it.
                 int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
                 int availableWidth = width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
-                if ((titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.CENTER_HORIZONTAL) {
+                if (!titleGravityInGlass && (titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.CENTER_HORIZONTAL) {
                     availableWidth = width - 2 * Math.max(textLeft, titleMenuWidth + dp(16) + titleRightMargin);
                 }
                 availableWidth = Math.max(availableWidth, 0);
@@ -1618,6 +1633,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
                 if (titleTextView[i] != null && titleTextView[i].getVisibility() != GONE) {
                     titleTextView[i].measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24) + titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom(), MeasureSpec.AT_MOST));
+                    int titleWidth = Math.min(availableWidth, titleTextView[i].getTextWidth() + titleTextView[i].getSideDrawablesSize()
+                            + titleTextView[i].getPaddingLeft() + titleTextView[i].getPaddingRight());
+                    titleTextView[i].measure(MeasureSpec.makeMeasureSpec(titleWidth, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(24) + titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom(), MeasureSpec.AT_MOST));
                     if (centerScale) {
                         CharSequence text = titleTextView[i].getText();
                         titleTextView[i].setPivotX(titleTextView[i].getTextPaint().measureText(text, 0, text.length()) / 2f);
@@ -2381,6 +2399,13 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     public boolean doNotDrawGlassMenu;
     private boolean drawGlassTitle = true;
+    private boolean titleCenteredInGlass;
+
+    public void setTitleCenteredInGlass() {
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
+        titleCenteredInGlass = true;
+        setTitleCentered(true);
+    }
 
     public void setDrawGlassTitle(boolean draw) {
         if (drawGlassTitle != draw) {
@@ -2427,6 +2452,17 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             final int leftDefault = lerp(hasBackButton ? s + p : 0, s + p, chatAvatarContainer == null? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
             final int rightDefault = getWidth() - rightOffset;
             final int widthDefault = rightDefault - leftDefault;
+            if (titleCenteredInGlass) {
+                for (SimpleTextView title : titleTextView) {
+                    if (title == null) continue;
+                    float scale = Math.min(1f, Math.max(0, widthDefault - dp(36)) / (float) Math.max(1, title.getMeasuredWidth()));
+                    title.setPivotX(title.getMeasuredWidth() / 2f);
+                    title.setPivotY(title.getHeight() / 2f);
+                    title.setScaleX(scale);
+                    title.setScaleY(scale);
+                    title.setTranslationX((leftDefault + rightDefault) / 2f - (title.getLeft() + title.getMeasuredWidth() / 2f));
+                }
+            }
             final int left, right;
             if (chatAvatarContainer != null) {
                 final int width = lerp(Math.min(widthDefault, (int) animatorAvatarContainerWidth.getFactor() + p * 2), widthDefault, Math.max(searchFactor, actionModeFactor));
@@ -2466,6 +2502,21 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 }
             }
             glassDrawable.setBounds(left, t, right, b);
+            if (titleGravityInGlass) {
+                for (SimpleTextView title : titleTextView) {
+                    if (title == null) continue;
+                    float available = Math.max(0, right - left - dp(36));
+                    float scale = Math.min(1f, available / Math.max(1, title.getMeasuredWidth()));
+                    float space = Math.max(0, available - title.getMeasuredWidth() * scale);
+                    int gravity = titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK;
+                    float x = left + dp(18) + (gravity == Gravity.RIGHT ? space : gravity == Gravity.CENTER_HORIZONTAL ? space / 2f : 0);
+                    title.setPivotX(0);
+                    title.setPivotY(title.getHeight() / 2f);
+                    title.setScaleX(scale);
+                    title.setScaleY(scale);
+                    title.setTranslationX(x - title.getLeft() - (useContainerForTitles ? titlesContainer.getX() : 0));
+                }
+            }
             glassDrawable.setAlpha((int) (255 * pageTitleAlpha));
             glassDrawable.draw(canvas);
         }
@@ -2495,18 +2546,20 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
 
         if (parentFragment instanceof org.telegram.ui.DialogsActivity && !isActionModeShowed()) {
-            for (org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable block : new org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable[]{glassDrawable, glassDrawableMenu}) {
-                if (block != null && block.getAlpha() > 0) {
-                    AndroidUtilities.rectTmp.set(block.getBounds());
-                    bygramHeaderSnow.draw(this, canvas, org.telegram.messenger.BygramConfig.SNOW_HEADER, AndroidUtilities.rectTmp, dp(23));
-                }
-            }
+            drawBygramSnow(canvas, glassDrawable, bygramHeaderSnow);
+            if (menuWidth > 0) drawBygramSnow(canvas, glassDrawableMenu, bygramMenuSnow);
         }
         super.dispatchDraw(canvas);
     }
 
     public void setForceSkipTouches(boolean forceSkipTouches) {
         this.forceSkipTouches = forceSkipTouches;
+    }
+
+    private void drawBygramSnow(Canvas canvas, BlurredBackgroundDrawable block, org.telegram.ui.Components.BygramSnowEffect snow) {
+        if (block == null || block.getAlpha() == 0) return;
+        AndroidUtilities.rectTmp.set(block.getBounds());
+        snow.draw(this, canvas, org.telegram.messenger.BygramConfig.SNOW_HEADER, AndroidUtilities.rectTmp, dp(23));
     }
 
     public void setDrawBackButton(boolean b) {

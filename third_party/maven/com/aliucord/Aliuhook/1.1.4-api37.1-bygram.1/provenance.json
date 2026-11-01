@@ -1,0 +1,18 @@
+{
+  "version": "1.1.4-api37.1-bygram.1",
+  "hook": "28137a6287e78ec55aaaa439c3c8e4cae55c0cf0",
+  "dobby": "edb2af1216313cf6c0d6771be2b279c1db573faf",
+  "submodules": {
+    "lsplant": "6ac2280d8d88e14f0864c26ac97c1dc96713bde1",
+    "lsplant/lsplant/src/main/jni/external/dex_builder": "ac7fb2230954ee311808bad469b0db501f31bfb8",
+    "lsplant/lsplant/src/main/jni/external/dex_builder/external/parallel_hashmap": "0cd57d29a959256ed66b2afdd1009928fc625d09",
+    "xz": "1b6defd544914bfb4065e343296e5db64ef400e6"
+  },
+  "aar_sha256": "06051b75f3251a1f70e986d160e77b3e0c3614ef8e5bc9913c814ee94b6628c8",
+  "native_sha256": {
+    "jni/arm64-v8a/libaliuhook.so": "de80a5d022ad5519b0518aa2165b8674a950494c4cb3f479ce21b9ffc3a38588",
+    "jni/armeabi-v7a/libaliuhook.so": "a5fa7a3e45dbace6b5a6d34126d0ab3f250a4215699ba15326e0c7bbe4c1479d",
+    "jni/x86/libaliuhook.so": "d117e9bc82677154a6866e0a561fd9b6d9906062e9107a7c7ab7478b3f736f12",
+    "jni/x86_64/libaliuhook.so": "b7b92bb622e657288018e6d99bd342502ae58485dda4e3f558739fb822a62419"
+  }
+}

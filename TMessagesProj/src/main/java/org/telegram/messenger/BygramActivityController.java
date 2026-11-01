@@ -35,6 +35,16 @@ public final class BygramActivityController {
     public interface Callback { void run(String activity); }
     public interface LicenseCallback { void run(Boolean licensed, String botUrl); }
     private interface JsonCallback { void run(JSONObject response); }
+    public interface PluginCatalogCallback { void run(JSONObject response); }
+    public static void pluginCatalogRequest(int account, String repository, PluginCatalogCallback callback) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId == 0) { callback.run(null); return; }
+        refreshLicense(account, true, (licensed, url) -> {
+            if (!Boolean.TRUE.equals(licensed) || UserConfig.getInstance(account).getClientUserId() != userId) { callback.run(null); return; }
+            request(userId, repository == null ? json("action", "plugin_submissions") : json("action", "plugin_submit", "repository", repository),
+                    true, response -> { if (UserConfig.getInstance(account).getClientUserId() == userId) callback.run(response); else callback.run(null); });
+        });
+    }
     private static final int PEER_USER = 1;
     private static final int PEER_BOT = 2;
     private static final int PEER_GROUP = 3;
@@ -114,7 +124,6 @@ public final class BygramActivityController {
     private static String key(String name, long userId) { return name + '_' + userId; }
 
     public static boolean isLicensed(int account) {
-        if (!BuildConfig.BYGRAM_FULL) return false;
         long userId = UserConfig.getInstance(account).getClientUserId();
         return userId > 0 && preferences().getBoolean(key("licensed", userId), false)
                 && System.currentTimeMillis() - preferences().getLong(key("checked", userId), 0) < LICENSE_GRACE_MS;
@@ -122,12 +131,12 @@ public final class BygramActivityController {
 
     public static void refreshLicenses(boolean force) {
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
-            if (UserConfig.getInstance(account).getClientUserId() > 0) refreshLicense(account, force, null);
+            if (UserConfig.getInstance(account).getClientUserId() > 0
+                    && (BuildConfig.BYGRAM_FULL || BygramConfig.isActivityEnabled(account))) refreshLicense(account, force, null);
         }
     }
 
     public static void refreshLicense(int account, boolean force, LicenseCallback callback) {
-        if (!BuildConfig.BYGRAM_FULL) { if (callback != null) callback.run(false, ""); return; }
         long userId = UserConfig.getInstance(account).getClientUserId();
         if (userId <= 0) { if (callback != null) callback.run(false, ""); return; }
         SharedPreferences prefs = preferences();
@@ -304,8 +313,8 @@ public final class BygramActivityController {
 
     public static void setCurrentActivity(int account, int type, long dialogId, TLRPC.User user, TLRPC.Chat chat) {
         long selfId = UserConfig.getInstance(account).getClientUserId();
-        if (!BuildConfig.BYGRAM_FULL || !isLicensed(account) || !BygramConfig.isActivityEnabled(account)
-                || BygramConfig.getActivityViewers(account).isEmpty()) return;
+        if (!isLicensed(account) || !BygramConfig.isActivityEnabled(account)
+                || (BuildConfig.BYGRAM_FULL && BygramConfig.getActivityViewers(account).isEmpty())) return;
         if (type != BygramConfig.ACTIVITY_DIALOGS && type != BygramConfig.ACTIVITY_PROFILE && type != BygramConfig.ACTIVITY_CHAT) return;
         if (type != BygramConfig.ACTIVITY_DIALOGS && (dialogId == 0 || dialogId == selfId)) return;
         String username = user != null ? UserObject.getPublicUsername(user) : chat != null ? ChatObject.getPublicUsername(chat) : null;
@@ -349,6 +358,7 @@ public final class BygramActivityController {
 
     private static JSONArray viewerPayload(int account) {
         JSONArray viewers = new JSONArray();
+        if (!BuildConfig.BYGRAM_FULL) return viewers;
         for (Map.Entry<Long, Integer> viewer : BygramConfig.getActivityPermissions(account).entrySet()) {
             viewers.put(json("user_id", viewer.getKey(), "permissions", viewer.getValue()));
         }
@@ -391,7 +401,6 @@ public final class BygramActivityController {
     }
 
     public static void clearSettings() {
-        if (!BuildConfig.BYGRAM_FULL) return;
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
             ownActivities[account] = null;
             long userId = UserConfig.getInstance(account).getClientUserId();
@@ -404,7 +413,7 @@ public final class BygramActivityController {
 
     public static void get(int account, long ownerId, Callback callback) {
         long userId = UserConfig.getInstance(account).getClientUserId();
-        if (!isLicensed(account) || ownerId <= 0) { callback.run(null); return; }
+        if (!BuildConfig.BYGRAM_FULL || !isLicensed(account) || ownerId <= 0) { callback.run(null); return; }
         if (!hasAccess(account, () -> get(account, ownerId, callback))) return;
         request(userId, json("action", "activity_get", "owner_id", ownerId), true, response -> {
             if (response == null || !response.optBoolean("ok")) return;

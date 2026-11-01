@@ -455,9 +455,9 @@ public class UniversalRecyclerView extends RecyclerListView {
                 if (view.getParent() != this) return false;
                 final ViewHolder viewHolder = getChildViewHolder(view);
                 return !UniversalAdapter.isShadow(viewHolder.getItemViewType())
-                        && !(org.telegram.messenger.BygramConfig.getInt("bygram_divider_style", 1) != 2 && org.telegram.messenger.BygramConfig.getBoolean("bygram_separate_headers") && viewHolder.getItemViewType() == UniversalAdapter.VIEW_TYPE_HEADER);
+                        && !(org.telegram.messenger.BygramConfig.getBoolean("bygram_separate_headers") && viewHolder.getItemViewType() == UniversalAdapter.VIEW_TYPE_HEADER);
             },
-            type -> UniversalAdapter.isShadow(type) || org.telegram.messenger.BygramConfig.getInt("bygram_divider_style", 1) != 2 && org.telegram.messenger.BygramConfig.getBoolean("bygram_separate_headers") && type == UniversalAdapter.VIEW_TYPE_HEADER,
+            type -> UniversalAdapter.isShadow(type) || org.telegram.messenger.BygramConfig.getBoolean("bygram_separate_headers") && type == UniversalAdapter.VIEW_TYPE_HEADER,
             padding, roundRadius,
             super::drawBackgroundRect,
             topPadding

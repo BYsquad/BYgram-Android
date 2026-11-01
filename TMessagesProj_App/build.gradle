@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
-apply plugin: 'com.google.firebase.crashlytics'
 apply plugin: 'org.telegram.build-app-plugin'
 
 def bygramEdition = (findProperty('BYGRAM_EDITION') ?: 'lite').toString().toLowerCase()
 if (!(bygramEdition in ['lite', 'full'])) {
     throw new GradleException('BYGRAM_EDITION must be lite or full')
 }
+if (bygramEdition == 'full') apply plugin: 'com.google.firebase.crashlytics'
 
 repositories {
     mavenCentral()
@@ -31,7 +31,11 @@ android {
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
 
-    defaultConfig.applicationId = APP_PACKAGE
+    defaultConfig.applicationId = bygramEdition == 'lite' ? 'org.telegram.messenger' : APP_PACKAGE
+
+    if (bygramEdition == 'lite') {
+        sourceSets.main.res.srcDir 'src/lite/res'
+    }
 
 
     lintOptions {
@@ -153,6 +157,12 @@ android {
         }
     }
 
+    if (bygramEdition == 'lite') {
+        ['afatDebug', 'afatRelease', 'afatStandalone', 'bundleAfatRelease'].each { variantName ->
+            sourceSets.maybeCreate(variantName).manifest.srcFile 'src/lite/AndroidManifest.xml'
+        }
+    }
+
     defaultConfig.versionCode = Integer.parseInt(APP_VERSION_CODE)
 
     applicationVariants.all { variant ->
@@ -170,7 +180,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 23
+        minSdkVersion(bygramEdition == 'full' ? 24 : 23)
         targetSdkVersion 36
         versionName APP_VERSION_NAME
         ndkVersion "27.2.12479018"
@@ -198,4 +208,4 @@ android {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+if (bygramEdition == 'full') apply plugin: 'com.google.gms.google-services'

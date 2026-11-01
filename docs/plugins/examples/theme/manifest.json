@@ -1,0 +1,7 @@
+{
+  "manifest_version": 1, "id": "dev.bygram.theme", "name": "BYgram theme example",
+  "description": "Reversible action bar title color", "version": "1.0.0",
+  "author": "BYgram SDK example", "entrypoint": "main.py:ThemePlugin",
+  "sdk": {"min": 1, "max": 1}, "python": "3.11", "capabilities": ["theme"],
+  "account_scope": "global", "settings_schema": 1
+}

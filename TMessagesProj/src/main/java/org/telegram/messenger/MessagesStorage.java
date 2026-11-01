@@ -5691,6 +5691,61 @@ public class MessagesStorage extends BaseController {
         storageQueue.postRunnable(() -> markMessageAsBygramDeletedInternal(dialogId, messageId));
     }
 
+    public void mergeBygramDeletedMessagesSync(long dialogId, ArrayList<TLRPC.Message> messages, boolean initial) {
+        int minId = Integer.MAX_VALUE, maxId = 0;
+        java.util.HashSet<Integer> ids = new java.util.HashSet<>();
+        for (TLRPC.Message message : messages) {
+            if (message.id <= 0) continue;
+            ids.add(message.id);
+            minId = Math.min(minId, message.id);
+            maxId = Math.max(maxId, message.id);
+        }
+        if (maxId == 0 && !initial) return;
+        final int lower = maxId == 0 ? 0 : minId;
+        final int upper = initial ? Integer.MAX_VALUE : maxId;
+        CountDownLatch latch = new CountDownLatch(1);
+        storageQueue.postRunnable(() -> {
+            SQLiteCursor cursor = null;
+            try {
+                cursor = database.queryFinalized("SELECT mid, data, custom_params, read_state, date FROM messages_v2 WHERE uid = ? AND mid >= ? AND mid <= ? ORDER BY mid DESC", dialogId, lower, upper);
+                while (cursor.next()) {
+                    int id = cursor.intValue(0);
+                    if (ids.contains(id)) continue;
+                    TLRPC.Message params = new TLRPC.TL_message();
+                    NativeByteBuffer custom = cursor.byteBufferValue(2);
+                    if (custom != null) {
+                        MessageCustomParamsHelper.readLocalParams(params, custom);
+                        custom.reuse();
+                    }
+                    if (!params.bygramDeleted) continue;
+                    NativeByteBuffer data = cursor.byteBufferValue(1);
+                    if (data == null) continue;
+                    TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
+                    if (message != null) message.readAttachPath(data, getUserConfig().clientUserId);
+                    data.reuse();
+                    if (message == null) continue;
+                    message.id = id;
+                    message.dialog_id = dialogId;
+                    message.date = cursor.intValue(4);
+                    MessageObject.setUnreadFlags(message, cursor.intValue(3));
+                    MessageCustomParamsHelper.copyParams(params, message);
+                    messages.add(message);
+                }
+                messages.sort((a, b) -> Integer.compare(b.id, a.id));
+            } catch (Exception e) {
+                checkSQLException(e);
+            } finally {
+                if (cursor != null) cursor.dispose();
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public java.util.Set<Integer> getBygramDeletedMessageIdsSync(long dialogId, ArrayList<Integer> ids) {
         java.util.Set<Integer> result = new java.util.HashSet<>();
         CountDownLatch latch = new CountDownLatch(1);

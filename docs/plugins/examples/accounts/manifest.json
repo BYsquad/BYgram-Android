@@ -1,0 +1,7 @@
+{
+  "manifest_version": 1, "id": "dev.bygram.accounts", "name": "Account event example",
+  "description": "Choose an allowed account from its dialogs menu to observe page events",
+  "author": "BYgram SDK example", "version": "1.0.0", "entrypoint": "main.py:AccountPlugin",
+  "sdk": {"min": 1, "max": 1}, "python": "3.11", "capabilities": ["ui"],
+  "account_scope": "selected_accounts", "settings_schema": 1
+}

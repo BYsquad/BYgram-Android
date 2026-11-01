@@ -15,16 +15,23 @@ function appSetting(string $key, string $default = ''): string {
 function saveAppSetting(string $key, string $value): void {
     db()->prepare('INSERT INTO app_settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)')->execute([$key, $value]);
 }
+// shortcut: Full is temporarily free; set license_checks_enabled=true to restore paid access.
+function licenseChecksEnabled(): bool { return (bool) (appConfig()['license_checks_enabled'] ?? false); }
+function accountConfirmationEnabled(): bool { return (bool) (appConfig()['account_confirmation_enabled'] ?? true); }
+function requestSignatureChecksEnabled(): bool { return (bool) (appConfig()['request_signature_checks_enabled'] ?? true); }
+function deviceRevocationChecksEnabled(): bool { return (bool) (appConfig()['device_revocation_checks_enabled'] ?? true); }
 function licensed(int $telegramId): bool {
+    if ($telegramId < 1) return false;
+    if (!licenseChecksEnabled()) return true;
     $q = db()->prepare("SELECT 1 FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP())"); $q->execute([$telegramId]); return (bool) $q->fetchColumn();
 }
 function typingPublicKeys(PDO $pdo, int $telegramId): array {
-    $query = $pdo->prepare("SELECT public_key FROM typing_devices WHERE telegram_id=?
+    $query = $pdo->prepare("SELECT public_key FROM typing_devices WHERE telegram_id=? AND (?=0 OR account_confirmed=1)
         UNION ALL
         SELECT d.public_key FROM licensed_devices d
-        JOIN licenses l ON l.telegram_id=d.telegram_id AND l.status='active' AND (l.valid_until IS NULL OR l.valid_until>UTC_TIMESTAMP())
-        WHERE d.telegram_id=? AND d.revoked_at IS NULL");
-    $query->execute([$telegramId, $telegramId]);
+        LEFT JOIN licenses l ON l.telegram_id=d.telegram_id AND l.status='active' AND (l.valid_until IS NULL OR l.valid_until>UTC_TIMESTAMP())
+        WHERE d.telegram_id=? AND (?=0 OR d.revoked_at IS NULL) AND (?=0 OR d.account_confirmed=1) AND (?=0 OR l.telegram_id IS NOT NULL)");
+    $query->execute([$telegramId, (int) accountConfirmationEnabled(), $telegramId, (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled(), (int) licenseChecksEnabled()]);
     return $query->fetchAll(PDO::FETCH_COLUMN);
 }
 function isOwner(int $id): bool { return $id === (int) (appConfig()['owner_id'] ?? 0); }

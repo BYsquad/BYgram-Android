@@ -49,6 +49,7 @@ public final class BygramTypingController {
     private BygramTypingController() {}
 
     public static void loadProfileBackground(long ownerId, ProfileViewsCallback callback) {
+        if (!BuildConfig.BYGRAM_FULL) { callback.run(null, ""); return; }
         request(0, json("action", "profile_background_get", "owner_id", ownerId), false,
                 response -> callback.run(response, ""));
     }
@@ -92,6 +93,7 @@ public final class BygramTypingController {
     }
 
     public static boolean profileViewsEnabled(int account) {
+        if (!BuildConfig.BYGRAM_FULL) return false;
         long id = UserConfig.getInstance(account).getClientUserId();
         return id > 0 && ApplicationLoader.applicationContext.getSharedPreferences("bygram_profile_views", Context.MODE_PRIVATE).getBoolean("enabled_" + id, false);
     }

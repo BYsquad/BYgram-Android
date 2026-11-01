@@ -69,6 +69,7 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AuthTokensHelper;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
+import org.telegram.messenger.BuildConfig;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLoader;
@@ -701,8 +702,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.bygram_logo_new, getString(R.string.BygramSettings)));
-        items.add(UItem.asShadow(null));
+        if (BuildConfig.BYGRAM_FULL) {
+            items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom,
+                    R.drawable.bygram_logo_new, getString(R.string.BygramSettings)));
+            items.add(UItem.asShadow(null));
+        }
 
         final boolean walletAbove = getConnectionsManager().getCurrentTime() - 1791538462 < 4 * 7 * 24 * 60 * 60;
         if (walletAbove && getMessagesController().config.walletAvailable.get()) {
@@ -777,6 +781,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private void presentSettingFragment(BaseFragment fragment) {
+        fragment.inheritBygramSnow(this);
         if (AndroidUtilities.isTablet() && LaunchActivity.instance != null && LaunchActivity.instance.getRightActionBarLayout() != null) {
             final INavigationLayout layout = LaunchActivity.instance.getRightActionBarLayout();
             if (!layout.getFragmentStack().isEmpty()) {
@@ -1504,7 +1509,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 (SharedConfig.frameMetricsEnabled ? "hide frame metrics" : "show frame metrics"),
                 BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.shadowsInSections ? "disable shadows in settings" : "enable shadows in settings") : null,
                 BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.debugViewMetrics ? "disable debug view metrics" : "enable debug view metrics") : null,
-                (SharedSettings.experimentalSettingsAllowed.get() ? "hide experimental settings" : "show experimental settings")
+                (SharedSettings.experimentalSettingsAllowed.get() ? "hide experimental settings" : "show experimental settings"),
+                !BuildConfig.BYGRAM_FULL ? BygramSettingsActivity.liteActivityMenuTitle(currentAccount) : null
         };
 
         builder.setItems(items, (dialog, which) -> {
@@ -1817,6 +1823,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             } else if (which == 42) {
                 SharedSettings.experimentalSettingsAllowed.toggle();
                 listView.adapter.update(true);
+            } else if (which == 43 && !BuildConfig.BYGRAM_FULL) {
+                BygramSettingsActivity.toggleLiteActivity(this);
             }
         });
         builder.setNegativeButton(getString(R.string.Cancel), null);

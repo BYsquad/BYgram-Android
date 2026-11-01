@@ -8,6 +8,15 @@ if (!(bygramEdition in ['lite', 'full'])) {
 apply plugin: 'com.android.library'
 apply plugin: 'org.telegram.build-plugin'
 apply plugin: 'idea'
+if (bygramEdition == 'full') {
+    apply plugin: 'com.chaquo.python'
+    chaquopy {
+        defaultConfig {
+            version = '3.11'
+            buildPython (findProperty('BYGRAM_BUILD_PYTHON') ?: 'python3.11').toString()
+        }
+    }
+}
 
 idea {
     module {
@@ -47,6 +56,9 @@ configurations.all {
 }
 
 dependencies {
+    if (bygramEdition == 'full') {
+        implementation 'com.aliucord:Aliuhook:1.1.4-api37.1-bygram.3'
+    }
     implementation platform('com.google.firebase:firebase-bom:34.18.0')
     implementation 'androidx.core:core:1.16.0'
     implementation 'androidx.palette:palette:1.0.0'
@@ -148,9 +160,15 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 23
+        minSdkVersion(bygramEdition == 'full' ? 24 : 23)
+        if (bygramEdition == 'full') {
+            ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
+        }
         targetSdkVersion 36
         buildConfigField "boolean", "BYGRAM_FULL", bygramEdition == 'full' ? "true" : "false"
+        buildConfigField "int", "BYGRAM_BASE_BUILD", APP_VERSION_CODE
+        manifestPlaceholders.bygramPluginsEnabled = bygramEdition == 'full' ? 'true' : 'false'
+        manifestPlaceholders.bygramPluginDiagnosticsEnabled = 'false'
 
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
@@ -167,6 +185,7 @@ android {
 
     buildTypes {
         debug {
+            manifestPlaceholders.bygramPluginDiagnosticsEnabled = bygramEdition == 'full' ? 'true' : 'false'
             jniDebuggable true
             shrinkResources false
             multiDexEnabled true
@@ -245,6 +264,8 @@ android {
         }
     }
 
+    sourceSets.main.java.srcDir "src/${bygramEdition}/java"
+
     namespace 'org.telegram.messenger'
 }
 
@@ -280,3 +301,17 @@ task checkVisibility {
 }
 
 preBuild.dependsOn checkVisibility
+
+if (bygramEdition == 'full') {
+    def verifyPluginBackend = tasks.register('verifyPluginBackend') {
+        def artifact = rootProject.file('third_party/maven/com/aliucord/Aliuhook/1.1.4-api37.1-bygram.3/Aliuhook-1.1.4-api37.1-bygram.3.aar')
+        inputs.file artifact
+        doLast {
+            def actual = java.security.MessageDigest.getInstance('SHA-256').digest(artifact.bytes).encodeHex().toString()
+            if (actual != '78827e37214b11b5ec4aa3e2e4afaabd28a9f1503c47c18294f2060b6c9d33f3') {
+                throw new GradleException('Pinned BYgram hook AAR checksum mismatch')
+            }
+        }
+    }
+    preBuild.dependsOn verifyPluginBackend
+}

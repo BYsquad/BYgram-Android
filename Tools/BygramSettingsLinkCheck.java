@@ -9,7 +9,7 @@ public class BygramSettingsLinkCheck {
         check("root".equals(BygramSettingsLink.parse(null).page), "Missing target opens overview");
         check("root".equals(BygramSettingsLink.parse("").page), "Empty target opens overview");
         String[] pages = {"root", "customization", "general", "profile", "typing", "ghost",
-                "spy", "hidden", "protected", "profile_views", "activity", "other"};
+                "spy", "hidden", "protected", "profile_views", "activity", "other", "plugins"};
         int count = 0;
         for (String page : pages) {
             check(BygramSettingsLink.parse(page) != null, "Page: " + page);
@@ -31,7 +31,10 @@ public class BygramSettingsLinkCheck {
         check(BygramSettingsLink.parse("typing.100").requiresFullEdition(), "Typing requires Full");
         check(!BygramSettingsLink.parse("ghost.2").requiresFullEdition(), "Ghost works in Lite");
         check(BygramSettingsLink.parse("general.202").row == 202, "Collapsed MD3 destination");
-        for (String target : new String[]{"general.8", "general.9", "general.12", "general.13", "profile.3", "profile.4", "profile.7"}) {
+        for (int row : new int[]{22, 23, 24, 25, 26, 27, 203}) {
+            check(BygramSettingsLink.parse("general." + row) != null, "Extended customization destination");
+        }
+        for (String target : new String[]{"general.8", "general.9", "general.12", "general.13", "general.14", "general.15", "general.16", "general.17", "general.18", "general.19", "general.20", "general.21", "profile.3", "profile.4", "profile.7"}) {
             check(BygramSettingsLink.parse(target) != null, "Customization destination: " + target);
         }
         check(BygramSettingsLink.target("activity", 100_000) == null, "Never share a selected viewer index");

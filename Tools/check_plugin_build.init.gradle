@@ -1,0 +1,14 @@
+gradle.projectsEvaluated {
+    if (gradle.rootProject.findProject(':TMessagesProj') == null) return
+    def edition = (gradle.rootProject.findProperty('BYGRAM_EDITION') ?: 'lite').toString().toLowerCase()
+    def expected = edition == 'full' ? 24 : 23
+    ['TMessagesProj', 'TMessagesProj_App', 'TMessagesProj_AppHuawei',
+     'TMessagesProj_AppHockeyApp', 'TMessagesProj_AppStandalone', 'TMessagesProj_AppTests'].each { name ->
+        def p = gradle.rootProject.project(":${name}")
+        assert p.android.defaultConfig.minSdkVersion.apiLevel == (name == 'TMessagesProj_AppTests' ? 26 : expected)
+    }
+    def roots = gradle.rootProject.project(':TMessagesProj').android.sourceSets.main.java.srcDirs
+    assert roots.any { it.path.replace('\\', '/').endsWith("/src/${edition}/java") }
+    assert !roots.any { it.path.replace('\\', '/').endsWith("/src/${edition == 'full' ? 'lite' : 'full'}/java") }
+    println "PASS: ${edition} minSdk across six modules and edition source roots"
+}

@@ -1,0 +1,87 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.aliucord",
+    "module": "Aliuhook",
+    "version": "1.1.4-api37.1",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "Aliuhook-1.1.4-api37.1.aar",
+          "url": "Aliuhook-1.1.4-api37.1.aar",
+          "size": 2595586,
+          "sha512": "d30c510f0b2c3fd82f44ce22fcafd42cc8df7726574c57e8e685d16e13a5333174fc01f40d75391dc181d9f21b16352307e8999cfd04a1debe4c14d30004c652",
+          "sha256": "01fa427a1e6d460069cc32c772d47219677885528697e5dfd91cfc823eda4189",
+          "sha1": "200823e1275c8c4f878fd34a55ff0bd8f28cd9ed",
+          "md5": "f5bf7c2f76b82cf01700b94fc6774973"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "io.github.vvb2060.ndk",
+          "module": "dobby",
+          "version": {
+            "requires": "1.2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "Aliuhook-1.1.4-api37.1.aar",
+          "url": "Aliuhook-1.1.4-api37.1.aar",
+          "size": 2595586,
+          "sha512": "d30c510f0b2c3fd82f44ce22fcafd42cc8df7726574c57e8e685d16e13a5333174fc01f40d75391dc181d9f21b16352307e8999cfd04a1debe4c14d30004c652",
+          "sha256": "01fa427a1e6d460069cc32c772d47219677885528697e5dfd91cfc823eda4189",
+          "sha1": "200823e1275c8c4f878fd34a55ff0bd8f28cd9ed",
+          "md5": "f5bf7c2f76b82cf01700b94fc6774973"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "Aliuhook-1.1.4-api37.1-sources.jar",
+          "url": "Aliuhook-1.1.4-api37.1-sources.jar",
+          "size": 10544,
+          "sha512": "289517feb1b6cbd2d5ec26e38e79dacac57a2dcf2d7c20727b425adbe95a63abc3d298e50b687775a75511a24ba3d681a1941ef66e5cad13ea54df446ccac81a",
+          "sha256": "bcfa74ff257a65dc26c8fe77567a621c0699f1064eb6a3e456bb0718157f61c2",
+          "sha1": "36c8086aedc2a869840db4113541b0357c55b959",
+          "md5": "55dbeed69f3d7e49243995231c31dee9"
+        }
+      ]
+    }
+  ]
+}

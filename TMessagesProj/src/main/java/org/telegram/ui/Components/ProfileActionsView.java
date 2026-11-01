@@ -510,7 +510,7 @@ public class ProfileActionsView extends View {
     }
 
     public float getRoundRadius() {
-        return dp(16);
+        return org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_PROFILE_BUTTONS) ? targetHeight / 2f : dp(16);
     }
 
     private Action hit = null;

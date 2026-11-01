@@ -1,5 +1,282 @@
 # Сборка BYgram на Windows
 
+## 01.11.2026 — обновление hook и аудит плагинов
+
+Full закрепляет `Aliuhook 1.1.4-api37.1-bygram.3`, fork `43b0d8d`,
+LSPlant `06bd3412`. AAR SHA-256:
+`78827e37214b11b5ec4aa3e2e4afaabd28a9f1503c47c18294f2060b6c9d33f3`.
+Собраны четыре ABI с NDK 30/CMake 4.1.2; public Java API сохранён,
+ELF64/16 KiB и остальные entries AAR проверены. Native runtime x86_64
+API 35/36/37: физический unhook, 400 циклов, concurrent/self-close, GC,
+восстановление access flags и 0 dispatchers — PASS.
+Повторная проверка production source API 36, Full Debug compilation и Release/R8 —
+PASS. R8: 28m39s, 399 tasks, `output/plugins-hook-update-compile-r8.log`.
+
+Единственный итоговый APK — Full Debug, 13.1.1 (72379), com.bygram.mobile,
+minSdk 24 / targetSdk 36, четыре ABI. Команда:
+`java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`.
+BUILD SUCCESSFUL: 17m47s, 317 tasks. Лог `output/plugins-hook-update-apk-build.log`.
+Файл `TMessagesProj_App/build/outputs/apk/afat/debug/BYgram-full-afatDebug.apk`,
+164867799 bytes, SHA-256 `fc5650e4700350fc612548b4876668e80a4585f41c99beabbbd0342b387bf145`.
+
+Прежняя подпись v1/v2, ZIP CRC, zipalign 16 KiB, 148 ELF64/16 KiB и native hashes
+всех четырёх ABI относительно pinned AAR — PASS. Установленный APK прошёл SDK,
+physical unhook и Service probe на API 35/36/37 x86_64; native загружен, PID жив.
+Протоколы `output/plugins-hook-final-device-{35,36,37}.json`.
+Новый ARM/Release runtime, реальные аккаунты и полная UI/accessibility матрица
+не подтверждены. Включены прежние Android-изменения рабочего дерева.
+Gradle daemon этого задания остановлен. APK доставлен в Telegram «Избранное»
+01.11.2026 22:20:13 Europe/Moscow, сообщение `201482`; повторное чтение подтвердило
+out=true, имя файла и размер. Протоколы: `output/plugins-hook-telegram-send.json`,
+`output/plugins-hook-telegram-read.json`. Тестовые процессы клиента завершены;
+исходные AVD оставлены запущенными.
+[Аудит и границы приёмки](plugins/hook-update-and-audit-2026-11-01.md).
+
+## 31.10.2026 — плагины: предварительная проверка без APK
+
+Full подключает Chaquopy 17.2.0 / Python 3.11 и закреплённый BYxarek/hook.
+Для host compiler нужен `python3.11` на PATH либо
+`-PBYGRAM_BUILD_PYTHON=C:/absolute/path/python.exe`. Python major/minor должен
+совпадать с runtime; новые pip-зависимости не добавлены.
+Lite compilation и dependency graph — PASS без Python/AliuHook.
+Full Java/Release R8 первый прогон — PASS; окончательная проверка после правок
+и native merge выполняется без упаковки APK. [Подробный отчёт](plugins/development-report.md).
+Предварительные задачи: `:TMessagesProj:compileDebugJavaWithJavac`,
+`:TMessagesProj_App:mergeAfatDebugNativeLibs`, `:TMessagesProj_App:minifyAfatReleaseWithR8`.
+Для локальной R8-проверки исключать `uploadCrashlyticsMappingFileAfatRelease`.
+
+## 30.10.2026 — начало плагинов, без упаковки APK
+
+В текущих Gradle-файлах Full minSdk 24, Lite 23; тестовое приложение сохраняет 26.
+Добавлен Java source root выбранной редакции. Python/AliuHook ещё не подключены.
+Команды проверки конфигурации и JVM-валидатора: [отчёт](plugins/development-report.md).
+Новый APK не создавался, сведения о minSdk прежних артефактов ниже исторические.
+
+## 29.10.2026 — исправления кастомизации и истории «Шпиона»
+
+Один итоговый APK Full Debug: `output/BYgram-full-debug-13.1.1-2026-10-29.apk`,
+133135975 байт. SHA-256:
+`56d97c88e4396f74736e83c0a59e154696b9dca37dca8555bd1106633a3c23d7`.
+Команда: `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`.
+BUILD SUCCESSFUL за 13m 39s, 306 задач (16 выполнено).
+Лог: `output/build-full-debug-2026-10-29.log`. Gradle daemon остановлен.
+
+Подтверждены пакет `com.bygram.mobile`, 13.1.1 (72379), minSdk 23, targetSdk 36,
+подпись v1/v2 прежним сертификатом `a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`,
+целостность ZIP, уникальность записей и zipalign 16 KiB.
+Бинарные локализации en 328/328, ru 328/328, uk 195/195 — PASS.
+
+Проверки `check_bygram_spy_history.py`, `check_bygram_spy_deletions.py`,
+`check_bygram_title_alignment.py`, `check_bygram_page_headers.py`,
+`check_bygram_settings_header_clear.py`, `check_bygram_settings_fixes.py`,
+`check_bygram_winter_navigation.py`, `check_bygram_settings_layout.py`,
+`check_bygram_editions.py` — PASS.
+Подключённых устройств нет; UI и удаление при закрытом клиенте на телефоне не проверялись.
+Подробности изменений стандартных интерфейсов: [описание](bygram-settings/android-customization-spy-2026-10-29.md).
+Включены ранее существовавшие Android-изменения рабочей папки.
+
+APK доставлен через навык `telegram-cli` в «Избранное»: сообщение `201193`,
+29.10.2026 19:26:39 Europe/Moscow. Ответ `ok=true`, `out=true`,
+имя файла и размер 133135975 байт подтверждены. Журналы:
+`output/telegram-full-debug-2026-10-29.json` и
+`output/telegram-full-debug-read-2026-10-29.json`.
+
+## 28.10.2026 — Full Debug по запросу
+
+Один итоговый APK: `output/BYgram-full-debug-13.1.1-2026-10-28.apk`, 127968181 байт.
+SHA-256: `1ca9d114769eed72d0e9f734e202a917e1558e41768a17b74e4cc08633338274`.
+Команда: `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`.
+BUILD SUCCESSFUL за 8m 6s, 306 задач (36 выполнено).
+Лог: `output/build-full-debug-2026-10-28.log`.
+
+Подтверждены `BYGRAM_FULL = true`, debuggable, пакет `com.bygram.mobile`,
+13.1.1 (72379), minSdk 23, targetSdk 36 и четыре ABI.
+Подпись v1/v2 прежним сертификатом
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab` — PASS.
+ZIP integrity, уникальность записей и zipalign 16 KiB — PASS.
+Бинарные переводы en 328/328, ru 328/328, uk 195/195 — PASS.
+Включены существующие Android-изменения рабочей папки. Исходный код и системные
+интерфейсы в этой задаче не менялись. На устройстве APK не запускался.
+Gradle daemon после сборки остановлен.
+
+APK доставлен через навык `telegram-cli` в Telegram «Избранное», сообщение
+`200965`, 28.10.2026 00:17:45 Europe/Moscow. Подтверждены `ok=true`, `out=true`,
+имя файла и 127968181 байт. Журналы:
+`output/telegram-full-debug-2026-10-28.json`,
+`output/telegram-full-debug-read-2026-10-28.json`.
+
+## 27.10.2026 — активность Lite через скрытое меню
+
+Переключатель тестирования активности перенесён в оба debug-меню Telegram.
+Получатели Lite убраны; Full сохраняет прежние права. Подробности и состав
+отправляемых данных: [Lite](bygram-settings/lite-and-title-alignment-2026-10-27.md).
+
+Проверки `check_bygram_lite_activity.py` (96 сочетаний и неверные события),
+`check_bygram_editions.py`, `check_bygram_profile_activity.py`,
+`check_bygram_settings_layout.py`, `check_bygram_settings_fixes.py` (55 контрактов),
+`check_bygram_page_headers.py`, `check_bygram_settings_header_clear.py` — PASS.
+Ручная проверка скрытого меню в авторизованном аккаунте не проводилась.
+Сервер и база данных в этой задаче не изменялись.
+
+Предварительная проверка Lite без создания APK:
+`-PBYGRAM_EDITION=lite :TMessagesProj:compileReleaseJavaWithJavac --console=plain`
+— BUILD SUCCESSFUL за 4m 48s, 136 задач. Лог:
+`output/compile-lite-activity-2026-10-27.log`.
+
+Итоговая сборка одного release APK:
+`-PBYGRAM_EDITION=lite :TMessagesProj_App:assembleAfatRelease --console=plain`
+— BUILD SUCCESSFUL за 7m 21s, 337 задач (28 выполнено).
+Лог: `output/build-lite-activity-2026-10-27.log`.
+Файл: `output/Telegram-lite-activity-13.1.1-2026-10-27.apk`, 77097384 байта.
+SHA-256: `07d59598afb8ad1cedd8da5e44c5d80f4d4173feebf7253c1b3cd0e3af6496f1`.
+Пакет `org.telegram.messenger`, 13.1.1 (72379), minSdk 23, targetSdk 36,
+четыре ABI, название Telegram. Подпись v1/v2 и прежний сертификат BYgram
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab` — PASS.
+ZIP integrity, уникальность записей и zipalign 16 KiB — PASS.
+Бинарные локализации en 328/328, ru 328/328, uk 195/195 — PASS.
+В сборку вошли существовавшие Android-изменения рабочей папки.
+Gradle daemon после сборки остановлен. На устройстве этот APK не запускался.
+
+APK доставлен через навык `telegram-cli` в Telegram «Избранное»:
+сообщение `200964`, 27.10.2026 23:57:35 Europe/Moscow.
+Подтверждены `ok=true`, `out=true`, имя файла и 77097384 байта;
+повторное чтение сообщения подтверждает доставку.
+Журналы: `output/telegram-lite-activity-2026-10-27.json`,
+`output/telegram-lite-activity-read-2026-10-27.json`.
+
+## 27.10.2026 — заголовок и Lite
+
+APK доставлен через `telegram-cli` в Telegram «Избранное»: сообщение `200955`,
+27.10.2026 22:39:54 Europe/Moscow. Подтверждены `ok=true`, `out=true`,
+имя `Telegram-lite-13.1.1-2026-10-27.apk` и размер 77096533 байта.
+Журнал: `output/telegram-lite-2026-10-27.json`.
+
+Один итоговый release APK: `output/Telegram-lite-13.1.1-2026-10-27.apk`,
+77096533 байта. SHA-256:
+`c5899c1363a03eaf420a8fb995fe1f0a48043bc940aedbeedb00205cdc9f5451`.
+Пакет `org.telegram.messenger`, версия 13.1.1 (72379), minSdk 23, targetSdk 36;
+четыре ABI, без debuggable. Все application-label — Telegram.
+Подпись v1/v2 и прежний сертификат BYgram
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`
+проверены; ZIP integrity, отсутствие дубликатов и zipalign 16 KiB — PASS.
+Бинарные локализации: en 325/325, ru 325/325, uk 192/192 — PASS.
+
+Команда: `-PBYGRAM_EDITION=lite :TMessagesProj_App:assembleAfatRelease --console=plain`.
+BUILD SUCCESSFUL за 9m 37s, 337 задач (33 выполнено, 304 up-to-date).
+Лог: `output/build-lite-2026-10-27-package.log`.
+Первый проход заново собрал нативные библиотеки, но остановился до создания APK
+из-за приоритета Crashlytics metadata в манифестах. Исправлено подключением
+Lite-оверлея на уровне вариантов. Дополнительный запуск остановлен до упаковки
+для отключения оставшихся входов видеообоев и просмотров профиля.
+Других новых APK не создавали. В сборку включены прежние изменения Android-кода
+рабочей папки; код сервера в этой задаче не менялся.
+
+Проверка объединённого манифеста подтверждает отсутствие FirebaseInitProvider и
+GcmPushListenerService, выключенный Crashlytics/FCM/Analytics и сохранение
+стандартной GoogleVoiceClientActivity. Gradle daemon после сборки остановлен.
+
+Full проверен без создания APK:
+`-PBYGRAM_EDITION=full :TMessagesProj:compileDebugJavaWithJavac --console=plain` —
+BUILD SUCCESSFUL за 4m 50s, 136 задач. Лог: `output/compile-title-full-2026-10-27.log`.
+Проверки title_alignment, winter_navigation (включая Lite), md3_geometry,
+page_headers, settings_fixes (55 контрактов), editions, settings_header_clear,
+settings_layout, profile_activity, profile_scroll и local_activity — PASS.
+
+После сборки APK установлен на локальный `medium_phone` (Android 16 / API 36),
+на отдельный свободный пакет без удаления или замены установленных приложений.
+Холодный запуск — Status ok, 2768 ms; процесс жив, Java FATAL EXCEPTION для него
+в crash buffer не обнаружен. Виден штатный стартовый экран с логотипом Telegram.
+Снимок: `output/lite-login-2026-10-27.png`, запуск: `output/lite-launch-2026-10-27.txt`.
+Вход в аккаунт, внутренние экраны после входа, визуальная проверка Full и настоящий
+телефон не проверены. Эмулятор после проверки остановлен.
+Подробности, включая ограничения отправки активности и Firebase:
+[заголовок и Lite](bygram-settings/lite-and-title-alignment-2026-10-27.md).
+
+## 26.10.2026 — расширенная кастомизация
+
+Итоговый Full Debug APK: `output/BYgram-customization-2026-10-26.apk`, 136501434 байт.
+SHA-256: `7051738e0b5c8782fca2b85ce5392ad97b3e75c16f2aa86e0e84ccff9383ee62`.
+Пакет `com.bygram.mobile`, 13.1.1 (72379), minSdk 23; четыре ABI. ZIP integrity и уникальность записей — PASS, подпись v1/v2 — PASS. Бинарная локализация en 325/325, ru 325/325, uk 192/192 — PASS.
+`assembleAfatDebug`: BUILD SUCCESSFUL за 5m 46s, 306 задач. Лог: `output/build-customization-2026-10-26-final.log`.
+Проверки winter_navigation, md3_geometry, settings_fixes, page_headers, settings_layout, settings_header_clear, profile_scroll и BygramTimeFormatCheck — PASS. Наличие актуальных setBounds/invalidateSelf подтверждено в скомпилированном классе drawable. Полная визуальная проверка финального APK не выполнена; снимки и запись первоначальной проверки лежат в output.
+Отправка в Telegram остановлена по последнему указанию пользователя, подтверждения доставки нет. Пользователю предоставляется локальная ссылка на APK. Gradle daemon и запущенный для проверки эмулятор остановлены.
+Подробности: [кастомизация](bygram-settings/customization-seconds-sections-2026-10-26.md).
+
+## 25.10.2026 — исправление шапки настроек после холодного запуска
+
+APK доставлен через telegram-cli в Telegram «Избранное»: сообщение `200704`, 25.10.2026 20:59:41 Europe/Moscow. Подтверждены `ok=true`, `out=true`, имя файла и 127522131 байт. Журнал: `output/telegram-settings-header-insets-2026-10-25.json`.
+
+Один итоговый Full Debug APK: `output/BYgram-settings-header-insets-2026-10-25.apk`, 127522131 байт.
+SHA-256: `3ab00a87d3dc975f2465edebb22fe226b28479a70784297b371e38fa075e559c`.
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain` — BUILD SUCCESSFUL за 6m 19s, 306 задач (15 выполнено).
+Лог: `output/build-settings-header-insets-2026-10-25.log`.
+Пакет `com.bygram.mobile`, версия 13.1.1 (72379), minSdk 23. Подпись v1/v2 и прежний сертификат SHA-256 проверены. Бинарная локализация en 319/319, ru 319/319, uk 183/183 — PASS.
+
+Проверки page_headers, winter_navigation (включая системный сброс padding и первую раскладку), settings_layout, settings_header_clear, settings_fixes (55 контрактов), profile_scroll — PASS.
+
+На эмуляторе API 36 дефект прежнего APK воспроизведён: логотип обрезался сверху (`output/header-insets-before3.png`). Во время проверки прежней сборки также возникал ANR; он наблюдался и в предыдущей задаче. После завершения Gradle его daemon остановлен для освобождения памяти.
+Новый APK установлен через `adb install -r` без очистки данных. После холодного запуска логотип виден целиком. В «Кастомизации» видны заголовок первой секции и все первые строки. При прокрутке появляется отдельная плашка заголовка, при возврате наверх она исчезает; кнопка назад остаётся. В светлой и тёмной теме общей полосы нет. Тема после проверки возвращена в исходную светлую.
+Скриншоты: `output/header-insets-final-cold2.png`, `header-insets-customization-top.png`, `header-insets-customization-scroll.png`, `header-insets-customization-return-top.png`, `header-insets-dark-root.png`, `header-insets-dark-customization-top.png`, `header-insets-dark-scroll-settled.png`.
+На новом APK при этом прогоне ANR и Java-crash не наблюдались. Настоящий телефон, повороты и планшет не проверены. В APK включены существующие изменения рабочего дерева.
+
+Описание изменения системного интерфейса: [отступы и шапка](bygram-settings/settings-header-insets-2026-10-25.md).
+
+
+## 25.10.2026 — профиль и заголовки, итоговый Full Debug
+
+Доставка подтверждена через telegram-cli: Telegram «Избранное», сообщение `200701`,
+25.10.2026 20:34:05 Europe/Moscow, `ok=true`, `out=true`, точное имя и 127522211 байт.
+Журнал: `output/telegram-profile-header-polish-2026-10-25.json`.
+
+Итоговый файл: `output/BYgram-profile-header-polish-2026-10-25.apk`, 127522211 байт.
+SHA-256: `93f73f59d4ec2746ddb616fec10f9b8a93eecb1709a9edf65435cb60d072b8b0`.
+Сборка `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`:
+BUILD SUCCESSFUL за 4m 8s, 306 задач (16 выполнено, 290 up-to-date).
+Лог: `output/build-profile-header-polish-2026-10-25-final-v2.log`.
+Пакет `com.bygram.mobile`, 13.1.1 (72379), minSdk 23; Full Debug.
+Подпись v1/v2 и прежний сертификат проверены (`output/polish-final-signature.txt`).
+Бинарная локализация: en 319/319, ru 319/319, uk 183/183 — PASS.
+
+На эмуляторе API 36 APK установлен через `adb install -r` без очистки данных.
+Визуальная проверка промежуточного варианта выявила остатки предыдущей страницы
+в прозрачной шапке и наложение заголовков предпросмотра; они исправлены до передачи.
+Начатая отправка промежуточного файла прервана, подтверждения доставки нет.
+В итоговом APK проверены чистая шапка кастомизации, плавное затемнение, один
+заголовок в свёрнутом предпросмотре и видимые значки действий без строки поиска.
+Скриншоты: `polish-final-customization-settled.png`, `polish-final-header-section.png` в output.
+Проверены реальные имя/@username, русские варианты положения и папок при английском
+языке Android, центрирование контактов. Тестовый переключатель снега возвращён
+в исходное выключенное состояние. На этом эмуляторе фоновые анимации ограничены
+профилем производительности, поэтому движение снега визуально не подтверждено.
+
+При холодном запуске после установки эмулятор показывал ANR (FocusEvent, 5 секунд),
+наблюдалась активная подкачка. Причина не доказана. После перезапуска и ожидания
+загрузки страницы открывались и проверялись; это не подтверждает отсутствие ANR
+на телефонах. Тёмная тема, повороты и длительное воспроизведение анимаций не проверены.
+
+
+## 25.10.2026 — Full Debug 13.1.1
+
+По новому запросу пользователя создан один итоговый APK из текущего рабочего дерева:
+`output/BYgram-13.1.1-full-debug-2026-10-25.apk`, 123269496 байт.
+Команда: `java -classpath .\gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`.
+BUILD SUCCESSFUL за 3m 11s; 306 задач (58 выполнено, 248 up-to-date).
+Лог: `output/build-full-debug-2026-10-25.log`.
+SHA-256: `0cdfa98ab07302b50885d1f062b73359d42aa507877a177c0cb474043b9cecd9`.
+
+Проверены пакет `com.bygram.mobile`, версия 13.1.1 (72379), minSdk 23,
+debuggable, `BYGRAM_FULL=true`, четыре ABI и подпись v1/v2.
+Сертификат SHA-256: `a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+Бинарная локализация: en 314/314, ru 314/314, uk 178/178 — PASS.
+`check_bygram_winter_navigation.py` и `check_bygram_upstream_13_1.py` — PASS.
+На устройстве эта сборка не запускалась; качество анимаций и переходов не проверено.
+В рамках задачи сборки исходники приложения не менялись.
+
+Доставлен через `telegram-cli` в Telegram «Избранное», сообщение `200695`,
+25.10.2026 19:27:43 Europe/Moscow. Ответ содержит `ok=true`, `out=true`,
+точное имя APK и размер 123269496 байт.
+Журнал: `output/telegram-full-debug-2026-10-25.json`.
+
 ## 25.10.2026 — очистка верхней панели, v2
 
 APK отправлен через `telegram-cli` в Telegram «Избранное»: сообщение `200679`,
@@ -425,7 +702,7 @@ android sdk list --all
 ## Важные ограничения
 
 - Не меняйте `APP_VERSION_CODE` и `APP_VERSION_NAME`, если задача отдельно этого не требует.
-- `APP_PACKAGE` всегда должен быть `com.bygram.mobile`.
+- `APP_PACKAGE` для Full остаётся `com.bygram.mobile`; с 27.10.2026 Lite основного модуля переопределяет applicationId на `org.telegram.messenger` по запросу пользователя.
 - Не уменьшайте KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
 - Сборка использует XML-переводы, зафиксированные в этом репозитории. Перед релизом импортируйте проверенный коммит из публичного [BYgram-translations](https://github.com/BYxarek/BYgram-translations).
 - Генератор бинарной локализации должен включать `bygram_strings.xml` и `bygram_preferences.xml` для английского, русского и украинского языков. Иначе `LocaleController.getString(R.string.Bygram...)` показывает `LOC_ERR:null`, даже если текст есть в Android XML.
@@ -463,7 +740,7 @@ Android-ресурсы синхронизированы с этой веткой
 
 ## Две редакции APK
 
-Редакция задаётся обязательным для релизной сборки свойством `BYGRAM_EDITION`: `lite` или `full`. Если свойство не указано, безопасное значение по умолчанию — `lite`. Обе редакции сохраняют package `com.bygram.mobile`, версию и ключ подписи; установить их одновременно нельзя.
+Редакция задаётся свойством `BYGRAM_EDITION`: `lite` или `full`; без него используется `lite`. С 27.10.2026 основной модуль `TMessagesProj_App` собирает Lite с пакетом `org.telegram.messenger`, именем Telegram и штатной иконкой. Full остаётся `com.bygram.mobile`; версия и ключ подписи сохранены. Эти редакции устанавливаются отдельно, но Lite конфликтует с официальным Telegram с тем же пакетом и другой подписью. Вспомогательные AppHuawei/AppStandalone не переводились на новый пакет. Firebase в Lite основного модуля отключён по запросу пользователя. [Ограничения и изменения интерфейса](bygram-settings/lite-and-title-alignment-2026-10-27.md).
 
 Debug Lite:
 
@@ -575,3 +852,129 @@ android run --device=SERIAL --apks='C:\project\BYgram-mobile\TMessagesProj_App\b
 Текущая сборка успешна, но выводит предупреждения о Java 8 source/target под JDK 21, частично мигрированных AndroidX-зависимостях и отдельных локализованных ресурсах без default value. Они не блокируют APK, но должны отслеживаться отдельно; не скрывайте warnings без исправления причины.
 
 17.10.2026 собран Debug Full с отключённой рекламой, новым логотипом и исправлениями профиля: `output/BYgram-full-debug.apk`, package `com.bygram.mobile`, версия `13.0.2` (`71759`), 128990237 байт. Подтверждены `BYGRAM_FULL = true`, подпись v1/v2 и бинарная локализация BYgram (en 269/269, ru 269/269, uk 124/124). SHA-256: `b971823b9e73ff17779cd7137be191a07e173a1272f4162d34e54d6f90b5f6a5`. На устройстве APK не запускался. Лог: `output/build-full-debug-profile-2026-10-17.log`.
+
+## 31.10.2026 — внутренняя приёмка системы плагинов
+
+Создан один новый Full Debug APK:
+`output/BYgram-full-plugins-13.1.1-2026-10-31.apk`, `com.bygram.mobile`,
+13.1.1 (72379), minSdk 24 / target 36, 157277815 байт.
+SHA-256: `44e7b63dcff264ba161b6a7be22a7903c94391f5fafc16969a1f166a50a19a06`.
+Подпись v2, сертификат SHA-256
+`a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab`.
+
+Команда упаковки: `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --console=plain`.
+Первый offline запуск не дошёл до APK из-за отсутствующего Chaquopy bootstrap;
+обычное разрешение закреплённой зависимости завершило упаковку за 7m.
+Окружение: Gradle 8.13, AGP 8.13.2, daemon OpenJDK 21.0.11, Chaquopy 17.2.0,
+Python target 3.11.17-0. Telegram NDK 27.2.12479018 сохранён.
+
+Проверки файла: подпись, CRC/duplicates ZIP, zipalign 16 KiB, четыре ABI,
+28 ELF64 из `lib/`, локализации en 366/366, ru 366/366, uk 233/233 — PASS.
+`Tools/check_plugin_apk.py` записывает `output/plugin-apk-report.json`.
+Release/R8 без APK — PASS; это не тест Release runtime.
+
+**Этот APK не готов к выдаче:** hooks вызвали native crash на API 36/37;
+отдельный native probe также падает на API 35. Полный runtime fixture прошёл
+на API 28 x86_64 / 4 KiB; recovery с frozen main — на API 36. ARM/OEM,
+API 24, реальные аккаунты, accessibility и Release runtime не проверены.
+В исходниках raw backend закрыт вне API 28 x86_64; исправления нет в APK.
+Повторная упаковка требует разрешить ограничение одного APK из AGENTS.md.
+Как готовый файл он не отправлялся; Telegram delivery не заявляется.
+Подробности и текущий статус: [отчёт плагинов](plugins/development-report.md).
+
+Дополнительно проверены вложенные Chaquopy `.imy`/bootstrap native assets: всего 148 ELF64 в APK проходят 16 KiB alignment; `output/plugin-apk-report.json` содержит fingerprint каждого.
+
+Исправленный fail-closed gate повторно прошёл Full Debug compilation и Release/R8 за 7m34s (`output/plugin-backend-gate-validation.log`), без второй упаковки. Экспериментальные `.so` из `output/hook-native-experiment` в приложение не включены.
+
+## 31.10.2026 — разрешённая повторная сборка Full Debug r2
+
+Владелец явно разрешил одну повторную сборку вместо failed кандидата.
+`output/BYgram-full-plugins-13.1.1-2026-10-31-r2.apk`, Full Debug 13.1.1 (72379),
+158445411 байт, SHA-256
+`b827647f58958541965b409e47c0ddef2337889ad9aaa944ab0b16f50f579b9e`.
+Команда: `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --offline --console=plain`.
+PASS за 2m57s; лог `output/plugin-apk-rebuild-approved.log`.
+Подпись v2 прежним ключом, package/minSdk/target/четыре ABI, CRC ZIP,
+zipalign, 148 ELF64 16 KiB и бинарные локализации — PASS. Экспериментальные
+native библиотеки не включены. Runtime r2: API 28 hooks/core PASS,
+API 36/37 core PASS с незагруженным AliuHook; recovery при Python UI hang
+API 36 PASS. Raw hooks доступны только x86_64 API 28. Full v1 не принят,
+NOT TESTED и остальные ограничения перечислены в отчёте плагинов.
+APK r2 доставлен в Telegram «Избранное» 31.10.2026 в 10:18 МСК, сообщение `201348`. Повторный `tcli read me --id 201348 --json` подтвердил out=true, имя файла и размер 158445411 байт. Перед отправкой hash повторно проверен. Первый failed кандидат не отправлялся. Daemon и тестовые AVD остановлены.
+
+
+## 31.10.2026 — диагностический Full Debug r3 с исправленным Dobby
+
+В этой задаче создан один APK: output/BYgram-full-plugins-13.1.1-2026-10-31-r3.apk,
+13.1.1 (72379), com.bygram.mobile, minSdk 24 / target 36, 158445888 байт.
+SHA-256 cd0f6f07abfab4c5614b3382626f58502db0c71c2e15394fe384354b057da0af.
+Команда: java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --offline --console=plain.
+Сборка 2m54s, output/plugin-bygram1-apk-build.log. Окружение сохранено:
+Gradle 8.13, AGP 8.13.2, JDK 21.0.11, Chaquopy 17.2.0, Python 3.11,
+Telegram NDK 27.2; hook native отдельно NDK 30.0.16248370 / CMake 4.1.2.
+Закреплён локальный Aliuhook 1.1.4-api37.1-bygram.1 с patched static Dobby.
+Подпись v2 прежним сертификатом, ZIP, zipalign, 148 ELF64/16 KiB,
+четыре ABI, локализации en/ru/uk — PASS. Hook/libc++ entries совпадают с AAR.
+Full compile/R8 до Android приёмки — PASS 9m17s; Lite minSdk/source roots и
+dependency graph без Python/AliuHook/Dobby — PASS, Lite APK не создавался.
+
+r3 НЕ ГОТОВ: hooks/core fixture PASS API 28, hooks FAIL API 35/37,
+native crash API 36. Recovery при настоящем Python UI hang API 36 — PASS.
+В исходниках после приёмки gate возвращён к 64-bit x86_64 API 28;
+в уже созданном r3 этого ограничения нет. Повторная упаковка не выполнялась
+из-за правила одного APK. Runtime новой защиты diagnostic recreation,
+ARM/OEM, реальные аккаунты, Release runtime и benchmark — NOT TESTED.
+Дальнейшая compile/R8-проверка исходников: output/plugin-bygram1-failclosed-compile.log.
+Статус доставки и подробные результаты — docs/plugins/development-report.md.
+
+Повторная проверка окончательных исходников (gate только API 28 + diagnostic
+single-flight): Full Debug compile и Release/R8 PASS за 7m50s, без APK;
+output/plugin-bygram1-failclosed-compile.log. JVM gate PASS.
+Все тестовые AVD и Gradle daemon остановлены. Второй APK этой задачи не создан.
+
+
+## 31.10.2026 — разрешённый Full Debug r4
+
+После FAIL r3 владелец явно разрешил один дополнительный APK. Создан:
+output/BYgram-full-plugins-13.1.1-2026-10-31-r4.apk, 158446049 байт,
+SHA-256 350e3203e19187cc06f2fd92f35f9005e5b3fa561714c9b33961759b0fa8d861.
+Full Debug 13.1.1 (72379), com.bygram.mobile, minSdk 24 / target 36.
+Команда assembleAfatDebug --offline прежняя; PASS 2m22s,
+output/plugin-bygram1-r4-build.log. Окружение/подпись/версия клиента сохранены.
+Подпись v2 прежним сертификатом, ZIP/zipalign, все 148 ELF64/16 KiB,
+четыре ABI и локализации en 366/366, ru 366/366, uk 233/233 — PASS.
+Hook и libc++ entries совпадают с pinned bygram.1 AAR; экспериментальных .so нет.
+
+R4 содержит окончательный gate только 64-bit primary x86_64 API 28 и
+single-flight diagnostic. Android: API 28 hooks/core PASS; API 35/36/37
+core PASS с подтверждённым отсутствием backend в maps; PID сохраняется.
+Recovery при Python UI hang API 36 PASS после очистки зависшего System UI;
+первый прерванный прогон не засчитан. Свод: output/plugin-bygram1-r4-acceptance.json.
+Compile/R8 окончательных исходников PASS 7m50s; Release runtime не проверялся.
+Public v1 не готов: ARM/OEM/API 24, реальные аккаунты, accessibility,
+benchmark и API 37 recovery остаются NOT TESTED.
+Все AVD и Gradle daemon остановлены. FTP/production/MySQL не использовались.
+Диагностический r3 доставлен с предупреждением (сообщение 201365);
+готовность r3 не заявляется. R4 доставлен в Избранное, сообщение 201367;
+повторный read подтвердил out=true, имя и размер 158446049. Локальный hash
+повторно проверен после доставки. Delivery metadata — в отчёте плагинов.
+
+
+31.10.2026 — завершение текущего BYgram SDK P0–P8: native lifecycle, recovery/update, scoped accounts, composer preview, страницы и проверки. Актуальный протокол: [plugins/completion-2026-10-31.md](plugins/completion-2026-10-31.md). Системная граница Full account events повторно сверяет auth identity; core Telegram UI этим проходом не переписан.
+
+## Итоговый артефакт 01.11.2026
+
+Создан один Full Release APK: `output/BYgram-full-plugins-catalog-13.1.1-2026-11-01.apk`, com.bygram.mobile, 13.1.1 (72379), minSdk 24 / target 36, 109121795 байт.
+SHA-256: `7dfed96e9e234928fb67b0c7b0e93e552cc938b6eba5fe300c49694ebc7de12e`.
+
+Команда: `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatRelease -x :TMessagesProj_App:uploadCrashlyticsMappingFileAfatRelease --offline --console=plain`. PASS, 47m55s, включая пересборку native четырёх ABI и R8 с окончательными assets. Лог: `output/plugins-20261101-apk-build.log`. До упаковки Full Debug compilation и Release/R8 также PASS (`output/plugins-20261101-final-check.log`). Edition checks PASS.
+
+Проверены ZIP CRC, Python/AliuHook payload четырёх ABI, все 148 ELF64/16 KiB, zipalign, подпись v2. Сертификат SHA-256 `a08d7dc323ddf71ef3201944397e0d3cce7d40847263e11f328b68bbe19229ab` совпадает с предыдущим r4. Отчёты: `output/plugins-20261101-apk-report.json`, `output/plugins-20261101-signature.log`, `output/plugins-20261101-badging.log`.
+
+API 36 x86_64 AVD: установка и холодный запуск LaunchActivity PASS, PID жив. Installed Release/R8 probe: Python init, import упакованного `bygram` SDK и настоящий `HookBridge.verify()` PASS. Лог: `output/plugins-20261101-release-runtime-fixture.log`. Код берётся из установленного APK без source-overlay; для app_process использованы отдельные files/cache и тестовые SharedPreferences в памяти. Первая попытка с приватным каталогом приложения не прошла из-за доступа shell; root/su на этом AVD недоступны, SELinux остался Enforcing. Это ограниченный probe, не полный UI/account/hooks lifecycle Release-тест.
+
+Native retention до restart и неполная аппаратная/account/accessibility матрица остаются явно указанными ограничениями. Дополнительный APK не создавался.
+
+Подробности каталога: [plugins/catalog-2026-11-01.md](plugins/catalog-2026-11-01.md).
+
+APK доставлен в Telegram «Избранное», сообщение `201447`, 01.11.2026 в 14:31 МСК. Повторный read подтвердил out=true, имя и размер 109121795 байт; локальный SHA-256 проверен после доставки. Доставка через установленный навык telegram-cli. Тестовый AVD и Gradle daemon остановлены.

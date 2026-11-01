@@ -64,6 +64,13 @@ public final class BygramConfig {
     public static final String SNOW_PROFILES = "bygram_snow_profiles";
     public static final String SNOW_HEADER = "bygram_snow_header";
     public static final String SNOW_NAVIGATION = "bygram_snow_navigation";
+    public static final String SNOW_DIALOGS = "bygram_snow_dialogs";
+    public static final String SNOW_SETTINGS = "bygram_snow_settings";
+    public static final String SNOW_BYGRAM_SETTINGS = "bygram_snow_bygram_settings";
+    public static final String SECONDS = "bygram_seconds";
+    public static final String MD3_PROFILE_BUTTONS = "bygram_md3_profile_buttons";
+    public static final String SECTION_RADIUS = "bygram_section_radius";
+    public static final String SEPARATE_HEADERS = "bygram_separate_headers";
     private static final int DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
     private static final String LEGACY_ACTIVITY_ENABLED = "bygram_activity_enabled";
     public static final int ACTIVITY_DIALOGS = 1;
@@ -201,6 +208,14 @@ public final class BygramConfig {
             case SNOW_PROFILES:
             case SNOW_HEADER:
             case SNOW_NAVIGATION:
+            case SNOW_DIALOGS:
+            case SNOW_SETTINGS:
+            case SNOW_BYGRAM_SETTINGS:
+            case SECONDS:
+            case MD3_PROFILE_BUTTONS:
+            case SECTION_RADIUS:
+            case SEPARATE_HEADERS:
+
                 return true;
             default:
                 return false;
@@ -228,6 +243,7 @@ public final class BygramConfig {
     }
 
     public static boolean getBoolean(String key) {
+        if (!BuildConfig.BYGRAM_FULL) return false;
         if (!isActiveSetting(key)) return false;
         boolean defaultValue = GHOST_NO_READ.equals(key) || GHOST_NO_STORY_READ.equals(key)
                 || GHOST_NO_ONLINE.equals(key) || GHOST_NO_TYPING.equals(key) || FIREBASE_CRASHLYTICS.equals(key)
@@ -236,6 +252,7 @@ public final class BygramConfig {
     }
 
     public static String getCustomTyping(int account, int action) {
+        if (!BuildConfig.BYGRAM_FULL) return "";
         if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT || action < 0 || action > 10) return "";
         return preferences().getString(CUSTOM_TYPING_PREFIX + account + "_" + action, "");
     }
@@ -250,15 +267,18 @@ public final class BygramConfig {
     public static void setBoolean(String key, boolean value) {
         if (!isActiveSetting(key)) return;
         preferences().edit().putBoolean(key, value).apply();
+        if (SECONDS.equals(key)) LocaleController.getInstance().recreateFormatters();
     }
 
     public static int getInt(String key, int fallback) {
-        return PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)
+        if (!BuildConfig.BYGRAM_FULL) return fallback;
+        return SECTION_RADIUS.equals(key) || PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)
                 ? preferences().getInt(key, fallback) : fallback;
     }
 
     public static void setInt(String key, int value) {
-        if (PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)) {
+        if (SECTION_RADIUS.equals(key) || PROFILE_ID_MODE.equals(key) || AVATAR_CORNERS.equals(key) || TITLE_TEXT.equals(key) || TITLE_POSITION.equals(key) || FOLDER_STYLE.equals(key)) {
+            if (SECTION_RADIUS.equals(key)) value = Math.max(0, Math.min(28, value));
             if (FOLDER_STYLE.equals(key)) value = Math.max(0, Math.min(2, value));
             preferences().edit().putInt(key, value).apply();
         }
@@ -301,6 +321,7 @@ public final class BygramConfig {
             if (isExportableSetting(key) || key.equals("bygram_microsoft_translator_key")) editor.remove(key);
         }
         editor.apply();
+        LocaleController.getInstance().recreateFormatters();
         clearActivitySettings();
         BygramActivityController.clearSettings();
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
@@ -313,6 +334,7 @@ public final class BygramConfig {
     }
 
     public static void applyTelemetrySettings() {
+        if (!BuildConfig.BYGRAM_FULL) return;
         try {
             FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(getBoolean(FIREBASE_CRASHLYTICS));
             FirebaseAnalytics.getInstance(ApplicationLoader.applicationContext).setAnalyticsCollectionEnabled(getBoolean(FIREBASE_ANALYTICS));
@@ -429,6 +451,7 @@ public final class BygramConfig {
     }
 
     public static boolean hasEditHistory(int account, long dialogId, int messageId) {
+        if (!BuildConfig.BYGRAM_FULL) return false;
         return preferences().contains(historyKey(account, dialogId, messageId));
     }
 

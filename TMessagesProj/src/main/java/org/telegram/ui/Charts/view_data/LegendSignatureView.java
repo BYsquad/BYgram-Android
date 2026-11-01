@@ -52,7 +52,7 @@ public class LegendSignatureView extends FrameLayout {
     SimpleDateFormat format2 = new SimpleDateFormat("MMM dd");
     SimpleDateFormat format3 =  new SimpleDateFormat("d MMM yyyy");
     SimpleDateFormat format4 =  new SimpleDateFormat("d MMM");
-    SimpleDateFormat hourFormat = new SimpleDateFormat(" HH:mm");
+    SimpleDateFormat hourFormat = new SimpleDateFormat(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? " HH:mm:ss" : " HH:mm");
 
     public boolean useWeek;
     public boolean useHour;

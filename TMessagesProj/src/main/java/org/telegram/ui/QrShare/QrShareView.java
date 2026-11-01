@@ -3802,7 +3802,7 @@ public class QrShareView extends View {
         final float qs = cw * 0.70f, ql = left + (cw - qs) / 2f, qt = top + lerp(cw * 0.12f, (cw - qs) / 2f, tempK); // centred in the square
         qr.setColor(color);
         qr.draw(c, ql, qt, qs);
-        // logo: a qr-coloured circle with the white flying plane on top, as on the stock QR screen
+        // BYgram logo on the QR-coloured circle.
         final float lr = qr.logoSize(qs) / 2f, lcx = ql + qs / 2f, lcy = qt + qs / 2f;
         final float bp = qr.buildProgress();
         final float lp = 1f; // logo: part of the card (scales with it)
@@ -3813,7 +3813,7 @@ public class QrShareView extends View {
             if (lp < 1f) c.saveLayerAlpha(lcx - lr - 2, lcy - lr - 2, lcx + lr + 2, lcy + lr + 2, (int) (255 * lp));
             fill.setColor(color);
             c.drawCircle(lcx, lcy, lr, fill);
-            // the plane flies in from the circle's bottom-left (0.55 r), 0.5 → 1, clipped to the circle; lands by ~400 ms
+            // The logo enters from the bottom-left, clipped to the circle.
             final long be = qr.buildElapsedMs();
             final float pu = sharing || be == Long.MAX_VALUE ? 1f : be < 0 ? 0f : Utilities.clamp01(be / 500f);
             final float pe = pu >= 1f ? 1f : 1f - (float) Math.pow(1f - pu, 3) + 0.015f * (float) Math.sin(Math.PI * pu) * pu; // ≤ 2% settle
@@ -3826,7 +3826,7 @@ public class QrShareView extends View {
                 c.translate(-off, off);
                 c.scale(psc, psc, lcx, lcy);
                 if (sharing && logoOptimal != null) {
-                    // a shared image takes the plane's best frame, not the one the animation is at
+                    // Use the same BYgram artwork in the exported image.
                     rect3.set(lcx - lr, lcy - lr, lcx + lr, lcy + lr);
                     c.drawBitmap(logoOptimal, null, rect3, logoOptimalPaint);
                 } else {

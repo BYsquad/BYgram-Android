@@ -927,7 +927,9 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             titleView.setScaleY(lerp(1f, 0.95f, subtitleOverlayContainer.getTotalVisibility()));
             titleView.setTranslationY(bottomY + dp(14) - offset + dp(FAKE_TOP_PADDING) - dp(6) * subtitleOverlayContainer.getTotalVisibility());
             lastViewRight += dp(12);
-            float titleRight = getWidth() - actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress - dp(24);
+            float titleRight = org.telegram.messenger.BuildConfig.BYGRAM_FULL && type == TYPE_DIALOGS
+                    ? Math.min(getWidth(), actionBar.getLeft() + actionBar.getTitleBlockRight() - getLeft()) - dp(18)
+                    : getWidth() - actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress - dp(24);
             float emojiWidth = emojiStatusView.getVisibility() == VISIBLE && statusDrawable.getDrawable() != null ? dp(42) : 0;
             float titleWidth = Math.min(titleView.getDrawable().getAnimateToWidth(), Math.max(0, titleRight - lastViewRight - emojiWidth));
             int titlePosition = org.telegram.messenger.BygramConfig.getInt(org.telegram.messenger.BygramConfig.TITLE_POSITION, 0);

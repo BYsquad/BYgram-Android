@@ -6,10 +6,22 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / 'TMessagesProj/src/main/java/org/telegram/ui/ActionBar/ActionBar.java').read_text(encoding='utf-8')
 draw = 'public void draw(Canvas canvas)' + source.split('public void draw(Canvas canvas)', 1)[1].split('    private void drawPageGlassBackground', 1)[0]
-setter = 'public void setOpaquePageBackground(int themeKey)' + source.split('public void setOpaquePageBackground(int themeKey)', 1)[1].split('    @Override', 1)[0]
+setter = 'public void setPageBackgroundShade()' + source.split('public void setPageBackgroundShade()', 1)[1].split('    @Override', 1)[0]
 harness = r'''
+class android {
+ static class graphics {
+  static class drawable {
+   static class GradientDrawable {
+    enum Orientation { TOP_BOTTOM }
+    GradientDrawable(Orientation o, int[] colors) { assert colors[0] == 0x18000000 && colors[1] == 0; }
+    void setBounds(int l, int t, int r, int b) { assert r == 360 && b == 100; }
+    void draw(Canvas c) { c.shades++; }
+   }
+  }
+ }
+}
 class Canvas {
-    int pixel = 123, clears, buttons;
+    int pixel = 123, clears, buttons, shades;
     void drawColor(int color) { pixel = color; clears++; }
     boolean isHardwareAccelerated() { return false; }
     void translate(int x, int y) {}
@@ -43,7 +55,7 @@ class Glass {
 }
 class Fragment { View getFragmentView() { return null; } }
 public class SettingsHeaderClearCheck extends View {
-    Integer opaquePageBackgroundKey;
+    android.graphics.drawable.GradientDrawable pageBackgroundShade;
     int themeColor = 0xff17212b;
     Glass pageGlassColor = new Glass(), pageGlassSource = new Glass();
     Glass glassDrawable = new Glass(), glassDrawableBack = new Glass(), glassDrawableMenu = new Glass();
@@ -61,7 +73,7 @@ public class SettingsHeaderClearCheck extends View {
         Canvas canvas = new Canvas();
         bar.drawFromParent(canvas);
         assert canvas.clears == 0 : "Other pages changed";
-        bar.setOpaquePageBackground(2);
+        bar.setPageBackgroundShade();
         bar.setBackground(null); // setupGlass() at first onMeasure must not restore the fast path.
         for (int sdk : new int[]{23, 31, 36}) {
             Build.VERSION.SDK_INT = sdk;
@@ -69,13 +81,14 @@ public class SettingsHeaderClearCheck extends View {
                 canvas.pixel = 123 + i; // Previous avatar or title left on the surface.
                 int buttons = canvas.buttons;
                 bar.drawFromParent(canvas);
-                assert canvas.pixel == bar.themeColor : "Previous page leaked";
+                assert canvas.pixel == 123 + i && canvas.clears == 0 : "Opaque header returned";
+                assert canvas.shades > 0 : "Shade missing";
                 assert canvas.buttons == buttons + 1 : "Buttons not rendered";
             }
         }
         bar.themeColor = 0xffeeeeee;
         bar.drawFromParent(canvas);
-        assert canvas.pixel == bar.themeColor : "Theme change ignored";
+        assert canvas.clears == 0 : "Opaque theme background returned";
         int clears = canvas.clears;
         bar.pageGlassSource.recording = true;
         bar.drawFromParent(canvas);
@@ -83,8 +96,8 @@ public class SettingsHeaderClearCheck extends View {
         bar.pageGlassSource = null;
         bar.pageGlassColor = null;
         bar.drawFromParent(canvas);
-        assert canvas.clears == clears + 1 : "Non-glass fallback not cleared";
-        System.out.println("PASS: backgroundless ViewGroup fast path, retained avatar/title clearing, repeated navigation, themes, SDK fallback and recording guard");
+        assert canvas.clears == clears && canvas.shades > 0 : "Non-glass shade missing";
+        System.out.println("PASS: gradient survives backgroundless ViewGroup and glass setup, no opaque fill, SDK fallback and recording guard");
     }
 }
 '''.replace('__SETTER__', setter).replace('__DRAW__', draw)

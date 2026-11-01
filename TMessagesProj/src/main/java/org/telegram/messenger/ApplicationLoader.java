@@ -194,7 +194,7 @@ public class ApplicationLoader extends Application {
         }
         applicationInited = true;
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
-        Utilities.globalQueue.postRunnable(BygramConfig::pruneSpyData);
+        if (BuildConfig.BYGRAM_FULL) Utilities.globalQueue.postRunnable(BygramConfig::pruneSpyData);
         BygramConfig.clearRemovedCustomizationSettings();
         BygramConfig.applyTelemetrySettings();
 
@@ -292,6 +292,8 @@ public class ApplicationLoader extends Application {
         }
 
         super.onCreate();
+
+        if (PluginRecovery.isRecoveryProcess(this)) return;
 
         // AndroidUtilities must be initialized before FileLog
         final String helloWorld = AndroidUtilities.getHelloWorld();

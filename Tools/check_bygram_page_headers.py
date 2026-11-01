@@ -22,12 +22,21 @@ assert "removeOnScrollChangedListener(pageGlassScrollListener)" in source
 
 settings = (ROOT / "TMessagesProj/src/main/java/org/telegram/ui/BygramSettingsActivity.java").read_text(encoding="utf-8")
 page = settings.split("abstract class BygramSettingsPage extends BaseFragment", 1)[1].split("public class BygramSettingsActivity", 1)[0]
-assert "bar.setDrawGlassTitle(false)" in page
-assert "bar.setOpaquePageBackground(Theme.key_windowBackgroundGray)" in page
+assert "bar.setDrawGlassTitle(false)" not in page
+assert "bar.setPageBackgroundShade()" not in page
+assert "bar.setWillNotDraw(false)" in page
+assert "actionBar.setAdaptiveBackground" in page
+assert "view.setFitsSystemWindows(true)" in page
+assert "int headerHeight = actionBar.getMeasuredHeight()" in page
+assert "if (getPaddingTop() != headerHeight)" in page
+assert page.index("setPadding(0, headerHeight, 0, 0)") < page.index("super.onMeasure(widthMeasureSpec, heightMeasureSpec)")
+assert "addOnLayoutChangeListener" not in page
+assert settings.count("FrameLayout content = createSettingsContent(context);") == 8
 root = settings.split("public View createView(Context context)", 1)[1].split("private void fillItems", 1)[0]
-assert 'actionBar.setTitle("")' in root and "setAdaptiveBackground" not in root
+assert 'actionBar.setTitle("BYgram")' in root
 draw = source.split("protected void dispatchDraw(Canvas canvas)", 1)[1]
-assert "pageBackgroundShade" not in source
+assert "0x18000000, 0x00000000" in source
+assert "opaquePageBackgroundKey" not in source
 assert "class ProfileViewUserActivity extends BygramSettingsPage" in settings
 
 harness = r'''

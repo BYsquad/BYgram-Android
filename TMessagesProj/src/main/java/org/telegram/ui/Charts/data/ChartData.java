@@ -149,14 +149,14 @@ public class ChartData {
         if (timeStep == 1) {
             formatter = null;
         } else if (timeStep < 86400000L) {
-            formatter = new SimpleDateFormat("HH:mm");
+            formatter = new SimpleDateFormat(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "HH:mm:ss" : "HH:mm");
         } else {
             formatter = new SimpleDateFormat("MMM d");
         }
 
         for (int i = 0; i < daysLookup.length; i++) {
             if (timeStep == 1) {
-                daysLookup[i] = String.format(Locale.ENGLISH, "%02d:00", i);
+                daysLookup[i] = String.format(Locale.ENGLISH, org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:00:00" : "%02d:00", i);
             } else {
                 daysLookup[i] = formatter.format(new Date(start + (i * timeStep)));
             }

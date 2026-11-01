@@ -12008,6 +12008,11 @@ public class MessagesController extends BaseController implements NotificationCe
         }
         Timer.Task t1 = Timer.start(loaderLogger, "processLoadedMessages");
 
+        // Server history omits deleted rows, including the latest row after a cold start.
+        if (!isCache && mode == 0 && threadMessageId == 0 && DialogObject.isUserDialog(dialogId)) {
+            getMessagesStorage().mergeBygramDeletedMessagesSync(dialogId, messagesRes.messages, max_id == 0 && offset_date == 0);
+        }
+
         long startProcessTime = SystemClock.elapsedRealtime();
         boolean createDialog = false;
         if (messagesRes instanceof TLRPC.TL_messages_channelMessages) {

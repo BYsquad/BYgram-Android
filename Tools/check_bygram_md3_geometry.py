@@ -59,7 +59,7 @@ assert "canvas.drawCircle(cx, cy, radius + dpf2(1.5f), backgroundPaint)" not in 
 for key in ("TITLE_TEXT", "TITLE_POSITION"):
     assert f"case {key}:" in config and f"{key}.equals(key)" in config, f"{key} does not survive storage/export/reset"
     assert f"BygramConfig.{key}" in settings, f"{key} is missing from customization"
-assert "setTitleGravity(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT)" in dialogs, "Title position is not applied"
+assert "setTitleGravityInGlass(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT)" in dialogs, "Title position is not applied"
 assert "int titleLeft = textLeft;" in action_bar and "titleRight - titleTextView[i].getMeasuredWidth()" in action_bar, "Title alignment does not move the text and emoji view"
 assert "BygramConfig.dialogsTitle(currentAccount)" in dialogs and story_cell.count("BygramConfig.dialogsTitle(currentAccount)") >= 3, "Expanded and collapsed headers disagree on name/username or emoji visibility"
 for selector in (dialogs, source("TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java")):
@@ -72,9 +72,9 @@ icons = settings.split("AppIconsSelectorCell icons =", 1)[1].split("BackupImageV
 launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")
 manifest = source("TMessagesProj/src/main/AndroidManifest.xml")
 assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "Customization must only offer BYgram and Telegram icons"
-assert 'DEFAULT("DefaultIcon", R.drawable.bygram_logo_new, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use logo-new.png"
+assert 'DEFAULT("DefaultIcon", R.drawable.bygram_launcher_icon, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use the edition icon"
 default_alias = manifest.split('android:name="org.telegram.messenger.DefaultIcon"', 1)[1].split('</activity-alias>', 1)[0]
-assert '@drawable/bygram_logo_new"' in default_alias, "Fresh installs must use the BYgram logo"
+assert '@drawable/bygram_launcher_icon"' in default_alias, "Fresh installs must use the edition icon"
 assert (ROOT / "logo-new.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/bygram_logo_new.png").read_bytes(), "Default icon asset differs from logo-new.png"
 assert 'AQUA("AquaIcon", R.drawable.telegram_logo' in launcher, "Telegram preview must not use the branded adaptive icon"
 aqua_alias = manifest.split('android:name="org.telegram.messenger.AquaIcon"', 1)[1].split('</activity-alias>', 1)[0]

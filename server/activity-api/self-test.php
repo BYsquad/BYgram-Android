@@ -17,6 +17,7 @@ $config['db_password'] = $testPassword;
 $pdo = new PDO($config['db_dsn'], $config['db_user'], $config['db_password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec((string) file_get_contents(__DIR__ . '/schema.sql'));
 require __DIR__ . '/migrations/20261023_profile_backgrounds.php';
+require __DIR__ . '/migrations/20261024_access_policy.php';
 require __DIR__ . '/migrations/20261023_profile_backgrounds.php';
 require __DIR__ . '/profile-background-validation.php';
 $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=');
@@ -57,18 +58,18 @@ echo "PASS: missing, active and refunded licenses\n";
 $typingOwner = 999999999994;
 $pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name) VALUES (?,?,?,?,?)')
     ->execute([str_repeat('a', 32), $typingOwner, 'full-test-key', str_repeat('b', 64), 'Self-test']);
-if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: unlicensed Full device can publish typing statuses');
+if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: unlicensed Full device policy');
 $pdo->prepare("INSERT INTO licenses (telegram_id,status) VALUES (?,'active')")->execute([$typingOwner]);
 if (typingPublicKeys($pdo, $typingOwner) !== ['full-test-key']) throw new RuntimeException('FAIL: active Full device cannot publish typing statuses');
 $pdo->prepare('UPDATE licensed_devices SET revoked_at=UTC_TIMESTAMP() WHERE telegram_id=?')->execute([$typingOwner]);
-if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: revoked Full device can publish typing statuses');
+if (typingPublicKeys($pdo, $typingOwner) !== (deviceRevocationChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: revoked Full device policy');
 $pdo->prepare('UPDATE licensed_devices SET revoked_at=NULL WHERE telegram_id=?')->execute([$typingOwner]);
 $pdo->prepare("UPDATE licenses SET status='refunded' WHERE telegram_id=?")->execute([$typingOwner]);
-if (typingPublicKeys($pdo, $typingOwner) !== []) throw new RuntimeException('FAIL: refunded Full license can publish typing statuses');
+if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: refunded Full license policy');
 $pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key) VALUES (?,?,?)')
     ->execute([$typingOwner, str_repeat('c', 64), 'lite-test-key']);
-if (typingPublicKeys($pdo, $typingOwner) !== ['lite-test-key']) throw new RuntimeException('FAIL: independent Lite typing registration');
-echo "PASS: typing publication accepts only active Full devices\n";
+if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? ['lite-test-key'] : ['lite-test-key', 'full-test-key'])) throw new RuntimeException('FAIL: independent Lite typing registration');
+echo "PASS: typing publication respects license policy and device revocation\n";
 $owner = 999999999993; $viewer = 999999999992;
 $pdo->prepare('INSERT INTO profile_view_settings (telegram_id,enabled) VALUES (?,1),(?,1)')->execute([$owner, $viewer]);
 $pdo->prepare("INSERT INTO profile_views (owner_id,viewer_id,viewer_name,visited_at) VALUES (?,?,?,UTC_TIMESTAMP())")

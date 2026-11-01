@@ -58,3 +58,11 @@
 # Use -keep to explicitly keep any other classes shrinking would remove
 #-dontoptimize
 #-dontobfuscate
+
+# Python SDK calls these Java boundaries by their public names.
+-keep class org.telegram.messenger.plugins.PluginContext { public *; }
+-keep class org.telegram.messenger.plugins.PluginScope { public *; }
+-keep class org.telegram.messenger.plugins.HookBridge { public *; }
+-keep class org.telegram.messenger.plugins.HookBridge$Call { public *; }
+-keep class org.telegram.messenger.plugins.HookBridge$Probe { *; }
+-keep class de.robv.android.xposed.** { *; }

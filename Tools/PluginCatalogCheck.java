@@ -1,0 +1,74 @@
+package org.telegram.messenger.plugins;
+
+import java.nio.file.*;
+import com.google.gson.*;
+import org.telegram.messenger.plugins.PluginCatalog;
+public final class PluginCatalogCheck {
+    public static void main(String[] args) throws Exception {
+        byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
+        JsonArray entries = PluginCatalog.parse(bytes, 72379, 7237);
+        assert entries.size() == 6;
+        JsonObject dense = new JsonObject(); dense.addProperty("format", 1);
+        JsonArray denseEntries = new JsonArray(); dense.add("plugins", denseEntries);
+        for (int index = 0; index < 4; index++) {
+            JsonObject item = entries.get(0).getAsJsonObject().deepCopy();
+            JsonObject manifest = item.getAsJsonObject("manifest"); manifest.addProperty("id", "test.dense.plugin" + index);
+            manifest.add("capabilities", JsonParser.parseString("[\"hooks.raw\"]")); manifest.addProperty("requires_hook_backend", true);
+            manifest.add("bygram", JsonParser.parseString("{\"min_build\":1,\"max_build\":2147483647}"));
+            manifest.add("telegram", JsonParser.parseString("{\"min_build\":1,\"max_build\":2147483647}"));
+            JsonArray targets = new JsonArray(); manifest.add("hook_targets", targets);
+            for (int target = 0; target < 1000; target++) targets.add(JsonParser.parseString("{\"class\":\"x\",\"method\":\"m\",\"args\":[]}"));
+            denseEntries.add(item);
+        }
+        assert PluginCatalog.parse(dense.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237).size() == 4 : "valid dense index rejected";
+        JsonObject invalidManifestIndex = JsonParser.parseString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        invalidManifestIndex.getAsJsonArray("plugins").get(0).getAsJsonObject().getAsJsonObject("manifest").addProperty("entrypoint", "main.py:class");
+        assert PluginCatalog.parse(invalidManifestIndex.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237).size() == 5 : "bad manifest hid healthy plugins";
+        PluginCatalog.Request cancelled = new PluginCatalog.Request(); cancelled.close(); cancelled.close();
+        try { cancelled.check(); throw new AssertionError("cancel not honored"); }
+        catch (java.io.IOException expected) { assert expected.getMessage().equals("CatalogCancelled"); }
+        JsonObject provenanceIndex = JsonParser.parseString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject provenance = new JsonObject(); provenance.addProperty("repository", "https://github.com/bygram/example");
+        provenance.addProperty("repository_id", 1); provenance.addProperty("release_id", 2); provenance.addProperty("asset_id", 3);
+        provenance.addProperty("tag", "v" + entries.get(0).getAsJsonObject().getAsJsonObject("manifest").get("version").getAsString());
+        provenanceIndex.getAsJsonArray("plugins").get(0).getAsJsonObject().add("release", provenance);
+        assert PluginCatalog.parse(provenanceIndex.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237).size() == 6;
+        provenance.addProperty("tag", "v999.0.0");
+        try { PluginCatalog.parse(provenanceIndex.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237); throw new AssertionError("release version mismatch accepted"); }
+        catch (java.io.IOException expected) { }
+        java.io.File temporary = Files.createTempDirectory("catalog-install-").toFile();
+        try {
+            int index = 0;
+            for (JsonElement value : entries) {
+                JsonObject entry = value.getAsJsonObject();
+                byte[] data = Files.readAllBytes(Paths.get(args[0]).getParent().resolve(entry.get("file").getAsString()));
+                PluginPackage pkg = PluginCatalog.stage(entry, data, new java.io.File(temporary, "valid" + index++), 72379, 7237);
+                assert pkg.source.equals("catalog");
+                PluginStore store = new PluginStore(new java.io.File(temporary, "store" + index)); store.install(pkg);
+                assert !store.plugins().getAsJsonObject(pkg.manifest.id()).get("desired").getAsBoolean();
+                assert new PluginStore(store.root).plugins().getAsJsonObject(pkg.manifest.id()).get("source").getAsString().equals("catalog");
+                for (String field : new String[]{"sha256", "size", "manifest"}) {
+                    JsonObject changed = entry.deepCopy();
+                    if (field.equals("sha256")) changed.addProperty(field, "0".repeat(64));
+                    else if (field.equals("size")) changed.addProperty(field, data.length + 1);
+                    else changed.getAsJsonObject("manifest").addProperty("name", "Changed");
+                    try { PluginCatalog.stage(changed, data, new java.io.File(temporary, "bad" + index++), 72379, 7237); throw new AssertionError(field); }
+                    catch (java.io.IOException expected) { }
+                }
+            }
+        } finally { PluginPackage.delete(temporary); }
+        for (String field : new String[]{"file", "sha256", "size"}) {
+            JsonObject root = JsonParser.parseString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonObject entry = root.getAsJsonArray("plugins").get(0).getAsJsonObject();
+            if (field.equals("size")) entry.addProperty(field, 999999999);
+            else entry.addProperty(field, "../escape");
+            try { PluginCatalog.parse(root.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237); throw new AssertionError(field); }
+            catch (java.io.IOException expected) { }
+        }
+        for (String json : new String[]{"{\"format\":1,\"format\":1,\"plugins\":[]}", "{\"format\":1.5,\"plugins\":[]}", "{\"format\":1,\"plugins\":[],\"unknown\":true}", "[".repeat(20000)}) {
+            try { PluginCatalog.parse(json.getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237); throw new AssertionError("invalid JSON accepted"); }
+            catch (java.io.IOException expected) { }
+        }
+        System.out.println("PASS: catalog manifests, immutable paths, hash and size validation");
+    }
+}

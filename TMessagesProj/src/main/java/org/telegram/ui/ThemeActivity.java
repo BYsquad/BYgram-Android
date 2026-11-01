@@ -1467,10 +1467,10 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     int time = hourOfDay * 60 + minute;
                     if (position == scheduleFromRow) {
                         Theme.autoNightDayStartTime = time;
-                        cell.setTextAndValue(getString("AutoNightFrom", R.string.AutoNightFrom), String.format("%02d:%02d", hourOfDay, minute), true);
+                        cell.setTextAndValue(getString("AutoNightFrom", R.string.AutoNightFrom), String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", hourOfDay, minute), true);
                     } else {
                         Theme.autoNightDayEndTime = time;
-                        cell.setTextAndValue(getString("AutoNightTo", R.string.AutoNightTo), String.format("%02d:%02d", hourOfDay, minute), true);
+                        cell.setTextAndValue(getString("AutoNightTo", R.string.AutoNightTo), String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", hourOfDay, minute), true);
                     }
                 }, currentHour, currentMinute, true);
                 showDialog(dialog);
@@ -1808,10 +1808,10 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private String getLocationSunString() {
         int currentHour = Theme.autoNightSunriseTime / 60;
         int currentMinute = (Theme.autoNightSunriseTime - currentHour * 60);
-        String sunriseTimeStr = String.format("%02d:%02d", currentHour, currentMinute);
+        String sunriseTimeStr = String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", currentHour, currentMinute);
         currentHour = Theme.autoNightSunsetTime / 60;
         currentMinute = (Theme.autoNightSunsetTime - currentHour * 60);
-        String sunsetTimeStr = String.format("%02d:%02d", currentHour, currentMinute);
+        String sunsetTimeStr = String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", currentHour, currentMinute);
         return LocaleController.formatString("AutoNightUpdateLocationInfo", R.string.AutoNightUpdateLocationInfo, sunsetTimeStr, sunriseTimeStr);
     }
 
@@ -2477,11 +2477,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == scheduleFromRow) {
                         int currentHour = Theme.autoNightDayStartTime / 60;
                         int currentMinute = (Theme.autoNightDayStartTime - currentHour * 60);
-                        cell.setTextAndValue(getString("AutoNightFrom", R.string.AutoNightFrom), String.format("%02d:%02d", currentHour, currentMinute), true);
+                        cell.setTextAndValue(getString("AutoNightFrom", R.string.AutoNightFrom), String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", currentHour, currentMinute), true);
                     } else if (position == scheduleToRow) {
                         int currentHour = Theme.autoNightDayEndTime / 60;
                         int currentMinute = (Theme.autoNightDayEndTime - currentHour * 60);
-                        cell.setTextAndValue(getString("AutoNightTo", R.string.AutoNightTo), String.format("%02d:%02d", currentHour, currentMinute), false);
+                        cell.setTextAndValue(getString("AutoNightTo", R.string.AutoNightTo), String.format(org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SECONDS) ? "%02d:%02d:00" : "%02d:%02d", currentHour, currentMinute), false);
                     } else if (position == scheduleUpdateLocationRow) {
                         cell.setTextAndValue(getString("AutoNightUpdateLocation", R.string.AutoNightUpdateLocation), Theme.autoNightCityName, false);
                     } else if (position == contactsSortRow) {

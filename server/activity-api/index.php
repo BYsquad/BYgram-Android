@@ -56,18 +56,40 @@ function signaturePayload(string $raw, int $timestamp, string $nonce): string {
     return "POST\n$path\n$timestamp\n$nonce\n" . hash('sha256', $raw);
 }
 function verifyRequestSignature(string $publicKey, string $raw, int $timestamp, string $nonce): bool {
+    if (!requestSignatureChecksEnabled()) return true;
     $signature = base64_decode((string) ($_SERVER['HTTP_X_BYGRAM_SIGNATURE'] ?? ''), true);
     return $signature !== false && $timestamp > 0 && abs(time() - $timestamp) <= 60
         && preg_match('/^[a-f0-9-]{36}$/D', $nonce) === 1
         && openssl_verify(signaturePayload($raw, $timestamp, $nonce), $signature, publicKeyPem($publicKey), OPENSSL_ALGO_SHA256) === 1;
 }
+function verifyClientProof(string $publicKey, string $value, string|false $signature): bool {
+    try { $key = openssl_pkey_get_public(publicKeyPem($publicKey)); }
+    catch (InvalidArgumentException) { return false; }
+    return $key !== false && (!requestSignatureChecksEnabled()
+        || $signature !== false && openssl_verify($value, $signature, $key, OPENSSL_ALGO_SHA256) === 1);
+}
+function authorizeAccountRequest(PDO $pdo, int $userId, string $raw): void {
+    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0);
+    $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
+    $authorized = !requestSignatureChecksEnabled() && !accountConfirmationEnabled();
+    if (!$authorized) {
+        foreach (typingPublicKeys($pdo, $userId) as $publicKey) {
+            if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
+        }
+    }
+    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
+    if (requestSignatureChecksEnabled()) {
+        try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId, $nonce]); }
+        catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    }
+}
 function authenticatedSession(PDO $pdo, string $raw): array {
     $access = bearer();
-    $q = $pdo->prepare('SELECT s.id,s.telegram_id,s.device_id,d.public_key FROM activity_sessions s JOIN licensed_devices d ON d.id=s.device_id AND d.revoked_at IS NULL WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP() AND s.revoked_at IS NULL');
-    $q->execute([hash('sha256', $access)]); $session = $access === '' ? false : $q->fetch();
+    $q = $pdo->prepare('SELECT s.id,s.telegram_id,s.device_id,d.public_key FROM activity_sessions s JOIN licensed_devices d ON d.id=s.device_id WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP() AND (?=0 OR d.revoked_at IS NULL) AND (s.revoked_at IS NULL OR (?=0 AND d.revoked_at IS NOT NULL)) AND (?=0 OR d.account_confirmed=1)');
+    $q->execute([hash('sha256', $access), (int) deviceRevocationChecksEnabled(), (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled()]); $session = $access === '' ? false : $q->fetch();
     $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
     if (!$session || !verifyRequestSignature((string) $session['public_key'], $raw, $timestamp, $nonce)) jsonResponse(['ok' => false], 401);
-    try { $pdo->prepare('INSERT INTO api_nonces (session_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$session['id'], $nonce]); }
+    try { if (requestSignatureChecksEnabled()) $pdo->prepare('INSERT INTO api_nonces (session_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$session['id'], $nonce]); }
     catch (PDOException) { error_log('BYgram API replay session=' . $session['id']); jsonResponse(['ok' => false], 409); }
     $pdo->prepare('UPDATE licensed_devices SET last_seen_at=UTC_TIMESTAMP() WHERE id=?')->execute([$session['device_id']]);
     return $session;
@@ -86,13 +108,24 @@ function deviceList(PDO $pdo, int $userId): array {
 function activateDevice(PDO $pdo, array $attempt, ?string $replaceId = null): array {
     $userId = (int) $attempt['expected_user_id'];
     $pdo->beginTransaction();
-    $license = $pdo->prepare("SELECT telegram_id FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP()) FOR UPDATE");
-    $license->execute([$userId]);
-    if (!$license->fetch()) { $pdo->rollBack(); return ['ok' => true, 'state' => 'denied']; }
-    $existing = $pdo->prepare('SELECT id,telegram_id,revoked_at FROM licensed_devices WHERE key_fingerprint=? FOR UPDATE');
+    $userLock = $pdo->prepare('SELECT telegram_id FROM users WHERE telegram_id=? FOR UPDATE');
+    $userLock->execute([$userId]);
+    if (!$userLock->fetch()) { $pdo->rollBack(); return ['ok' => false]; }
+    if (licenseChecksEnabled()) {
+        $license = $pdo->prepare("SELECT telegram_id FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP()) FOR UPDATE");
+        $license->execute([$userId]);
+        if (!$license->fetch()) { $pdo->rollBack(); return ['ok' => true, 'state' => 'denied']; }
+    }
+    $existing = $pdo->prepare('SELECT id,telegram_id,revoked_at,account_confirmed FROM licensed_devices WHERE key_fingerprint=? FOR UPDATE');
     $existing->execute([$attempt['key_fingerprint']]); $sameKey = $existing->fetch();
     if ($sameKey && (int) $sameKey['telegram_id'] !== $userId) { $pdo->rollBack(); return ['ok' => false]; }
-    if ($sameKey && $sameKey['revoked_at'] === null) {
+    if ($sameKey && $sameKey['revoked_at'] !== null && deviceRevocationChecksEnabled() && empty($attempt['telegram_confirmed_at'])) {
+        $pdo->rollBack(); return ['ok' => true, 'state' => 'denied'];
+    }
+    $confirmed = !empty($attempt['telegram_confirmed_at']) || $sameKey && (bool) $sameKey['account_confirmed'];
+    if (accountConfirmationEnabled() && !$confirmed) { $pdo->rollBack(); return ['ok' => false]; }
+    if ($sameKey && ($sameKey['revoked_at'] === null || !deviceRevocationChecksEnabled())) {
+        if ($confirmed) $pdo->prepare('UPDATE licensed_devices SET account_confirmed=1 WHERE id=?')->execute([$sameKey['id']]);
         $pdo->prepare('UPDATE activity_sessions SET revoked_at=UTC_TIMESTAMP() WHERE device_id=? AND revoked_at IS NULL')->execute([$sameKey['id']]);
         $tokens = issueTokens($pdo, $userId, (string) $sameKey['id']);
         $pdo->prepare('UPDATE device_activations SET completed_at=UTC_TIMESTAMP() WHERE id=?')->execute([$attempt['id']]);
@@ -110,11 +143,11 @@ function activateDevice(PDO $pdo, array $attempt, ?string $replaceId = null): ar
     }
     $deviceId = $sameKey ? (string) $sameKey['id'] : bin2hex(random_bytes(16));
     if ($sameKey) {
-        $pdo->prepare('UPDATE licensed_devices SET public_key=?,device_name=?,created_at=UTC_TIMESTAMP(),last_seen_at=UTC_TIMESTAMP(),revoked_at=NULL WHERE id=?')
-            ->execute([$attempt['public_key'], $attempt['device_name'], $deviceId]);
+        $pdo->prepare('UPDATE licensed_devices SET public_key=?,device_name=?,account_confirmed=?,created_at=UTC_TIMESTAMP(),last_seen_at=UTC_TIMESTAMP(),revoked_at=NULL WHERE id=?')
+            ->execute([$attempt['public_key'], $attempt['device_name'], (int) $confirmed, $deviceId]);
     } else {
-        $pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name) VALUES (?,?,?,?,?)')
-            ->execute([$deviceId, $userId, $attempt['public_key'], $attempt['key_fingerprint'], $attempt['device_name']]);
+        $pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name,account_confirmed) VALUES (?,?,?,?,?,?)')
+            ->execute([$deviceId, $userId, $attempt['public_key'], $attempt['key_fingerprint'], $attempt['device_name'], (int) $confirmed]);
     }
     $tokens = issueTokens($pdo, $userId, $deviceId);
     $pdo->prepare('UPDATE device_activations SET completed_at=UTC_TIMESTAMP() WHERE id=?')->execute([$attempt['id']]);
@@ -168,17 +201,17 @@ if ($action === 'device_prove') {
     $value = (string) ($request['activation'] ?? ''); $attempt = activation($pdo, $value);
     $publicKey = (string) ($request['public_key'] ?? ''); $deviceName = trim((string) ($request['device_name'] ?? ''));
     $signature = base64_decode((string) ($request['signature'] ?? ''), true);
-    if (!$attempt || $signature === false || $deviceName === '' || mb_strlen($deviceName) > 80) jsonResponse(['ok' => false], 400);
+    if (!$attempt || $deviceName === '' || mb_strlen($deviceName) > 80) jsonResponse(['ok' => false], 400);
     $canonical = "BYGRAM_DEVICE_V1\n$value\n{$attempt['challenge']}\n{$attempt['expected_user_id']}";
-    if (openssl_verify($canonical, $signature, publicKeyPem($publicKey), OPENSSL_ALGO_SHA256) !== 1) jsonResponse(['ok' => false], 401);
+    if (!verifyClientProof($publicKey, $canonical, $signature)) jsonResponse(['ok' => false], 401);
     $fingerprint = hash('sha256', base64_decode($publicKey, true));
     $pdo->prepare('UPDATE device_activations SET public_key=?,key_fingerprint=?,device_name=?,proof_at=UTC_TIMESTAMP() WHERE id=?')
         ->execute([$publicKey, $fingerprint, mb_substr($deviceName, 0, 80), $attempt['id']]);
     // The Telegram account was already verified when this exact device key was registered.
     // A fresh proof of possession is enough to restore its session without another bot visit.
-    $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND revoked_at IS NULL');
-    $known->execute([$fingerprint, $attempt['expected_user_id']]);
-    if ($known->fetchColumn() !== false) {
+    $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND (?=0 OR revoked_at IS NULL) AND (?=0 OR account_confirmed=1)');
+    $known->execute([$fingerprint, $attempt['expected_user_id'], (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled()]);
+    if ($known->fetchColumn() !== false || !accountConfirmationEnabled() || !empty($attempt['telegram_confirmed_at'])) {
         $attempt['public_key'] = $publicKey;
         $attempt['key_fingerprint'] = $fingerprint;
         $attempt['device_name'] = mb_substr($deviceName, 0, 80);
@@ -194,23 +227,23 @@ if ($action === 'device_status' || $action === 'device_replace') {
     if ($replaceId !== null && !preg_match('/^[a-f0-9]{32}$/D', $replaceId)) jsonResponse(['ok' => false], 400);
     $signedValue = $action === 'device_replace' ? "BYGRAM_REPLACE_V1\n$value\n$replaceId" : "BYGRAM_STATUS_V1\n$value";
     $signature = base64_decode((string) ($request['signature'] ?? ''), true);
-    if ($signature === false || openssl_verify($signedValue, $signature, publicKeyPem((string) $attempt['public_key']), OPENSSL_ALGO_SHA256) !== 1) jsonResponse(['ok' => false], 401);
+    if (!verifyClientProof((string) $attempt['public_key'], $signedValue, $signature)) jsonResponse(['ok' => false], 401);
     if (!licensed((int) $attempt['expected_user_id'])) jsonResponse(['ok' => true, 'state' => 'denied']);
     if ($action === 'device_status' && !empty($attempt['key_fingerprint'])) {
-        $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND revoked_at IS NULL');
-        $known->execute([$attempt['key_fingerprint'], $attempt['expected_user_id']]);
+        $known = $pdo->prepare('SELECT id FROM licensed_devices WHERE key_fingerprint=? AND telegram_id=? AND (?=0 OR revoked_at IS NULL) AND (?=0 OR account_confirmed=1)');
+        $known->execute([$attempt['key_fingerprint'], $attempt['expected_user_id'], (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled()]);
         if ($known->fetchColumn() !== false) jsonResponse(activateDevice($pdo, $attempt));
     }
-    if (empty($attempt['telegram_confirmed_at'])) jsonResponse(['ok' => true, 'state' => 'pending_telegram', 'bot_url' => botUrl($value)]);
+    if (accountConfirmationEnabled() && empty($attempt['telegram_confirmed_at'])) jsonResponse(['ok' => true, 'state' => 'pending_telegram', 'bot_url' => botUrl($value)]);
     jsonResponse(activateDevice($pdo, $attempt, $replaceId));
 }
 if ($action === 'refresh') {
     $refresh = (string) ($request['refresh_token'] ?? '');
-    $q = $pdo->prepare('SELECT s.id,s.telegram_id,s.device_id,d.public_key FROM activity_sessions s JOIN licensed_devices d ON d.id=s.device_id AND d.revoked_at IS NULL WHERE s.refresh_hash=? AND s.refresh_expires_at>UTC_TIMESTAMP() AND s.revoked_at IS NULL');
-    $q->execute([hash('sha256', $refresh)]); $session = $refresh === '' ? false : $q->fetch();
+    $q = $pdo->prepare('SELECT s.id,s.telegram_id,s.device_id,d.public_key FROM activity_sessions s JOIN licensed_devices d ON d.id=s.device_id WHERE s.refresh_hash=? AND s.refresh_expires_at>UTC_TIMESTAMP() AND (?=0 OR d.revoked_at IS NULL) AND (s.revoked_at IS NULL OR (?=0 AND d.revoked_at IS NOT NULL)) AND (?=0 OR d.account_confirmed=1)');
+    $q->execute([hash('sha256', $refresh), (int) deviceRevocationChecksEnabled(), (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled()]); $session = $refresh === '' ? false : $q->fetch();
     $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
     if (!$session || !verifyRequestSignature((string) $session['public_key'], $raw, $timestamp, $nonce) || !licensed((int) $session['telegram_id'])) jsonResponse(['ok' => false], 401);
-    try { $pdo->prepare('INSERT INTO api_nonces (session_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$session['id'], $nonce]); }
+    try { if (requestSignatureChecksEnabled()) $pdo->prepare('INSERT INTO api_nonces (session_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$session['id'], $nonce]); }
     catch (PDOException) { jsonResponse(['ok' => false], 409); }
     $access = token();
     $pdo->prepare('UPDATE activity_sessions SET access_hash=?,access_expires_at=UTC_TIMESTAMP()+INTERVAL 1 HOUR WHERE id=?')->execute([hash('sha256', $access), $session['id']]);
@@ -237,14 +270,7 @@ if ($action === 'profile_background_put') {
     $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
     if (!$userId || $userId < 1 || !is_string($request['image'] ?? null)) jsonResponse(['ok' => false], 400);
     rateLimit($pdo, 'profile_background:' . $userId, 6);
-    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
-    $authorized = false;
-    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
-        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
-    }
-    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
-    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId, $nonce]); }
-    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    authorizeAccountRequest($pdo, (int) $userId, $raw);
     if ($request['image'] === '') {
         $pdo->prepare('DELETE FROM profile_backgrounds WHERE telegram_id=?')->execute([$userId]);
         jsonResponse(['ok' => true]);
@@ -269,7 +295,12 @@ if ($action === 'typing_register') {
     $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
     $publicKey = (string) ($request['public_key'] ?? '');
     $proof = base64_decode((string) ($request['proof'] ?? ''), true);
-    if (!$userId || $userId < 1 || $proof === false || openssl_verify("BYGRAM_TYPING_V1\n$userId", $proof, publicKeyPem($publicKey), OPENSSL_ALGO_SHA256) !== 1) jsonResponse(['ok' => false], 400);
+    if (!$userId || $userId < 1 || !verifyClientProof($publicKey, "BYGRAM_TYPING_V1\n$userId", $proof)) jsonResponse(['ok' => false], 400);
+    if (!accountConfirmationEnabled()) {
+        $fingerprint = hash('sha256', base64_decode($publicKey, true));
+        $pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key,account_confirmed) VALUES (?,?,?,0) ON DUPLICATE KEY UPDATE public_key=VALUES(public_key)')->execute([$userId, $fingerprint, $publicKey]);
+        jsonResponse(['ok' => true, 'registered' => true]);
+    }
     $activation = token();
     $pdo->prepare('INSERT INTO typing_activations (token_hash,telegram_id,public_key,expires_at) VALUES (?,?,?,UTC_TIMESTAMP()+INTERVAL 10 MINUTE)')
         ->execute([hash('sha256', $activation), $userId, $publicKey]);
@@ -286,14 +317,7 @@ if ($action === 'typing_put') {
         $value = trim(strip_tags($value));
         if ($value !== '') $statuses[(string) $key] = $value;
     }
-    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0); $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
-    $authorized = false;
-    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
-        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
-    }
-    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
-    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId,$nonce]); }
-    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    authorizeAccountRequest($pdo, (int) $userId, $raw);
     $pdo->prepare('INSERT INTO typing_statuses (telegram_id,statuses) VALUES (?,?) ON DUPLICATE KEY UPDATE statuses=VALUES(statuses)')
         ->execute([$userId,json_encode((object)$statuses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
     jsonResponse(['ok' => true]);
@@ -302,15 +326,7 @@ if (str_starts_with($action, 'profile_views_')) {
     $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
     if (!$userId || $userId < 1) jsonResponse(['ok' => false], 400);
     rateLimit($pdo, 'profile_views:' . $userId, 120);
-    $timestamp = (int) ($_SERVER['HTTP_X_BYGRAM_TIMESTAMP'] ?? 0);
-    $nonce = (string) ($_SERVER['HTTP_X_BYGRAM_NONCE'] ?? '');
-    $authorized = false;
-    foreach (typingPublicKeys($pdo, (int) $userId) as $publicKey) {
-        if (verifyRequestSignature((string) $publicKey, $raw, $timestamp, $nonce)) { $authorized = true; break; }
-    }
-    if (!$authorized) jsonResponse(['ok' => false, 'needs_registration' => true], 401);
-    try { $pdo->prepare('INSERT INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 2 MINUTE)')->execute([$userId, $nonce]); }
-    catch (PDOException) { jsonResponse(['ok' => false], 409); }
+    authorizeAccountRequest($pdo, (int) $userId, $raw);
     $pdo->prepare('DELETE FROM profile_views WHERE visited_at<UTC_TIMESTAMP()-INTERVAL 7 DAY')->execute();
     if ($action === 'profile_views_set') {
         if (!is_bool($request['enabled'] ?? null)) jsonResponse(['ok' => false], 400);
@@ -387,8 +403,19 @@ if (str_starts_with($action, 'profile_views_')) {
 
 $session = authenticatedSession($pdo, $raw); $userId = (int) $session['telegram_id'];
 rateLimit($pdo, 'session:' . $session['id'], 120);
-$license = $pdo->prepare("SELECT valid_until FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP())");
-$license->execute([$userId]); $licenseRow = $license->fetch(); $licensed = $licenseRow !== false;
+if ($action === 'plugin_submit' || $action === 'plugin_submissions') {
+    require __DIR__ . '/plugin-catalog.php';
+    try {
+        if ($action === 'plugin_submit') submitPlugin($pdo, $userId, (string) ($request['repository'] ?? ''));
+        jsonResponse(['ok' => true, 'submissions' => pluginSubmissions($pdo, $userId)]);
+    } catch (InvalidArgumentException $error) { jsonResponse(['ok' => false, 'error' => $error->getMessage()], 422); }
+}
+$licenseRow = false;
+if (licenseChecksEnabled()) {
+    $license = $pdo->prepare("SELECT valid_until FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP())");
+    $license->execute([$userId]); $licenseRow = $license->fetch();
+}
+$licensed = !licenseChecksEnabled() || $licenseRow !== false;
 if ($action === 'license') jsonResponse(['ok' => true, 'licensed' => $licensed, 'valid_until' => $licenseRow['valid_until'] ?? 0, 'manager_url' => managerUrl()]);
 if (!$licensed) jsonResponse(['ok' => false, 'licensed' => false], 403);
 

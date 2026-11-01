@@ -1,5 +1,17 @@
 # Настройки BYgram: документация разработчика
 
+01.11.2026, Android Full: [каталог плагинов и исправления SDK](../plugins/catalog-2026-11-01.md).
+
+30.10.2026: начата [разработка системы плагинов](../plugins/development-report.md).
+Строка «Плагины» и страницы менеджера пока не добавлены. Текущий шаг меняет
+совместимость установки Full (API 24+) и проверку manifest, системные страницы
+Telegram не затрагивает.
+
+31.10.2026: в Full добавлены строка «Плагины» после «Кастомизация», native список,
+карточка, SAF-установка выключенным, согласие на hash, настройки, локальный журнал,
+выбор аккаунтов и recovery. Общий header/insets сохранён. Extension points
+добавлены в BaseFragment/Theme; [проверки и ограничения](../plugins/development-report.md).
+
 Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Кастомные статусы печати работают только в Full через `BygramTypingController`, значки — через `BygramBadgeController`.
 
 ## Карта экранов
@@ -21,6 +33,7 @@
 
 ## Документы
 
+- [Плагины Android: проект отдельной страницы, движка и SDK, 30.10.2026](../plugins/README.md) — план, пока не реализовано.
 - [Новый аудит iOS: дизайн настроек и текущие различия с Android, 16.10.2026](../../../BYgram-ios/docs/bygram-ios-design-and-feature-audit-2026-10-16.md)
 - [Независимая повторная проверка переноса настроек Android → iOS, 16.10.2026](ios-settings-audit-2026-10-16.md)
 - [Конфигурация, ключи, экспорт и сброс](configuration.md)
@@ -62,3 +75,6 @@
 Privacy-функции должны быть opt-in, не отправлять данные до действия пользователя и не логировать message text, viewer list или tokens. Основной package всегда `com.bygram.mobile`; instrumentation package `com.bygram.mobile.test` является только тестовым package.
 
 При изменениях актуализируйте эту директорию и `docs/readme.md`.
+
+
+31.10.2026 — завершение текущего BYgram SDK P0–P8: native lifecycle, recovery/update, scoped accounts, composer preview, страницы и проверки. Актуальный протокол: [приёмка плагинов](../plugins/completion-2026-10-31.md). Системная граница Full account events повторно сверяет auth identity; core Telegram UI этим проходом не переписан.

@@ -78,7 +78,7 @@ public class LocaleController {
 
     private volatile FastDateFormat formatterDay;
     public FastDateFormat getFormatterDay() {
-        if (BygramConfig.getBoolean("bygram_seconds")) return getFormatterDayWithSeconds();
+        if (BygramConfig.getBoolean(BygramConfig.SECONDS)) return getFormatterDayWithSeconds();
         if (formatterDay == null) {
             synchronized (this) {
                 if (formatterDay == null) {
@@ -1445,6 +1445,8 @@ public class LocaleController {
     }
 
     private String getStringInternal(String key, String fallback, int res) {
+        if (!BuildConfig.BYGRAM_FULL && (res == R.string.AppName || res == R.string.AppNameBeta
+                || "AppName".equals(key) || "AppNameBeta".equals(key))) return "Telegram";
         final String value = getStringV2(key, res, fallback);
         if (value == null) {
             return "LOC_ERR:" + key;
@@ -2659,6 +2661,10 @@ public class LocaleController {
     private FastDateFormat createFormatter(Locale locale, String format, String defaultFormat) {
         if (format == null || format.length() == 0) {
             format = defaultFormat;
+        }
+        if (BygramConfig.getBoolean(BygramConfig.SECONDS)) {
+            format = BygramTimeFormat.withSeconds(format);
+            defaultFormat = BygramTimeFormat.withSeconds(defaultFormat);
         }
         FastDateFormat formatter;
         try {

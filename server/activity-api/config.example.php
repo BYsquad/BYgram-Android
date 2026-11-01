@@ -2,6 +2,10 @@
 declare(strict_types=1);
 
 return [
+    'license_checks_enabled' => false,
+    'account_confirmation_enabled' => false,
+    'request_signature_checks_enabled' => false,
+    'device_revocation_checks_enabled' => false,
     'db_dsn' => 'mysql:host=127.0.0.1;port=3306;dbname=bygram;charset=utf8mb4',
     'db_user' => 'bygram',
     'db_password' => 'replace-me',

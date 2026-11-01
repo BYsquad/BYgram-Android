@@ -1,0 +1,98 @@
+--- a/lsplant/src/main/jni/common.cxx
++++ b/lsplant/src/main/jni/common.cxx
+@@ -102,6 +102,10 @@
+ 
+ SharedHashMap<art::ArtMethod *, std::pair<jobject, art::ArtMethod *>> hooked_methods_;
+ 
++// Save the valid JNI ID before BackupTo transplants the declaring class.
++SharedHashMap<art::ArtMethod *, jmethodID> backup_method_ids_;
++SharedHashMap<art::ArtMethod *, uint32_t> original_access_flags_;
++
+ SharedHashMap<const art::dex::ClassDef *, phmap::flat_hash_set<art::ArtMethod *>> hooked_classes_;
+ 
+ SharedHashSet<art::ArtMethod *> deoptimized_methods_set_;
+--- a/lsplant/src/main/jni/lsplant.cc
++++ b/lsplant/src/main/jni/lsplant.cc
+@@ -694,7 +694,7 @@
+     return address_ptr;
+ }
+ 
+-bool DoHook(ArtMethod *target, ArtMethod *hook, ArtMethod *backup) {
++bool DoHook(ArtMethod *target, ArtMethod *hook, ArtMethod *backup, uint32_t &original_flags) {
+     ScopedGCCriticalSection section(art::Thread::Current(), art::gc::kGcCauseDebugger,
+                                     art::gc::kCollectorTypeDebugger);
+     ScopedSuspendAll suspend("LSPlant Hook", false);
+@@ -708,6 +708,7 @@
+     } else {
+         LOGV("Generated trampoline %p", entrypoint);
+ 
++        original_flags = target->GetAccessFlags();
+         target->SetNonIntrinsic();
+ 
+         target->BackupTo(backup);
+@@ -724,15 +725,14 @@
+     }
+ }
+ 
+-bool DoUnHook(ArtMethod *target, ArtMethod *backup) {
++bool DoUnHook(ArtMethod *target, ArtMethod *backup, uint32_t original_flags) {
+     ScopedGCCriticalSection section(art::Thread::Current(), art::gc::kGcCauseDebugger,
+                                     art::gc::kCollectorTypeDebugger);
+     ScopedSuspendAll suspend("LSPlant Hook", false);
+     LOGV("Unhooking: target = %p, backup = %p", target, backup);
+-    auto access_flags = target->GetAccessFlags();
+     auto *entry_point = target->GetEntryPoint();
+     target->CopyFrom(backup);
+-    target->SetAccessFlags(access_flags);
++    target->SetAccessFlags(original_flags);
+     if (auto *start = __builtin_align_down(entry_point, kPageSize); executable_memory_recycler &&
+                                                                     !mmap_regions.contains(start) &&
+                                                                     !dual_regions.contains(start)) {
+@@ -891,7 +891,8 @@
+ 
+     JNI_SetStaticObjectField(env, built_class, hooker_field, hooker_object);
+ 
+-    if (DoHook(target, hook, backup)) {
++    uint32_t original_flags = 0;
++    if (DoHook(target, hook, backup, original_flags)) {
+         std::apply(
+             [backup_method, target_method_id = env->FromReflectedMethod(target_method)](auto... v) {
+                 ((*v == target_method_id &&
+@@ -901,6 +902,8 @@
+             kInternalMethods);
+         jobject global_backup = JNI_NewGlobalRef(env, reflected_backup);
+         RecordHooked(target, target->GetDeclaringClass()->GetClassDef(), global_backup, backup);
++        backup_method_ids_.insert({backup, backup_method});
++        original_access_flags_.insert({backup, original_flags});
+         if (!is_proxy) [[likely]] {
+             RecordJitMovement(target, backup);
+         } else {
+@@ -938,9 +941,17 @@
+         it.second.erase(target);
+         return it.second.empty();
+     });
+-    auto *backup_method = env->FromReflectedMethod(reflected_backup);
+-    env->DeleteGlobalRef(reflected_backup);
+-    if (DoUnHook(target, backup)) {
++    jmethodID backup_method = nullptr;
++    backup_method_ids_.erase_if(backup, [&backup_method](const auto &it) {
++        backup_method = it.second;
++        return true;
++    });
++    uint32_t original_flags = target->GetAccessFlags();
++    original_access_flags_.erase_if(backup, [&original_flags](const auto &it) {
++        original_flags = it.second; return true;
++    });
++    if (DoUnHook(target, backup, original_flags)) {
++        env->DeleteGlobalRef(reflected_backup);
+         std::apply(
+             [backup_method, target_method_id = env->FromReflectedMethod(target_method)](auto... v) {
+                 ((*v == backup_method && (LOGD("Propagate internal used method because of unhook"),
+@@ -950,6 +961,7 @@
+             kInternalMethods);
+         return true;
+     }
++    env->DeleteGlobalRef(reflected_backup);
+     return false;
+ }
+ 

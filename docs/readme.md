@@ -1,6 +1,17 @@
 # Документация разработчика BYgram
 
+01.11.2026, Android Full: [каталог плагинов и исправления SDK](plugins/catalog-2026-11-01.md).
+
 ## Android-клиент
+
+30.10.2026: начата [реализация плагинов](plugins/development-report.md): Full minSdk 24,
+Lite 23, Full-only проверка manifest. Движок/страница ещё не готовы; системные
+страницы Telegram в этом шаге не менялись.
+
+31.10.2026: реализован прототип менеджера/runtime/SDK и recovery;
+[реальные контракты](plugins/sdk-v1.md), [ход приёмки](plugins/development-report.md).
+Изменены startup/resume, события BaseFragment, Java color lookup и меню
+диалогов/профиля/чата; аппаратные гарантии ограничены фактической матрицей отчёта.
 
 14.10.2026: в выборе иконки оставлены BYgram (по умолчанию, `logo-new.png`) и Telegram; MD3-переключатели используют официальный `MaterialSwitch` с цветами темы Telegram. Статусы печати перенесены в «Кастомизацию», оформлены общие поля PIN/пароля/статуса, исправлены геометрия MD3-переключателей, стандартный стиль слайдера и согласование формы аватаров с реакциями и заголовком чата. Подробности — в [документе кастомизации](bygram-settings/customization.md).
 
@@ -15,6 +26,7 @@
 - [Инструкция по сборке](build.md)
 - [Редакции Lite и Full и привязка устройств](full-edition-device-licensing.md)
 - [Функции раздела «Настройки BYgram»](bygram-settings/README.md)
+- [Система плагинов Android: план реализации и проект SDK, 30.10.2026](plugins/README.md)
 - [Повторная проверка переноса настроек Android → iOS, 16.10.2026](bygram-settings/ios-settings-audit-2026-10-16.md)
 - [Статус переноса функций в Windows-клиент](bygram-settings/desktop-port-status.md)
 - [Проверка Windows Debug и исправления от 30.09.2026](bygram-settings/desktop-debug-audit-2026-09-30.md)
@@ -67,3 +79,6 @@ Release Lite собран командой из [инструкции](build.md)
 - Не уменьшайте версии KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
 - После изменения функций обновите соответствующий документ и минимальную runnable-проверку.
 - При публикации релиза обновите metadata и страницу скачивания APK.
+
+
+31.10.2026 — завершение текущего BYgram SDK P0–P8: native lifecycle, recovery/update, scoped accounts, composer preview, страницы и проверки. Актуальный протокол: [plugins/completion-2026-10-31.md](plugins/completion-2026-10-31.md). Системная граница Full account events повторно сверяет auth identity; core Telegram UI этим проходом не переписан.

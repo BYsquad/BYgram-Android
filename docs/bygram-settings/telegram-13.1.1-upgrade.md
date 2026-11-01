@@ -83,4 +83,26 @@ BYgram. Список пересечений: `output/telegram-13.1.1-overlap-aud
 пустой профиль, музыка, активность, баланс, кастомная музыка, скрытые кнопки.
 Дополнительно проверяет перенос брендинга и все новые вызовы виброотклика.
 
-Остальные проверки, результат сборки и ограничения будут записаны после завершения.
+Пройдены проверки:
+
+- Все 11 upstream-коммитов — предки HEAD; все 19 gitlinks совпадают с target.
+- `settings_fixes`: 55 контрактов; `spy_retention`: 18 JVM-сценариев.
+- `md3_geometry`, `profile_activity`, `no_ads`, `editions`.
+- `local_activity`, `spy_deletions`, `profile_scroll`, `profile_section_glass`.
+- `settings_layout`, `push_completion`, `settings_header_clear`, `page_headers`.
+- `BygramTextCheck`: Unicode/Zalgo/entities/bidi, PASS.
+- `BygramSettingsLinkCheck`: 91 ссылок и некорректные/private targets, PASS.
+- `BygramMessageParamsCheck`: legacy Spy, кошелёк, время удаления, reload/copy, PASS.
+- `BygramEditMediaCheck`: фото/документы/InstantPage, reload, PASS. Как и до
+  обновления, JVM со stub `android.jar` печатает `Looper.prepare: Stub!` в
+  фоновой очереди; это не проверка Android-очередей, основной тест успешен.
+
+Первый проход компиляции выявил дублирующийся `SettingsActivity.onResume`
+после автослияния; методы объединены. Две некорректные ссылки в параллельно
+редактируемом предпросмотре BYgram также исправлены в рабочем дереве.
+Повторная Java-компиляция дошла до генерации классов без ошибок Java, но Gradle
+завершился ошибкой хеширования исчезающего `.class`: другой процесс одновременно
+пересобирал тот же каталог. Изменения Gradle-конфигурации для обхода этой гонки
+не вносились. Нативная часть проверяется отдельной задачей без упаковки APK.
+
+Результат итоговой сборки и проверки на эмуляторе будет записан после завершения.

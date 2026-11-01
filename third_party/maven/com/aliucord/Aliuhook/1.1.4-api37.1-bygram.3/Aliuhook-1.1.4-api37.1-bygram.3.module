@@ -1,0 +1,58 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.aliucord",
+    "module": "Aliuhook",
+    "version": "1.1.4-api37.1-bygram.3",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "Aliuhook-1.1.4-api37.1-bygram.3.aar",
+          "url": "Aliuhook-1.1.4-api37.1-bygram.3.aar",
+          "size": 2693875,
+          "sha512": "b918d2a53ac53b0d8e32f0be6a1a316ccb0e927ccb0e3e54f8433c4c876086ad0894d80712819381416e3f024c1077f9abe0f751dd2a5dab2003dd0ac6952dd7",
+          "sha256": "78827e37214b11b5ec4aa3e2e4afaabd28a9f1503c47c18294f2060b6c9d33f3",
+          "sha1": "b0c0766b6ba195edf290696a6f58eeb8b56aeb88",
+          "md5": "a378718ee79e924687c2a4db9c4d2147"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "Aliuhook-1.1.4-api37.1-bygram.3.aar",
+          "url": "Aliuhook-1.1.4-api37.1-bygram.3.aar",
+          "size": 2693875,
+          "sha512": "b918d2a53ac53b0d8e32f0be6a1a316ccb0e927ccb0e3e54f8433c4c876086ad0894d80712819381416e3f024c1077f9abe0f751dd2a5dab2003dd0ac6952dd7",
+          "sha256": "78827e37214b11b5ec4aa3e2e4afaabd28a9f1503c47c18294f2060b6c9d33f3",
+          "sha1": "b0c0766b6ba195edf290696a6f58eeb8b56aeb88",
+          "md5": "a378718ee79e924687c2a4db9c4d2147"
+        }
+      ]
+    }
+  ]
+}

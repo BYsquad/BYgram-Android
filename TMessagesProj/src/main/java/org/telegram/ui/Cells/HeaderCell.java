@@ -33,6 +33,14 @@ import java.util.ArrayList;
 
 public class HeaderCell extends FrameLayout {
 
+    @Override
+    protected void dispatchDraw(android.graphics.Canvas canvas) {
+        if (org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SEPARATE_HEADERS)) {
+            canvas.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
+        }
+        super.dispatchDraw(canvas);
+    }
+
     public int id;
 
     protected int padding;

@@ -233,9 +233,23 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
         @Override
         public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
             super.onInitializeAccessibilityNodeInfo(host, info);
-            if (host.isEnabled()) {
+            if (host.isEnabled() && (onItemClickListener != null || onItemClickListenerExtended != null)) {
+                info.setClickable(true);
                 info.addAction(AccessibilityNodeInfo.ACTION_CLICK);
             }
+        }
+        @Override
+        public boolean performAccessibilityAction(View host, int action, android.os.Bundle arguments) {
+            if (action == AccessibilityNodeInfo.ACTION_CLICK && host.isEnabled()
+                    && (onItemClickListener != null || onItemClickListenerExtended != null)) {
+                int position = getChildAdapterPosition(host);
+                if (position != NO_POSITION) {
+                    clickItem(host, position);
+                    host.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
+                    return true;
+                }
+            }
+            return super.performAccessibilityAction(host, action, arguments);
         }
     };
 
@@ -3262,6 +3276,7 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     private Utilities.Callback5<Canvas, RectF, Float, Float, Float> drawSectionBackground;
     public ArrayList<Long> forcedSections;
     private float sectionRadius;
+    private float defaultSectionRadius;
     private float[] sectionRadiusTop, sectionRadiusBottom;
     public boolean applyPaddingToSections = false;
 
@@ -3337,9 +3352,14 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
         boolean topPadding
     ) {
         setSelectorDrawableColor(getThemedColor(Theme.key_settings_listSelector));
+        final Utilities.CallbackReturn<View, Boolean> sectionPredicate = isSectionView;
+        isSectionView = view -> !(view instanceof org.telegram.ui.Cells.HeaderCell
+                && org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SEPARATE_HEADERS))
+                && sectionPredicate.run(view);
         this.isViewTypeSection = isViewTypeSection;
+        defaultSectionRadius = roundRadius;
         int bygramRadius = org.telegram.messenger.BygramConfig.getInt("bygram_section_radius", -1);
-        if (bygramRadius >= 0) roundRadius = dp(Math.min(32, bygramRadius));
+        if (bygramRadius >= 0) roundRadius = dp(Math.min(28, bygramRadius));
         this.sectionRadius = roundRadius;
         this.sectionRadiusTop = new float[] {
             roundRadius, roundRadius,
@@ -3477,6 +3497,12 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     }
     public void drawSectionsBackgrounds(Canvas canvas) {
         if (drawSectionBackground == null) return;
+        int configuredRadius = org.telegram.messenger.BygramConfig.getInt(org.telegram.messenger.BygramConfig.SECTION_RADIUS, -1);
+        float radius = configuredRadius < 0 ? defaultSectionRadius : dp(Math.min(28, configuredRadius));
+        if (sectionRadius != radius) {
+            sectionRadius = radius;
+            for (int i = 0; i < 4; i++) sectionRadiusTop[i] = sectionRadiusBottom[i + 4] = radius;
+        }
 
         if (isAnimating()) {
             if (sections == null) {

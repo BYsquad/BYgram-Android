@@ -3030,8 +3030,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private void updateBygramTitle() {
         if (actionBar == null || onlySelect || folderId != 0 || communityId != 0 || searchString != null) return;
         actionBar.setTitle(BygramConfig.dialogsTitle(currentAccount), statusDrawable);
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
         int position = BygramConfig.getInt(BygramConfig.TITLE_POSITION, 0);
-        actionBar.setTitleGravity(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT);
+        actionBar.setTitleGravityInGlass(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT);
     }
 
     public void updateStatus(TLRPC.User user, boolean animated) {
@@ -3457,6 +3458,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 return !actionBar.isActionModeShowed() && databaseMigrationHint == null;// && !rightSlidingDialogContainer.hasFragment();
             }
         }));
+        fragmentSearchField.bygramSnowEnabled = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0;
         fragmentSearchField.setSearchFiltersListener(new FragmentSearchField.SearchFiltersListener() {
             @Override
             public void onSearchFilterCleared(FiltersView.MediaFilterData filterData) {
@@ -5221,6 +5223,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             private final BlurredBackgroundDrawable storiesBackground = glassFactory().create(this,
                     BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(23)).setPadding(dp(6));
             private float lastStoriesRadius = -1f;
+            private final org.telegram.ui.Components.BygramSnowEffect snow = new org.telegram.ui.Components.BygramSnowEffect();
 
             @Override
             protected void dispatchDraw(Canvas canvas) {
@@ -5234,6 +5237,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     // Keep the drawable's vertical padding as gaps to the header and search field.
                     storiesBackground.setBounds(0, 0, getWidth(), getHeight() - dp(2));
                     storiesBackground.draw(canvas);
+                    AndroidUtilities.rectTmp.set(storiesBackground.getBounds());
+                    snow.draw(this, canvas, BygramConfig.SNOW_HEADER, AndroidUtilities.rectTmp, dp(23));
                 }
                 super.dispatchDraw(canvas);
             }
@@ -6996,7 +7001,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     viewPages[a].listView.setScrollingTouchSlop(RecyclerView.TOUCH_SLOP_PAGING);
                 }
                 filterTabsView.finishAddingTabs(animatedUpdateItems);
-                if (hideDefaultTab && filterTabsView.getCurrentTabId() == filterTabsView.getDefaultTabId()) {
+                if (hideDefaultTab && !filterTabsView.hasTab(filterTabsView.getCurrentTabId())) {
                     filterTabsView.selectFirstTab();
                     viewPages[0].selectedType = filterTabsView.getCurrentTabId();
                     updateCurrentTab = true;
@@ -7009,6 +7014,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         } else {
+            if (filterTabsView.getDefaultTabId() < 0) {
+                filterTabsView.removeTabs();
+                filterTabsView.resetTabId();
+                filterTabsView.addTab(0, 0, LocaleController.getString(R.string.FilterAllChats), null, false, true, false);
+                filterTabsView.finishAddingTabs(false);
+            }
             if (filterTabsView.getVisibility() != View.GONE) {
                 filterTabsView.setIsEditing(false);
                 showDoneItem(false);

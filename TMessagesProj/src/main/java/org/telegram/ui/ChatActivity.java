@@ -865,6 +865,7 @@ public class ChatActivity extends BaseFragment implements
     private boolean bygramDestroyed;
 
     private void updateBygramVideoWallpaper() {
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
         if (contentView == null || bygramDestroyed) return;
         org.telegram.ui.Components.BygramVideoWallpaper previous = bygramVideoWallpaper;
         File file = org.telegram.ui.Components.BygramVideoWallpaper.file(currentAccount, dialog_id);
@@ -875,13 +876,14 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public String getBygramActivitySubtitle() {
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return "";
         if (bygramGroupActivity != null && !bygramGroupActivity.text().isEmpty()) return bygramGroupActivity.text();
         return System.currentTimeMillis() - bygramRemoteActivityTime < 60_000 ? bygramRemoteActivity : "";
     }
     private final Runnable bygramActivityRunnable = new Runnable() {
         @Override
         public void run() {
-            if (paused) return;
+            if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL || paused) return;
             if (currentUser != null && currentUser.id != getUserConfig().getClientUserId()
                     && (bygramGroupActivity == null || bygramGroupActivity.loaded() && bygramGroupActivity.text().isEmpty())) {
                 BygramActivityController.get(currentAccount, currentUser.id, activity -> {
@@ -4654,8 +4656,10 @@ public class ChatActivity extends BaseFragment implements
             if (themeDelegate.isThemeChangeAvailable(true)) {
                 headerItem.lazilyAddSubItem(change_colors, R.drawable.msg_background, LocaleController.getString(R.string.SetWallpapers));
             }
-            headerItem.lazilyAddSubItem(28001, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaper));
-            headerItem.lazilyAddSubItem(28002, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaperReset));
+            if (org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
+                headerItem.lazilyAddSubItem(28001, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaper));
+                headerItem.lazilyAddSubItem(28002, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaperReset));
+            }
             if (currentUser != null && currentUser.self && getDialogId() != UserObject.VERIFY) {
                 headerItem.lazilyAddSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
             }
@@ -30328,7 +30332,7 @@ public class ChatActivity extends BaseFragment implements
         paused = false;
         pausedOnLastMessage = false;
         updateBygramVideoWallpaper();
-        if (currentUser != null && !currentUser.bot && !currentUser.self && currentEncryptedChat == null && chatMode == MODE_DEFAULT) {
+        if (org.telegram.messenger.BuildConfig.BYGRAM_FULL && currentUser != null && !currentUser.bot && !currentUser.self && currentEncryptedChat == null && chatMode == MODE_DEFAULT) {
             if (bygramGroupActivity != null) bygramGroupActivity.stop();
             bygramGroupActivity = new org.telegram.messenger.BygramGroupActivity(currentAccount, currentUser.id, classGuid, () -> {
                 if (!paused && avatarContainer != null) avatarContainer.updateSubtitle();
@@ -33884,7 +33888,7 @@ public class ChatActivity extends BaseFragment implements
                             return MediaController.getInstance().playMessage(message, muted);
                         }
                     };
-                    java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault());
+                    java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat(BygramConfig.getBoolean(BygramConfig.SECONDS) ? "dd.MM.yyyy HH:mm:ss" : "dd.MM.yyyy HH:mm", java.util.Locale.getDefault());
                     for (MessageObject version : history) {
                         TextView date = new TextView(getContext());
                         date.setText(formatter.format(new java.util.Date(version.messageOwner.date * 1000L)));

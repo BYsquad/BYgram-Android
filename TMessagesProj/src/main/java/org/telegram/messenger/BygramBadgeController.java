@@ -44,6 +44,7 @@ public final class BygramBadgeController {
     }
 
     private static boolean hasBadge(String type, long id) {
+        if (!BuildConfig.BYGRAM_FULL) return false;
         if (id <= 0) return false;
         if (!restored) {
             restored = true;

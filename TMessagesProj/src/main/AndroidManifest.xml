@@ -111,13 +111,28 @@
         android:enableOnBackInvokedCallback="true"
     >
         <!-- usesCleartextTraffic for browser supporting opening http:// links -->
+        <service android:name="org.telegram.messenger.plugins.PluginBackendProbe"
+            android:enabled="${bygramPluginsEnabled}" android:exported="false" android:process=":plugin_probe" />
+        <activity android:name="org.telegram.messenger.plugins.PluginDiagnosticActivity"
+            android:enabled="${bygramPluginDiagnosticsEnabled}" android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="org.telegram.messenger.PluginRecovery"
+            android:enabled="${bygramPluginsEnabled}"
+            android:exported="true" android:process=":plugin_recovery"
+            android:label="@string/BygramPluginRecoveryTitle"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <activity-alias
             android:enabled="true"
             android:name="org.telegram.messenger.DefaultIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
-            android:icon="@drawable/bygram_logo_new"
-            android:roundIcon="@drawable/bygram_logo_new"
+            android:icon="@drawable/bygram_launcher_icon"
+            android:roundIcon="@drawable/bygram_launcher_icon"
             android:exported="true">
 
             <intent-filter>
@@ -132,8 +147,8 @@
             android:enabled="false"
             android:name="org.telegram.messenger.VintageIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
-            android:icon="@drawable/bygram_logo_new"
-            android:roundIcon="@drawable/bygram_logo_new"
+            android:icon="@drawable/bygram_launcher_icon"
+            android:roundIcon="@drawable/bygram_launcher_icon"
             android:exported="true">
 
             <intent-filter>

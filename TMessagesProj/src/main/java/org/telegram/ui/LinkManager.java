@@ -325,6 +325,11 @@ public class LinkManager {
     }
 
     private boolean handleBygramSettings(Uri uri) {
+        if (!BuildConfig.BYGRAM_FULL) {
+            presentFragment(new SettingsActivity());
+            done();
+            return true;
+        }
         if (getUserConfig().isClientActivated()) {
             BygramSettingsLink target = BygramSettingsLink.parse(uri.getQueryParameter("s"));
             // Unknown or unavailable destinations fall back to the settings overview.

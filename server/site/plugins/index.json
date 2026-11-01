@@ -1,0 +1,169 @@
+{
+  "format": 1,
+  "plugins": [
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.hello",
+        "name": "Hello BYgram",
+        "description": "A reversible toolbar menu with native settings",
+        "version": "1.0.0",
+        "author": "BYgram SDK example",
+        "entrypoint": "main.py:HelloPlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "ui"
+        ],
+        "account_scope": "global",
+        "settings_schema": 1
+      },
+      "sha256": "18800a2484ae50ff5b86e1dbc132a863bd4d004c2e5344e7bce96905b3d78456",
+      "size": 742,
+      "file": "18800a2484ae50ff5b86e1dbc132a863bd4d004c2e5344e7bce96905b3d78456.byplugin"
+    },
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.theme",
+        "name": "BYgram theme example",
+        "description": "Reversible action bar title color",
+        "version": "1.0.0",
+        "author": "BYgram SDK example",
+        "entrypoint": "main.py:ThemePlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "theme"
+        ],
+        "account_scope": "global",
+        "settings_schema": 1
+      },
+      "sha256": "7683ffb765525296cf322009c2f509082ef929a0c2607d127f6802cea3f6894f",
+      "size": 572,
+      "file": "7683ffb765525296cf322009c2f509082ef929a0c2607d127f6802cea3f6894f.byplugin"
+    },
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.events",
+        "name": "BYgram event example",
+        "description": "Observe native page lifecycle without reading messages",
+        "version": "1.0.0",
+        "author": "BYgram SDK example",
+        "entrypoint": "main.py:EventPlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "ui"
+        ],
+        "account_scope": "global",
+        "settings_schema": 1
+      },
+      "sha256": "3096f2e0e2b21a65d3117d420c1e21ea068c0be608745e08711966a7098ff8fd",
+      "size": 604,
+      "file": "3096f2e0e2b21a65d3117d420c1e21ea068c0be608745e08711966a7098ff8fd.byplugin"
+    },
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.accounts",
+        "name": "Account event example",
+        "description": "Choose an allowed account from its dialogs menu to observe page events",
+        "author": "BYgram SDK example",
+        "version": "1.0.0",
+        "entrypoint": "main.py:AccountPlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "ui"
+        ],
+        "account_scope": "selected_accounts",
+        "settings_schema": 1
+      },
+      "sha256": "101c3783863813e991ec37ea9c13be853939b4b3e0ddab44e7d9f27371bb1fc1",
+      "size": 821,
+      "file": "101c3783863813e991ec37ea9c13be853939b4b3e0ddab44e7d9f27371bb1fc1.byplugin"
+    },
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.hooks",
+        "name": "Hook probe example",
+        "description": "Changes only the synthetic SDK probe, never a Telegram method",
+        "author": "BYgram SDK example",
+        "version": "1.0.0",
+        "entrypoint": "main.py:HookPlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "hooks.raw"
+        ],
+        "account_scope": "global",
+        "settings_schema": 1,
+        "requires_hook_backend": true,
+        "bygram": {
+          "min_build": 72379,
+          "max_build": 72379
+        },
+        "telegram": {
+          "min_build": 7237,
+          "max_build": 7237
+        },
+        "hook_targets": [
+          {
+            "class": "org.telegram.messenger.plugins.HookBridge$Probe",
+            "method": "value",
+            "args": [
+              "int"
+            ]
+          }
+        ]
+      },
+      "sha256": "2103160c7b24c221c62f2a77a7f6551de005ee17f220afce783b89c4d20fe6f3",
+      "size": 786,
+      "file": "2103160c7b24c221c62f2a77a7f6551de005ee17f220afce783b89c4d20fe6f3.byplugin"
+    },
+    {
+      "manifest": {
+        "manifest_version": 1,
+        "id": "dev.bygram.composer",
+        "name": "Draft uppercase",
+        "description": "Preview an uppercase draft in the current chat, then apply explicitly.",
+        "version": "1.0.0",
+        "author": "BYgram SDK example",
+        "entrypoint": "main.py:ComposerPlugin",
+        "sdk": {
+          "min": 1,
+          "max": 1
+        },
+        "python": "3.11",
+        "capabilities": [
+          "ui",
+          "messages.observe",
+          "messages.send"
+        ],
+        "account_scope": "selected_accounts",
+        "settings_schema": 1
+      },
+      "sha256": "d4d5b89712de339292ba6de7bb388a665a9cc9608de4568c244a5537308889ad",
+      "size": 709,
+      "file": "d4d5b89712de339292ba6de7bb388a665a9cc9608de4568c244a5537308889ad.byplugin"
+    }
+  ]
+}

@@ -1091,6 +1091,10 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
         updateColors(holder);
     }
 
+    public void updateColors() {
+        for (int i = 0; i < listView.getChildCount(); i++) updateColors(listView.getChildViewHolder(listView.getChildAt(i)));
+    }
+
     private void updateColors(RecyclerView.ViewHolder holder) {
         if (holder.itemView instanceof Theme.Colorable) {
             ((Theme.Colorable) holder.itemView).updateColors();
