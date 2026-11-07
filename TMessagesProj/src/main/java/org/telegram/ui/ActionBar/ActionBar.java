@@ -9,7 +9,6 @@
 package org.telegram.ui.ActionBar;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
-import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.find;
 import static org.telegram.messenger.AndroidUtilities.lerp;
 import static org.telegram.messenger.LocaleController.getString;
@@ -31,7 +30,6 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
-import android.os.Build;
 import android.text.SpannableString;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -45,7 +43,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
-import android.view.ViewTreeObserver;
 import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -56,10 +53,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
-import org.telegram.messenger.LiteMode;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
-import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.BackupImageView;
@@ -75,9 +70,6 @@ import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProvider;
-import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProviderBuilder;
-import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
-import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
 import org.telegram.ui.MainTabsLayout;
 
 import java.util.ArrayList;
@@ -99,7 +91,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private BlurredBackgroundDrawable glassDrawable;
-    private float lastGlassAvatarRadius = -1f;
     private BlurredBackgroundDrawable glassDrawableBack;
     private BlurredBackgroundDrawable glassDrawableMenu;
     private INavigationLayout.BackButtonState backButtonState = INavigationLayout.BackButtonState.BACK;
@@ -206,14 +197,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     private boolean glassMode;
     private boolean glassOnlyBack;
     private boolean glassModeIsForum;
-    private BlurredBackgroundSourceColor pageGlassColor;
-    private android.graphics.drawable.GradientDrawable pageBackgroundShade;
-    private BlurredBackgroundSourceRenderNode pageGlassSource;
-    private final int[] pageGlassPosition = new int[2];
-    private final int[] pageGlassRootPosition = new int[2];
-    private final ViewTreeObserver.OnScrollChangedListener pageGlassScrollListener = () -> {
-        if (pageGlassColor != null) invalidate();
-    };
 
     private ChatAvatarContainer chatAvatarContainer;
 
@@ -232,8 +215,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     public void setupGlass(BlurredBackgroundDrawableViewFactory factory,
                            BlurredBackgroundColorProvider colorProvider,
                            boolean isForum) {
-        pageGlassColor = null;
-        pageGlassSource = null;
         setBackground(null);
         setClipChildren(false);
         glassMode = true;
@@ -242,8 +223,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassDrawable = factory.create(this)
             .setColorProvider(colorProvider)
             .setPadding(dp(6));
-        glassDrawable.setRadius(dp(23));
-        lastGlassAvatarRadius = -1f;
+        if (isForum) {
+            glassDrawable.setRadius(dp(18.33f), dp(23), dp(23), dp(18.33f));
+        } else {
+            glassDrawable.setRadius(dp(23));
+        }
+
 
 
         glassDrawableBack = factory.create(this)
@@ -267,129 +252,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
         if (backButtonImageView != null) {
             backButtonImageView.setTranslationX(dp(2));
-        }
-    }
-
-    private void setupPageGlass() {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
-        if (glassMode || parentFragment == null) {
-            return;
-        }
-        BlurredBackgroundSourceColor color = new BlurredBackgroundSourceColor();
-        color.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-        BlurredBackgroundSourceRenderNode source = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SharedConfig.canBlurChat()) {
-            source = new BlurredBackgroundSourceRenderNode(color);
-            source.setUnderSource(color);
-            source.setBlur(dp(8));
-        }
-        BlurredBackgroundDrawableViewFactory factory = new BlurredBackgroundDrawableViewFactory(source != null ? source : color);
-        factory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
-        setupGlass(factory, new BlurredBackgroundProviderBuilder(resourcesProvider)
-            .setBackgroundColor((r, dark) -> {
-                int colorBackground = actionBarColor != Color.TRANSPARENT
-                    ? actionBarColor : Theme.getColor(Theme.key_actionBarDefault, r);
-                if (actionBarColor == Color.TRANSPARENT
-                        && ColorUtils.calculateContrast(ColorUtils.setAlphaComponent(itemsColor, 255),
-                            ColorUtils.setAlphaComponent(colorBackground, 255)) < 3) {
-                    colorBackground = ColorUtils.calculateLuminance(itemsColor) > 0.5 ? Color.BLACK : Color.WHITE;
-                }
-                return Theme.multAlpha(colorBackground, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f);
-            })
-            .setStrokeColorTop(0x11000000, 0x06FFFFFF)
-            .setStrokeColorBottom(0x20000000, 0x11FFFFFF)
-            .setShadowColor(0x20000000, 0x04FFFFFF)
-            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
-            .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
-            .build());
-        pageGlassColor = color;
-        pageGlassSource = source;
-        setTitleCentered(true);
-        setCastShadows(false);
-    }
-
-    public void setPageBackgroundShade() {
-        pageBackgroundShade = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x18000000, 0x00000000});
-        // Backgroundless ViewGroups otherwise skip draw() and call dispatchDraw() directly.
-        setWillNotDraw(false);
-        invalidate();
-    }
-
-    @Override
-    public void draw(Canvas canvas) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && pageGlassSource != null && pageGlassSource.inRecording()) {
-            return;
-        }
-        if (pageGlassColor != null) {
-            pageGlassColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && pageGlassSource != null
-                    && canvas.isHardwareAccelerated() && getWidth() > 0 && getHeight() > 0) {
-                Canvas background = pageGlassSource.beginRecording(getWidth(), getHeight());
-                try {
-                    background.drawColor(pageGlassColor.getColor());
-                    View root = parentFragment != null ? parentFragment.getFragmentView() : null;
-                    if (root != null && root != this) {
-                        getLocationInWindow(pageGlassPosition);
-                        root.getLocationInWindow(pageGlassRootPosition);
-                        background.translate(pageGlassRootPosition[0] - pageGlassPosition[0],
-                            pageGlassRootPosition[1] - pageGlassPosition[1]);
-                        drawPageGlassBackground(background, root);
-                    }
-                } finally {
-                    pageGlassSource.endRecording();
-                }
-                pageGlassSource.invalidateDisplayListForDrawables();
-            }
-            glassDrawable.updateColors();
-            glassDrawableBack.updateColors();
-            glassDrawableMenu.updateColors();
-        }
-        if (pageBackgroundShade != null) {
-            pageBackgroundShade.setBounds(0, 0, getWidth(), getHeight());
-            pageBackgroundShade.draw(canvas);
-        }
-        super.draw(canvas);
-    }
-
-    private void drawPageGlassBackground(Canvas canvas, View view) {
-        if (view == this || view.getVisibility() != VISIBLE || view.getAlpha() == 0) {
-            return;
-        }
-        if (canvas.quickReject(0, 0, view.getWidth(), view.getHeight(), Canvas.EdgeType.AA)) {
-            return;
-        }
-        boolean containsHeader = false;
-        for (android.view.ViewParent parent = getParent(); parent != null; parent = parent.getParent()) {
-            if (parent == view) {
-                containsHeader = true;
-                break;
-            }
-        }
-        if (!containsHeader) {
-            view.draw(canvas);
-            return;
-        }
-        // Never sample the header's RenderNode into its own glass background.
-        // shortcut: custom ancestor onDraw is omitted; use a page-owned glass source for that artwork.
-        if (view.getBackground() != null) {
-            view.getBackground().draw(canvas);
-        }
-        ViewGroup group = (ViewGroup) view;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            View child = group.getChildAt(i);
-            canvas.save();
-            canvas.translate(child.getLeft() - group.getScrollX(), child.getTop() - group.getScrollY());
-            canvas.concat(child.getMatrix());
-            if (child.getAlpha() < 1f) {
-                canvas.saveLayerAlpha(0, 0, child.getWidth(), child.getHeight(), (int) (255 * child.getAlpha()), Canvas.ALL_SAVE_FLAG);
-            }
-            drawPageGlassBackground(canvas, child);
-            if (child.getAlpha() < 1f) {
-                canvas.restore();
-            }
-            canvas.restore();
         }
     }
 
@@ -1375,7 +1237,13 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         alphaUpdate.addUpdateListener(anm -> {
             searchFieldVisibleAlpha = (float) anm.getAnimatedValue();
 
-            if (glassDrawable != null) invalidate();
+            if (glassDrawable != null && glassModeIsForum) {
+                final float r1 = dp(23);
+                final float r2 = lerp(dp(18.33f), dp(23), searchFieldVisibleAlpha);
+                glassDrawable.setRadius(r2, r1, r1, r2);
+                invalidate();
+            }
+
 
             if (glassMode && menu != null) {
                 menu.setTranslationX(-lerp((float) dp(10), dp(5), searchFieldVisibleAlpha));
@@ -1544,7 +1412,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setupPageGlass();
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int height = MeasureSpec.getSize(heightMeasureSpec);
         int actionBarHeight = getCurrentActionBarHeight();
@@ -2170,7 +2037,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        getViewTreeObserver().addOnScrollChangedListener(pageGlassScrollListener);
         attached = true;
         updateAttachState();
         if (actionModeVisible) {
@@ -2190,7 +2056,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     @Override
     protected void onDetachedFromWindow() {
-        getViewTreeObserver().removeOnScrollChangedListener(pageGlassScrollListener);
         super.onDetachedFromWindow();
         attached = false;
         updateAttachState();
@@ -2399,33 +2264,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     public boolean doNotDrawGlassMenu;
     private boolean drawGlassTitle = true;
-    private boolean titleCenteredInGlass;
-
-    public void setTitleCenteredInGlass() {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
-        titleCenteredInGlass = true;
-        setTitleCentered(true);
-    }
 
     public void setDrawGlassTitle(boolean draw) {
         if (drawGlassTitle != draw) {
             drawGlassTitle = draw;
             invalidate();
         }
-    }
-
-    private float getPageGlassTitleAlpha() {
-        if (pageGlassColor == null) return 1f;
-        float alpha = 0f;
-        for (SimpleTextView title : titleTextView) {
-            if (title != null && title.getVisibility() == VISIBLE && !TextUtils.isEmpty(title.getText())) {
-                alpha = Math.max(alpha, title.getAlpha());
-            }
-        }
-        if (useContainerForTitles && titlesContainer != null) {
-            alpha *= titlesContainer.getVisibility() == VISIBLE ? titlesContainer.getAlpha() : 0f;
-        }
-        return Math.max(alpha, Math.max(searchFieldVisibleAlpha, Math.max(searchFactor, getActionModeFactor())));
     }
 
     @Override
@@ -2439,30 +2283,16 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         final boolean hasBackButton = backButtonImageView != null && backButtonImageView.getVisibility() == View.VISIBLE;
 
-        final int t = pageGlassColor != null
-            ? (occupyStatusBar ? AndroidUtilities.statusBarHeight : 0) + (getCurrentActionBarHeight() - s) / 2 - p
-            : getHeight() - (getCurrentActionBarHeight() + s) / 2 - p;
+        final int t = getHeight() - (getCurrentActionBarHeight() + s) / 2 - p;
         final int b = t + s + p * 2;
 
-        float pageTitleAlpha = getPageGlassTitleAlpha();
-        if (glassDrawable != null && !glassOnlyBack && drawGlassTitle && pageTitleAlpha > 0) {
+        if (glassDrawable != null && !glassOnlyBack && drawGlassTitle) {
             final int menuWidthWithPadding = menuWidth + ((hasForcedMenuWidth || hasForcedMenuMinWidth) ? (menuWidth > 0 ? p : 0) : (int) (p * animatorHasMenuItems.getFloatValue()));
             final int rightOffset = lerp(menuWidthWithPadding, Math.max(menuWidthWithPadding, p + s), chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
 
             final int leftDefault = lerp(hasBackButton ? s + p : 0, s + p, chatAvatarContainer == null? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
             final int rightDefault = getWidth() - rightOffset;
             final int widthDefault = rightDefault - leftDefault;
-            if (titleCenteredInGlass) {
-                for (SimpleTextView title : titleTextView) {
-                    if (title == null) continue;
-                    float scale = Math.min(1f, Math.max(0, widthDefault - dp(36)) / (float) Math.max(1, title.getMeasuredWidth()));
-                    title.setPivotX(title.getMeasuredWidth() / 2f);
-                    title.setPivotY(title.getHeight() / 2f);
-                    title.setScaleX(scale);
-                    title.setScaleY(scale);
-                    title.setTranslationX((leftDefault + rightDefault) / 2f - (title.getLeft() + title.getMeasuredWidth() / 2f));
-                }
-            }
             final int left, right;
             if (chatAvatarContainer != null) {
                 final int width = lerp(Math.min(widthDefault, (int) animatorAvatarContainerWidth.getFactor() + p * 2), widthDefault, Math.max(searchFactor, actionModeFactor));
@@ -2475,32 +2305,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     + p + dp(3);
                 chatAvatarContainer.setTranslationX(translationX);
                 chatAvatarContainer.setPivotX((chatAvatarContainer.getMeasuredWidth()) / 2f - translationX );
-            } else if (pageGlassColor != null && titleTextView[0] != null
-                    && titleTextView[0].getVisibility() == VISIBLE && !useContainerForTitles) {
-                int textLeft = titleTextView[0].getLeft();
-                int textRight = titleTextView[0].getRight();
-                if (subtitleTextView != null && subtitleTextView.getVisibility() == VISIBLE) {
-                    textLeft = Math.min(textLeft, subtitleTextView.getLeft());
-                    textRight = Math.max(textRight, subtitleTextView.getRight());
-                }
-                float expanded = Math.max(searchFieldVisibleAlpha, Math.max(searchFactor, actionModeFactor));
-                left = lerp(Math.max(leftDefault, textLeft - dp(18)), leftDefault, expanded);
-                right = lerp(Math.min(rightDefault, textRight + dp(18)), rightDefault, expanded);
             } else {
                 left = leftDefault;
                 right = rightDefault;
             }
 
-            if (chatAvatarContainer != null) {
-                float radius = dp(23);
-                float avatarRadius = Math.min(radius, org.telegram.messenger.BygramConfig.avatarRadius(chatAvatarContainer.avatarImageView.getMeasuredHeight()) + dp(3));
-                float avatarFactor = animatorAvatarContainerHasAvatar.getFloatValue() * (1f - Math.max(searchFieldVisibleAlpha, Math.max(searchFactor, actionModeFactor)));
-                float leadingRadius = lerp(radius, avatarRadius, avatarFactor);
-                if (lastGlassAvatarRadius != leadingRadius) {
-                    lastGlassAvatarRadius = leadingRadius;
-                    glassDrawable.setRadius(leadingRadius, radius, radius, leadingRadius, false);
-                }
-            }
             glassDrawable.setBounds(left, t, right, b);
             if (titleGravityInGlass) {
                 for (SimpleTextView title : titleTextView) {
@@ -2517,7 +2326,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     title.setTranslationX(x - title.getLeft() - (useContainerForTitles ? titlesContainer.getX() : 0));
                 }
             }
-            glassDrawable.setAlpha((int) (255 * pageTitleAlpha));
             glassDrawable.draw(canvas);
         }
         if (glassDrawableBack != null && hasBackButton) {

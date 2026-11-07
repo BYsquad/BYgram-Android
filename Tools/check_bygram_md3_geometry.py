@@ -51,7 +51,7 @@ action_bar = source("TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Actio
 assert "float rad = height / 2f;" not in reactions and reactions.count("BygramConfig.avatarRadius(height)") >= 2, "Reaction background and effect disagree on shape"
 assert "drawCircle(imageReceiver.getCenterX()" not in avatars and "BygramConfig.avatarRadius(avatar.getImageHeight())" in avatars, "Overlapping avatar masks are circular"
 assert "drawCircle(cx, cy, r" not in voters and "BygramConfig.avatarRadius(w)" in voters, "Poll voter avatar masks are circular"
-assert "BygramConfig.avatarRadius(chatAvatarContainer.avatarImageView.getMeasuredHeight())" in action_bar and "setRadius(leadingRadius, radius, radius, leadingRadius, false)" in action_bar, "Chat header edge ignores the actual avatar shape and inset"
+assert "BygramConfig.avatarRadius(chatAvatarContainer.avatarImageView.getMeasuredHeight())" not in action_bar, "Chat header must use Telegram's geometry"
 assert "storiesBackground.setRadius(leadingRadius, dp(23), dp(23), leadingRadius, false)" in dialogs, "Story background ignores avatar shape"
 assert "storiesBackground.setBounds(0, 0, getWidth(), getHeight() - dp(2))" in dialogs, "Story background removes the gaps to the header and search field"
 story_cell = source("TMessagesProj/src/main/java/org/telegram/ui/Stories/DialogStoriesCell.java")
@@ -86,7 +86,7 @@ assert not (ROOT / "TMessagesProj/src/main/res/drawable/telegram_logo.xml").exis
 assert int.from_bytes(telegram_icon[16:20], "big") == int.from_bytes(telegram_icon[20:24], "big"), "Telegram artwork must be square without stretching"
 assert (ROOT / "logo-no-fon.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/bygram_logo_no_fon.png").read_bytes(), "Transparent logo differs from logo-no-fon.png"
 assert 'android:drawable="@drawable/bygram_logo_no_fon"' in source("TMessagesProj/src/main/res/drawable/bygram_splash.xml"), "Splash must use the transparent logo"
-assert 'R.drawable.bygram_logo_no_fon' in main_settings and 'bygram_logo_no_fon' not in launcher, "Transparent logo belongs to settings, never app icon choices"
+assert 'bygram_logo_no_fon' not in launcher, "Splash logo must stay out of app icon choices"
 assert "new LoadingIndicator(getContext())" in progress, "MD3 loading is not backed by Material LoadingIndicator"
 assert "new LoadingIndicator(context)" in circular_progress, "Drawable loading is not backed by Material LoadingIndicator"
 lite_settings = source("TMessagesProj/src/main/java/org/telegram/ui/LiteModeSettingsActivity.java")

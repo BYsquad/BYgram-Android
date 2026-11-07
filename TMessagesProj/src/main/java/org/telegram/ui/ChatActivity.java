@@ -4813,9 +4813,6 @@ public class ChatActivity extends BaseFragment implements
             actionBar.setChatAvatarContainer(avatarContainer);
             actionBar.setForcedMenuMinWidth(dp(46));
             avatarContainer.setActionBar(actionBar);
-        } else {
-            actionBar.setChatAvatarContainer(avatarContainer);
-            avatarContainer.setActionBar(actionBar);
         }
 
         chatInputViewsContainer = new ChatInputViewsContainer(context);

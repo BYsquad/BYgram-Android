@@ -26,7 +26,6 @@ methods = "\n".join(method(s) for s in ["private static boolean isActiveSetting(
 bar = (JAVA / "ui/ActionBar/ActionBar.java").read_text(encoding="utf-8")
 measure = "int availableWidth =" + bar.split("int availableWidth =", 1)[1].split("availableWidth = Math.max(availableWidth, 0);", 1)[0] + "availableWidth = Math.max(availableWidth, 0);"
 position = "int titleLeft = textLeft;" + bar.split("int titleLeft = textLeft;", 1)[1].split("titleTextView[i].layout(", 1)[0]
-glass = bar.split("            if (titleCenteredInGlass) {", 1)[1].split("            final int left, right;", 1)[0].rsplit("}", 1)[0]
 page = (JAVA / "ui/BygramSettingsActivity.java").read_text(encoding="utf-8")
 header_padding = "int headerHeight =" + page.split("int headerHeight =", 1)[1].split("                super.onMeasure", 1)[0]
 header_padding = header_padding.replace("getPaddingTop()", "v.getPaddingTop()").replace("setPadding(", "v.setPadding(")
@@ -54,26 +53,10 @@ public class WinterSettingsCheck {
     static final class Gravity { static final int HORIZONTAL_GRAVITY_MASK=7, CENTER_HORIZONTAL=1, RIGHT=5; }
     static final class Menu { int width; Menu(int w) { width=w; } int getMeasuredWidth() { return width; } }
     static final class SimpleTextView {
-        int width, left; float scale, translation;
+        int width;
         int getMeasuredWidth() { return width; }
-        int getLeft() { return left; } int getHeight() { return 24; }
-        void setPivotX(float x) {} void setPivotY(float y) {}
-        void setScaleX(float v) { scale=v; } void setScaleY(float v) { assert v==scale; }
-        void setTranslationX(float x) { translation=x; }
     }
     static SimpleTextView[] titleTextView = {new SimpleTextView()};
-    static void checkGlassTitle() {
-        for (int width : new int[]{320,400,800}) for(int text : new int[]{1,90,600})
-        for (int leftDefault : new int[]{0,52}) for(int menu : new int[]{0,54,108}) {
-            int rightDefault=width-menu, widthDefault=rightDefault-leftDefault;
-            titleTextView[0].width=text; titleTextView[0].left=(width-text)/2;
-            __GLASS__
-            SimpleTextView title=titleTextView[0];
-            float center=title.left+text/2f+title.translation;
-            assert center==(leftDefault+rightDefault)/2f : "Not centered in glass";
-            assert text*title.scale<=Math.max(0,widthDefault-36)+0.001f : "Text overflows glass";
-        }
-    }
     static int width;
     static boolean titleGravityInGlass;
     static int getMeasuredWidth() { return width; }
@@ -120,7 +103,6 @@ public class WinterSettingsCheck {
     __METHODS__
     public static void main(String[] args) {
         checkTitle();
-        checkGlassTitle();
         checkHeaderPadding();
         for (String key : new String[]{HIDE_STORIES, HIDE_FOLDER_COUNTERS, HIDE_ALL_TAB, SNOW_CHATS, SNOW_PROFILES, SNOW_HEADER, SNOW_NAVIGATION, SNOW_DIALOGS, SNOW_SETTINGS, SNOW_BYGRAM_SETTINGS, SECONDS, MD3_PROFILE_BUTTONS, SEPARATE_HEADERS}) {
             assert isActiveSetting(key) : key;
@@ -156,7 +138,7 @@ public class WinterSettingsCheck {
         System.out.println("PASS: preference persistence, bounds, whitelist and Lite ignores stored customization");
     }
 }
-'''.replace("__CONSTANTS__", constants).replace("__METHODS__", methods).replace("__MEASURE__", measure).replace("__POSITION__", position).replace("__GLASS__", glass).replace("__HEADER_PADDING__", header_padding).replace("__HEADER_PADDING_REPEAT__", header_padding.replace("int headerHeight =", "headerHeight =", 1))
+'''.replace("__CONSTANTS__", constants).replace("__METHODS__", methods).replace("__MEASURE__", measure).replace("__POSITION__", position).replace("__HEADER_PADDING__", header_padding).replace("__HEADER_PADDING_REPEAT__", header_padding.replace("int headerHeight =", "headerHeight =", 1))
 with tempfile.TemporaryDirectory(prefix="bygram-winter-") as temp:
     path = Path(temp) / "WinterSettingsCheck.java"
     path.write_text(harness, encoding="utf-8")
@@ -175,5 +157,4 @@ print("PASS: English, Russian and Ukrainian navigation/winter resources")
 dialogs = (JAVA / "ui/DialogsActivity.java").read_text(encoding="utf-8")
 assert "hideDefaultTab && !filterTabsView.hasTab(filterTabsView.getCurrentTabId())" in dialogs
 assert "if (filterTabsView.getDefaultTabId() < 0)" in dialogs
-assert "bar.setTitleCentered(true)" in (JAVA / "ui/BygramSettingsActivity.java").read_text(encoding="utf-8")
-print("PASS: actual title geometry (90 screen layouts, 54 glass layouts), hidden active All Chats and last-folder fallback contracts")
+print("PASS: actual title geometry (90 screen layouts), hidden active All Chats and last-folder fallback contracts")

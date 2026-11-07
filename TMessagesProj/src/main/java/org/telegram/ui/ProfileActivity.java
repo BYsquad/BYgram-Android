@@ -2616,8 +2616,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
         actionBar.setForceSkipTouches(true);
         actionBar.setBackgroundColor(Color.TRANSPARENT);
-        actionBar.setupGlass(iBlur3FactoryLiquidGlass, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
-        actionBar.setDrawGlassTitle(false);
         actionBar.setItemsBackgroundColor(peerColor != null ? 0x20ffffff : getThemedColor(Theme.key_avatar_actionBarSelectorBlue), false);
         actionBar.setItemsColor(getThemedColor(Theme.key_actionBarDefaultIcon), false);
         actionBar.setItemsColor(getThemedColor(Theme.key_actionBarDefaultIcon), true);

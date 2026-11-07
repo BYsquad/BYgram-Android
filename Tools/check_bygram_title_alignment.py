@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "TMessagesProj/src/main/java/org/telegram"
 bar = (JAVA / "ui/ActionBar/ActionBar.java").read_text(encoding="utf-8")
 block = bar.split("            if (titleGravityInGlass) {", 1)[1]
-block = block.split("            glassDrawable.setAlpha", 1)[0].rsplit("}", 1)[0]
+block = block.split("            glassDrawable.draw(canvas);", 1)[0].rsplit("}", 1)[0]
 harness = r'''
 public class TitleAlignmentCheck {
     static class Gravity { static final int HORIZONTAL_GRAVITY_MASK=7, RIGHT=5, CENTER_HORIZONTAL=1; }

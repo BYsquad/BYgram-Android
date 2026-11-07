@@ -21,7 +21,6 @@ import org.telegram.messenger.BygramActivityController;
 import org.telegram.messenger.BygramTypingController;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildConfig;
-import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
@@ -96,21 +95,6 @@ abstract class BygramSettingsPage extends BaseFragment {
     protected void onViewCreated(View view) {
         super.onViewCreated(view);
         view.setFitsSystemWindows(true);
-        FrameLayout content = (FrameLayout) view;
-        for (int i = 0; i < content.getChildCount(); i++) {
-            if (content.getChildAt(i) instanceof UniversalRecyclerView) {
-                actionBar.setAdaptiveBackground((UniversalRecyclerView) content.getChildAt(i), false, -1, -1);
-            }
-        }
-    }
-
-    @Override
-    public ActionBar createActionBar(Context context) {
-        ActionBar bar = super.createActionBar(context);
-        bar.setTitleCentered(true);
-        bar.setCastShadows(false);
-        bar.setWillNotDraw(false);
-        return bar;
     }
 }
 
@@ -304,7 +288,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
     public View createView(Context context) {
         BygramConfig.clearRemovedCustomizationSettings();
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("BYgram");
+        actionBar.setTitle(getString(R.string.BygramSettings));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -322,7 +306,6 @@ public class BygramSettingsActivity extends BygramSettingsPage {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asTopViewStatic("BYgram", "v" + BuildVars.BUILD_VERSION_STRING, R.drawable.bygram_logo_no_fon));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)).setId(-1));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
         if (BuildConfig.BYGRAM_FULL) items.add(UItem.asButton(ROW_PLUGINS, R.drawable.settings_account, getString(R.string.BygramPlugins), org.telegram.messenger.PluginEntry.summary()));
