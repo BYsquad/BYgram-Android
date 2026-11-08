@@ -148,7 +148,6 @@ import org.telegram.ui.bots.SetupEmojiStatusSheet;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 
@@ -638,7 +637,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
     }
 
-    private ArrayList<Integer> accountNumbers = new ArrayList<>();
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (searchItem.isSearchFieldVisible2()) {
             items.add(UItem.asSpace(ActionBar.getCurrentActionBarHeight()));
@@ -647,23 +645,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         items.add(UItem.asCustomShadow(topView, 200 - 12));
-
-        accountNumbers.clear();
-        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-            if (UserConfig.getInstance(a).isClientActivated() && currentAccount != a) {
-                accountNumbers.add(a);
-            }
-        }
-        Collections.sort(accountNumbers, (o1, o2) -> {
-            long l1 = UserConfig.getInstance(o1).loginTime;
-            long l2 = UserConfig.getInstance(o2).loginTime;
-            if (l1 > l2) {
-                return 1;
-            } else if (l1 < l2) {
-                return -1;
-            }
-            return 0;
-        });
 
         final Set<String> suggestions = getMessagesController().pendingSuggestions;
         if (suggestions.contains("PREMIUM_GRACE")) {
@@ -702,14 +683,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                     getMessagesController().removeSuggestion(0, "VALIDATE_PASSWORD");
                 }
             ));
-            items.add(UItem.asShadow(null));
-        }
-
-        if (accountNumbers.size() > 0) {
-            items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
-            for (int i = 0; i < accountNumbers.size(); ++i) {
-                items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
-            }
             items.add(UItem.asShadow(null));
         }
 
@@ -828,13 +801,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
             return;
         }
-        if (item.instanceOf(AccountCell.Factory.class)) {
-            final int account = item.intValue;
-            if (LaunchActivity.instance != null) {
-                LaunchActivity.instance.switchToAccount(account, true);
-            }
-            return;
-        } else if (item.instanceOf(SettingsSearchCell.Factory.class)) {
+        if (item.instanceOf(SettingsSearchCell.Factory.class)) {
             if (item.object instanceof ProfileActivity.SearchAdapter.SearchResult) {
                 final ProfileActivity.SearchAdapter.SearchResult r = (ProfileActivity.SearchAdapter.SearchResult) item.object;
                 r.open(getParentLayout());

@@ -14,8 +14,11 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.SweepGradient;
+import android.graphics.drawable.shapes.RoundRectShape;
+import android.util.LruCache;
 
-import java.util.HashMap;
+import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
 
 /**
  * The parts of the QR glass shared by every view that draws it (the QR screen, the scanner, the emoji islands): the top
@@ -82,11 +85,63 @@ public final class QrGlass {
         c.drawRoundRect(r, radius, radius, sheenRoundPaint);
     }
 
+    public static boolean isStyleEnabled() {
+        return BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE);
+    }
+
+    /** The QR glass finish over a themed surface or an existing backdrop blur. */
+    public static void drawSurface(Canvas canvas, RectF bounds, float radius, int color, float alpha, boolean panel) {
+        if (bounds.isEmpty() || alpha <= 0f) return;
+        radius = Math.min(radius, Math.min(bounds.width(), bounds.height()) / 2f);
+        final boolean light = AndroidUtilities.computePerceivedBrightness(color) >= .72f;
+        if (panel) {
+            surfaceTint.setColor(light ? 0x12000000 : controlFill());
+            surfaceTint.setAlpha(Math.round(surfaceTint.getAlpha() * alpha));
+            canvas.drawRoundRect(bounds, radius, radius, surfaceTint);
+        }
+        drawSheenRound(canvas, bounds, radius, light, alpha);
+        if (!drawRim(canvas, bounds, radius, panel ? RimTune.SHEET : RIM_BIG, alpha)) {
+            surfaceStroke.setColor(light ? 0x33000000 : 0x4DFFFFFF);
+            surfaceStroke.setAlpha(Math.round(surfaceStroke.getAlpha() * alpha));
+            surfaceStroke.setStrokeWidth(dpf2(1));
+            canvas.drawRoundRect(bounds, radius, radius, surfaceStroke);
+        }
+    }
+
+    private static final Paint surfaceTint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final Paint surfaceStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+    static {
+        surfaceStroke.setStyle(Paint.Style.STROKE);
+    }
+
+    /** Keeps the shape, tint, and alpha contract of the button's drawable. */
+    public static final class ButtonShape extends RoundRectShape {
+        private final int radius;
+        private final RectF bounds = new RectF();
+
+        public ButtonShape(int radius) {
+            super(new float[]{radius, radius, radius, radius, radius, radius, radius, radius}, null, null);
+            this.radius = radius;
+        }
+
+        @Override
+        public void draw(Canvas canvas, Paint paint) {
+            super.draw(canvas, paint);
+            bounds.set(0, 0, getWidth(), getHeight());
+            drawSurface(canvas, bounds, radius, paint.getColor(), paint.getAlpha() / 255f, false);
+        }
+    }
+
     // ---- the outline (rounded rects, Android 10+): the dark ring and both white crescents rendered once per group /
     // radius / size into a bitmap and drawn in 9 slices (the corners as they are, the straight parts stretched). The
     // light is from above (no tilt), the crescents plain white at their level (the Plus of a grey of it, over the glass)
 
-    private static final HashMap<Long, Bitmap> rimBakes = new HashMap<>();
+    private static final LruCache<Long, Bitmap> rimBakes = new LruCache<Long, Bitmap>(4 * 1024 * 1024) {
+        @Override
+        protected int sizeOf(Long key, Bitmap bitmap) {
+            return bitmap.getByteCount();
+        }
+    };
     private static final SweepGradient[] rimSweeps = new SweepGradient[RimTune.NG];
     private static int rimVersion = -1;
     private static final Paint rimPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -159,7 +214,7 @@ public final class QrGlass {
     private static void ensureRims() {
         if (rimVersion == RimTune.version) return;
         rimVersion = RimTune.version;
-        rimBakes.clear();
+        rimBakes.evictAll();
         final int n = 73;
         for (int k = 0; k < RimTune.NG; k++) {
             final float[] gk = RimTune.g[k];

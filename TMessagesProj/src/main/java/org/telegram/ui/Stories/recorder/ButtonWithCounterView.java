@@ -33,6 +33,7 @@ import org.telegram.ui.Components.AnimatedTextView;
 import org.telegram.ui.Components.CircularProgressDrawable;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.QrShare.QrGlass;
 import org.telegram.ui.Components.Loadable;
 import org.telegram.ui.Components.LoadingDrawable;
 import org.telegram.ui.Components.ScaleStateListAnimator;
@@ -80,7 +81,7 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable {
     public void setRoundRadius(int radiusDp) {
         this.radiusDp = radiusDp;
         if (filled) {
-            setBackground(Theme.createRoundRectDrawable(dp(radiusDp), backgroundColor));
+            setBackground(Theme.createButtonBackground(dp(radiusDp), backgroundColor));
         } else {
             setBackground(null);
         }
@@ -91,7 +92,7 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable {
         if (this.filled == filled) return;
         this.filled = filled;
         if (filled) {
-            setBackground(Theme.createRoundRectDrawable(dp(radiusDp), backgroundColor));
+            setBackground(Theme.createButtonBackground(dp(radiusDp), backgroundColor));
             text.setTypeface(AndroidUtilities.bold());
         } else {
             setBackground(null);
@@ -112,7 +113,7 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable {
         addView(rippleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         if (filled) {
-            setBackground(Theme.createRoundRectDrawable(dp(8), backgroundColor = Theme.getColor(Theme.key_featuredStickers_addButton, resourcesProvider)));
+            setBackground(Theme.createButtonBackground(dp(8), backgroundColor = Theme.getColor(Theme.key_featuredStickers_addButton, resourcesProvider)));
         }
 
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -164,7 +165,7 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable {
     public void setColor(int color) {
         if (filled) {
             customBackgroundColor = true;
-            setBackground(Theme.createRoundRectDrawable(dp(radiusDp), backgroundColor = color));
+            setBackground(Theme.createButtonBackground(dp(radiusDp), backgroundColor = color));
         } else {
             text.setTextColor(color);
             rippleView.setBackground(Theme.createRadSelectorDrawable(Theme.multAlpha(color, .10f), radiusDp, radiusDp));
@@ -182,7 +183,8 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable {
         }
         text.setTextColor(Theme.getColor(filled ? (neutral ? Theme.key_buttonNeutralText : Theme.key_featuredStickers_buttonText) : Theme.key_featuredStickers_addButton, resourcesProvider));
         if (filled) {
-            rippleView.setBackground(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_listSelector, resourcesProvider), radiusDp, radiusDp));
+            final int rippleRadius = QrGlass.isStyleEnabled() ? Math.max(radiusDp, 20) : radiusDp;
+            rippleView.setBackground(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_listSelector, resourcesProvider), rippleRadius, rippleRadius));
         } else {
             rippleView.setBackground(Theme.createRadSelectorDrawable(Theme.multAlpha(text.getTextColor(), .10f), radiusDp, radiusDp));
         }

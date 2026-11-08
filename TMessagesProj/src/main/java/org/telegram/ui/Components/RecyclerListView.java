@@ -84,6 +84,7 @@ import org.telegram.ui.Components.blur3.capture.IBlur3Hash;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProvider;
 import org.telegram.ui.FiltersSetupActivity;
+import org.telegram.ui.QrShare.QrGlass;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -3624,12 +3625,16 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
         } else {
             sectionBackgroundPaint.setShadowLayer(0, 0, 0, 0);
         }
-        sectionBackgroundPaint.setColor(multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), alpha));
+        final int color = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+        sectionBackgroundPaint.setColor(multAlpha(color, alpha));
         if (topRadius == bottomRadius) {
             if (SharedConfig.shadowsInSections) {
                 canvas.drawRoundRect(rect, topRadius, topRadius, sectionBackgroundStrokePaint);
             }
             canvas.drawRoundRect(rect, topRadius, topRadius, sectionBackgroundPaint);
+            if (QrGlass.isStyleEnabled()) {
+                QrGlass.drawSurface(canvas, rect, topRadius, color, alpha, true);
+            }
         } else {
             sectionBackgroundPath.rewind();
             radii[0] = radii[1] = radii[2] = radii[3] = topRadius;
@@ -3639,6 +3644,12 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
                 canvas.drawPath(sectionBackgroundPath, sectionBackgroundStrokePaint);
             }
             canvas.drawPath(sectionBackgroundPath, sectionBackgroundPaint);
+            if (QrGlass.isStyleEnabled()) {
+                canvas.save();
+                canvas.clipPath(sectionBackgroundPath);
+                QrGlass.drawSurface(canvas, rect, 0, color, alpha, true);
+                canvas.restore();
+            }
         }
     }
     public void drawBackgroundRect(Canvas canvas, RectF rect, float topRadius, float bottomRadius, float alpha) {

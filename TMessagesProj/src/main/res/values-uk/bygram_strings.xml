@@ -123,7 +123,7 @@
     <string name="BygramBackgroundVerify">Не вдалося опублікувати фон. Перевірте підключення та спробуйте ще раз.</string>
     <string name="BygramBackgroundFailed">Не вдалося зберегти фон. Перевірте з’єднання та виберіть підтримуване зображення до 4 МіБ.</string>
     <string name="BygramNotifyDeleted">Сповіщати про видалення повідомлень в особистих чатах</string>
-    <string name="BygramDeletedNotification">%1$s видалив(-ла) повідомлення</string>
+    <string name="BygramMessageDeletedInChat">У чаті «%1$s» видалено повідомлення</string>
     <string name="BygramFullProfileBackground">Розтягнути фон на весь профіль</string>
     <string name="BygramCollapseFoldersOnScroll">Згортати папки під час прокручування вниз</string>
     <string name="BygramCollapseNavigationOnScroll">Згортати нижню навігацію під час прокручування вниз</string>

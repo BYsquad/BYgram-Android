@@ -126,6 +126,7 @@ import org.telegram.ui.Components.StatusDrawable;
 import org.telegram.ui.Components.ThemeEditorView;
 import org.telegram.ui.Components.TypingDotsDrawable;
 import org.telegram.ui.LaunchActivity;
+import org.telegram.ui.QrShare.QrGlass;
 import org.telegram.ui.RoundVideoProgressShadow;
 import org.telegram.ui.ThemeActivity;
 import org.telegram.ui.ThemePreviewActivity;
@@ -4679,6 +4680,13 @@ public class Theme {
         defaultDrawable.getPaint().setColor(defaultColor);
         return defaultDrawable;
     }
+
+    public static ShapeDrawable createButtonBackground(int radius, int color) {
+        if (!QrGlass.isStyleEnabled()) return createRoundRectDrawable(radius, color);
+        final ShapeDrawable background = new ShapeDrawable(new QrGlass.ButtonShape(Math.max(radius, dp(20))));
+        background.getPaint().setColor(color);
+        return background;
+    }
     public static InsetDrawable createRoundRectDrawableShadowed(int rad, int defaultColor) {
         ShapeDrawable defaultDrawable = new ShapeDrawable(new RoundRectShape(new float[]{rad, rad, rad, rad, rad, rad, rad, rad}, null, null));
         defaultDrawable.getPaint().setColor(defaultColor);
@@ -4774,7 +4782,15 @@ public class Theme {
         return createSimpleSelectorRoundRectDrawable(rad, defaultColor, pressedColor, maskColor, 0);
     }
     private static Drawable createSimpleSelectorRoundRectDrawable(float[] rad, int defaultColor, int pressedColor, int maskColor, int inset) {
-        ShapeDrawable defaultDrawable = new ShapeDrawable(new RoundRectShape(rad, null, null));
+        ShapeDrawable defaultDrawable;
+        if (inset == 0 && rad[0] > 0 && rad[0] == rad[2] && rad[0] == rad[4] && rad[0] == rad[6]
+                && Color.alpha(defaultColor) > 0 && QrGlass.isStyleEnabled()) {
+            final int radius = Math.max(Math.round(rad[0]), dp(20));
+            defaultDrawable = new ShapeDrawable(new QrGlass.ButtonShape(radius));
+            rad = new float[]{radius, radius, radius, radius, radius, radius, radius, radius};
+        } else {
+            defaultDrawable = new ShapeDrawable(new RoundRectShape(rad, null, null));
+        }
         defaultDrawable.setPadding(inset, inset, inset, inset);
         defaultDrawable.getPaint().setColor(defaultColor);
         ShapeDrawable pressedDrawable = new ShapeDrawable(new RoundRectShape(rad, null, null));

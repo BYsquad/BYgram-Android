@@ -9560,7 +9560,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public void deleteEphemeralMessage(long dialogId, int topicId, MessageObject ephemeralMessage) {
         final ArrayList<Integer> messages = new ArrayList<>();
         messages.add(ephemeralMessage.getId());
-        boolean keepDeleted = shouldKeepBygramDeletedMessage(ephemeralMessage.getId(), dialogId);
+        boolean keepDeleted = shouldKeepBygramDeletedMessage(ephemeralMessage.getId(), dialogId, false);
 
         final long channelId;
         if (dialogId != 0 && DialogObject.isChatDialog(dialogId)) {
@@ -17709,7 +17709,7 @@ public class MessagesController extends BaseController implements NotificationCe
         ArrayList<Integer> keptIds = new ArrayList<>();
         ArrayList<Integer> removedIds = new ArrayList<>();
         for (int id : ids) {
-            if (shouldKeepBygramDeletedMessage(id, dialogId)) keptIds.add(id);
+            if (shouldKeepBygramDeletedMessage(id, dialogId, channelId == 0)) keptIds.add(id);
             else removedIds.add(id);
         }
         if (!keptIds.isEmpty()) {
@@ -17973,14 +17973,17 @@ public class MessagesController extends BaseController implements NotificationCe
         }
     }
 
-    private boolean shouldKeepBygramDeletedMessage(int messageId, long dialogId) {
+    private boolean shouldKeepBygramDeletedMessage(int messageId, long dialogId, boolean allowNotification) {
         boolean keepDeleted = BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED);
-        if (!keepDeleted && !BygramConfig.getBoolean(BygramConfig.SPY_NOTIFY_DELETED)) return false;
+        boolean notify = allowNotification && BygramConfig.getBoolean(BygramConfig.SPY_NOTIFY_DELETED);
+        if (!keepDeleted && !notify) return false;
         long resolvedDialogId = dialogId;
         if (resolvedDialogId == 0) {
             MessageObject object = dialogMessagesByIds.get(messageId);
-            if (object != null) resolvedDialogId = object.getDialogId();
-            if (resolvedDialogId == 0) resolvedDialogId = getMessagesStorage().getDialogIdForMessageSync(messageId);
+            if (object != null && object.messageOwner.peer_id != null && object.messageOwner.peer_id.channel_id == 0) {
+                resolvedDialogId = object.getDialogId();
+            }
+            if (resolvedDialogId == 0) resolvedDialogId = getMessagesStorage().getNonChannelDialogIdForMessageSync(messageId);
         }
         if (resolvedDialogId == 0) return false;
         ArrayList<Integer> ids = new ArrayList<>();
@@ -17988,7 +17991,9 @@ public class MessagesController extends BaseController implements NotificationCe
         if (getMessagesStorage().getBygramDeletedMessageIdsSync(resolvedDialogId, ids).contains(messageId)) return true;
         TLRPC.Message message = getMessagesStorage().getMessage(resolvedDialogId, messageId);
         if (message == null) return false;
-        if (DialogObject.isUserDialog(resolvedDialogId) && resolvedDialogId != getUserConfig().getClientUserId()) {
+        if (notify && messageId > 0 && message instanceof TLRPC.TL_message && !message.out
+                && DialogObject.isUserDialog(resolvedDialogId) && resolvedDialogId != getUserConfig().getClientUserId()
+                && (message.ttl_period == 0 || (long) message.date + message.ttl_period > getConnectionsManager().getCurrentTime())) {
             final long peerId = resolvedDialogId;
             AndroidUtilities.runOnUIThread(() -> getNotificationsController().notifyBygramDeletedMessage(peerId));
         }
@@ -19003,7 +19008,7 @@ public class MessagesController extends BaseController implements NotificationCe
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                 TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
                 for (int messageId : update.messages) {
-                    if (shouldKeepBygramDeletedMessage(messageId, 0)) {
+                    if (shouldKeepBygramDeletedMessage(messageId, 0, true)) {
                         if (bygramDeletedMessages == null) bygramDeletedMessages = new LongSparseArray<>();
                         ArrayList<Integer> arrayList = bygramDeletedMessages.get(0);
                         if (arrayList == null) {
@@ -19545,7 +19550,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 long dialogId = -update.channel_id;
                 for (int messageId : update.messages) {
-                    if (shouldKeepBygramDeletedMessage(messageId, dialogId)) {
+                    if (shouldKeepBygramDeletedMessage(messageId, dialogId, false)) {
                         if (bygramDeletedMessages == null) bygramDeletedMessages = new LongSparseArray<>();
                         ArrayList<Integer> arrayList = bygramDeletedMessages.get(dialogId);
                         if (arrayList == null) {

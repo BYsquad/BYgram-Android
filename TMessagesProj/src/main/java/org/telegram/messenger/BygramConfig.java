@@ -69,6 +69,7 @@ public final class BygramConfig {
     public static final String SNOW_BYGRAM_SETTINGS = "bygram_snow_bygram_settings";
     public static final String SECONDS = "bygram_seconds";
     public static final String MD3_PROFILE_BUTTONS = "bygram_md3_profile_buttons";
+    public static final String QR_GLASS_STYLE = "bygram_qr_glass_style";
     public static final String SECTION_RADIUS = "bygram_section_radius";
     public static final String SEPARATE_HEADERS = "bygram_separate_headers";
     private static final int DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
@@ -213,6 +214,7 @@ public final class BygramConfig {
             case SNOW_BYGRAM_SETTINGS:
             case SECONDS:
             case MD3_PROFILE_BUTTONS:
+            case QR_GLASS_STYLE:
             case SECTION_RADIUS:
             case SEPARATE_HEADERS:
 

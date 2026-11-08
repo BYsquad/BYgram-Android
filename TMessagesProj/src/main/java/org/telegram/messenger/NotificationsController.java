@@ -119,7 +119,7 @@ public class NotificationsController extends BaseController implements Notificat
         String name = UserObject.getUserName(getMessagesController().getUser(dialogId));
         android.app.Notification notification = new androidx.core.app.NotificationCompat.Builder(context, channel)
                 .setSmallIcon(R.drawable.notification).setContentTitle(LocaleController.getString(R.string.BygramSpyMode))
-                .setContentText(LocaleController.formatString(R.string.BygramDeletedNotification, name))
+                .setContentText(LocaleController.formatString(R.string.BygramMessageDeletedInChat, name))
                 .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(true).build();
         try { manager.notify("bygram_spy_" + currentAccount + "_" + dialogId, 0, notification); }
         catch (SecurityException error) { FileLog.e(error); }

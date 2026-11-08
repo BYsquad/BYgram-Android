@@ -179,6 +179,7 @@
     <string name="BygramHideReplyEmoji">Скрыть эмодзи в ответах</string>
     <string name="BygramSectionRadius">Радиус секций</string>
     <string name="BygramSeparateHeaders">Отдельные заголовки в настройках</string>
+    <string name="BygramQrGlassStyle">Стеклянный стиль кнопок и блоков</string>
     <string name="BygramDividerStyle">Разделители в настройках</string>
     <string-array name="BygramDividerStyles">
         <item>Скрыты</item>

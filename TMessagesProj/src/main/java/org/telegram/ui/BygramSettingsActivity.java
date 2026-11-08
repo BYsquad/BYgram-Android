@@ -1074,6 +1074,8 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                 items.add(UItem.asHeader(getString(R.string.BygramSections)));
                 items.add(UItem.asCustom(sectionCorners, 75).setId(26));
                 items.add(UItem.asCheck(27, getString(R.string.BygramSeparateHeaders)).setChecked(BygramConfig.getBoolean(BygramConfig.SEPARATE_HEADERS)));
+                items.add(UItem.asCheck(28, getString(R.string.BygramQrGlassStyle))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE)));
                 items.add(UItem.asShadow(null));
                 int md3 = (BygramConfig.getBoolean(BygramConfig.MD3_LOADING) ? 1 : 0)
                         + (BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS) ? 1 : 0)
@@ -1113,6 +1115,10 @@ public class BygramSettingsActivity extends BygramSettingsPage {
                     BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
                     if (item.id >= 22 && item.id <= 24) updateBygramSnow();
                     if (item.id == 27) listView.setSections();
+                } else if (item.id == 28) {
+                    BygramConfig.setBoolean(BygramConfig.QR_GLASS_STYLE, !BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE));
+                    listView.invalidate();
+                    if (getParentLayout() != null) getParentLayout().rebuildAllFragmentViews(false, false);
                 } else if (item.id == 1) {
                     BygramConfig.setBoolean(BygramConfig.FILTER_ZALGO, !BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO));
                 } else if (item.id == 3) {

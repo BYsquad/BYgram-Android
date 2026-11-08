@@ -80,6 +80,7 @@ import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.LaunchActivity;
+import org.telegram.ui.QrShare.QrGlass;
 
 import java.util.ArrayList;
 
@@ -1372,6 +1373,16 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
 
         if (containerView == null) {
             containerView = new FrameLayout(getContext()) {
+                @Override
+                protected void dispatchDraw(Canvas canvas) {
+                    if (getBackground() == shadowDrawable && QrGlass.isStyleEnabled()) {
+                        AndroidUtilities.rectTmp.set(backgroundPaddingLeft, backgroundPaddingTop,
+                                getWidth() - backgroundPaddingLeft, getHeight());
+                        QrGlass.drawSurface(canvas, AndroidUtilities.rectTmp, dp(16), internalBackgroundColor, 1f, true);
+                    }
+                    super.dispatchDraw(canvas);
+                }
+
                 @Override
                 public boolean hasOverlappingRendering() {
                     return false;

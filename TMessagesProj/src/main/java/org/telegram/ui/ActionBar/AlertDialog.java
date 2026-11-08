@@ -80,6 +80,7 @@ import org.telegram.ui.Components.RadialProgressView;
 import org.telegram.ui.Components.ScaleStateListAnimator;
 import org.telegram.ui.Components.spoilers.SpoilersTextView;
 import org.telegram.ui.LaunchActivity;
+import org.telegram.ui.QrShare.QrGlass;
 import org.telegram.ui.Stars.BalanceCloud;
 import org.telegram.ui.Stars.StarsIntroActivity;
 
@@ -623,6 +624,14 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                 } else {
                     shadowDrawable.draw(canvas);
                 }
+            }
+            if ((drawBackground || blurredBackground) && progressViewStyle != ALERT_TYPE_SPINNER && QrGlass.isStyleEnabled()) {
+                AndroidUtilities.rectTmp.set(getPaddingLeft(), getPaddingTop(),
+                        getWidth() - getPaddingRight(), getHeight() - getPaddingBottom());
+                if (topView != null && notDrawBackgroundOnTopView) {
+                    AndroidUtilities.rectTmp.top = Math.max(AndroidUtilities.rectTmp.top, topView.getBottom());
+                }
+                QrGlass.drawSurface(canvas, AndroidUtilities.rectTmp, dp(20), backgroundColor, 1f, true);
             }
             super.dispatchDraw(canvas);
         }

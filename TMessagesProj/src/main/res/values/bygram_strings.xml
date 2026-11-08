@@ -124,7 +124,7 @@
     <string name="BygramBackgroundVerify">Could not publish the background. Check your connection and try again.</string>
     <string name="BygramBackgroundFailed">Could not save background. Check connection and choose a supported image up to 4 MiB.</string>
     <string name="BygramNotifyDeleted">Notify when messages are deleted in private chats</string>
-    <string name="BygramDeletedNotification">%1$s deleted a message</string>
+    <string name="BygramMessageDeletedInChat">A message was deleted in the chat with %1$s</string>
     <string name="BygramFullProfileBackground">Stretch background across the whole profile</string>
     <string name="BygramCollapseFoldersOnScroll">Collapse folders when scrolling down</string>
     <string name="BygramCollapseNavigationOnScroll">Hide bottom navigation when scrolling down</string>

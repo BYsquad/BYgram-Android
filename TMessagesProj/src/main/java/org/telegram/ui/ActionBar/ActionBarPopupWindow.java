@@ -52,6 +52,7 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.utils.ViewOutlineProviderImpl;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.QrShare.QrGlass;
 import org.telegram.ui.Components.PopupSwipeBackLayout;
 
 import java.lang.reflect.Field;
@@ -132,6 +133,7 @@ public class ActionBarPopupWindow extends PopupWindow {
 
         private int backgroundColor = Color.WHITE;
         protected Drawable backgroundDrawable;
+        private Drawable standardBackground;
 
         private boolean fitItems;
         private final Theme.ResourcesProvider resourcesProvider;
@@ -163,6 +165,7 @@ public class ActionBarPopupWindow extends PopupWindow {
 
             if (resId != 0) {
                 backgroundDrawable = getResources().getDrawable(resId).mutate();
+                if (resId == R.drawable.popup_fixed_alert2) standardBackground = backgroundDrawable;
                 setPadding(dp(8), dp(8), dp(8), dp(8));
             }
             if (backgroundDrawable != null) {
@@ -530,6 +533,13 @@ public class ActionBarPopupWindow extends PopupWindow {
                     }
                     backgroundDrawable.setBounds(AndroidUtilities.rectTmp2);
                     backgroundDrawable.draw(canvas);
+                    if (backgroundDrawable == standardBackground && QrGlass.isStyleEnabled()) {
+                        AndroidUtilities.rectTmp.set(
+                                AndroidUtilities.rectTmp2.left + bgPaddings.left, AndroidUtilities.rectTmp2.top + bgPaddings.top,
+                                AndroidUtilities.rectTmp2.right - bgPaddings.right, AndroidUtilities.rectTmp2.bottom - bgPaddings.bottom);
+                        QrGlass.drawSurface(canvas, AndroidUtilities.rectTmp, dp(12), backgroundColor,
+                                applyAlpha ? backAlpha / 255f : 1f, true);
+                    }
                     if (clipChildren) {
                         AndroidUtilities.rectTmp2.left += bgPaddings.left;
                         AndroidUtilities.rectTmp2.top += bgPaddings.top;

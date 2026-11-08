@@ -5890,13 +5890,13 @@ public class MessagesStorage extends BaseController {
         });
     }
 
-    public long getDialogIdForMessageSync(int messageId) {
+    public long getNonChannelDialogIdForMessageSync(int messageId) {
         CountDownLatch latch = new CountDownLatch(1);
         long[] result = new long[1];
         storageQueue.postRunnable(() -> {
             SQLiteCursor cursor = null;
             try {
-                cursor = database.queryFinalized("SELECT uid FROM messages_v2 WHERE mid = ? LIMIT 1", messageId);
+                cursor = database.queryFinalized("SELECT uid FROM messages_v2 WHERE mid = ? AND is_channel = 0 LIMIT 1", messageId);
                 if (cursor.next()) result[0] = cursor.longValue(0);
             } catch (Exception e) {
                 checkSQLException(e);

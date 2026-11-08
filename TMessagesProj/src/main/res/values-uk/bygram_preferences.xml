@@ -72,6 +72,7 @@
     <string name="BygramSections">Секції</string>
     <string name="BygramSectionRadius">Заокруглення кутів блоків</string>
     <string name="BygramSeparateHeaders">Відокремити заголовки</string>
+    <string name="BygramQrGlassStyle">Скляний стиль кнопок і блоків</string>
     <string name="BygramMd3ProfileButtons">Кнопки профілю</string>
     <string name="BygramOff">Вимкнено</string>
     <string name="BygramActivityTestEnable">Увімкнути тестування активності BYgram</string>

@@ -1,5 +1,27 @@
 # Сборка BYgram на Windows
 
+## 07.11.2026 — Full Debug со стеклянным стилем QR
+
+Собран APK 13.1.1 (72379) командой `-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug --offline` с Python 3.11.18. Gradle завершился за 6m 37s. Лог `output/build-full-debug-qr-glass-final.log`.
+
+Файл `TMessagesProj_App/build/outputs/apk/afat/debug/BYgram-full-afatDebug.apk`, 164959703 байта. SHA-256 `b862eb12e024cd3c9281a58ea12637ada001d45d4c11d75b93f500c105561db0`.
+
+Проверены подпись v2, ZIP, выравнивание 16 KiB и четыре ABI. На эмуляторе Android 37 APK установлен поверх предыдущей версии, основная Activity запустилась. Изолированная отрисовка компонентов QR прошла на светлом, тёмном и акцентном цветах. Эмулятор открыл экран входа, поэтому сценарий настроек с авторизованным аккаунтом остался без проверки.
+
+APK отправлен в «Избранное» Telegram, сообщение 201821.
+
+## 07.11.2026 — Full Debug со штатными верхними панелями
+
+Собран APK 13.1.1 (72379) из `7931d1552` командой
+`-PBYGRAM_EDITION=full :TMessagesProj_App:assembleAfatDebug` с Python 3.11.18.
+Gradle завершился успешно за 43m 27s. Лог `output/build-full-debug-13.1.1-stock-headers.log`.
+
+Файл `output/BYgram-full-debug-13.1.1-stock-headers.apk`, 157368603 байт.
+SHA-256 `a94ffa32e447724a966bbf7f8f9574b71c39501292e836780494675210ee2c84`.
+Проверены пакет `com.bygram.mobile`, Full Debug, подпись v2 прежним ключом,
+локализация en/ru/uk, целостность ZIP, выравнивание 16 KiB и Full runtime
+для четырёх ABI. APK отправлен в «Избранное» Telegram, сообщение 201815.
+
 ## 01.11.2026 — обновление hook и аудит плагинов
 
 Full закрепляет `Aliuhook 1.1.4-api37.1-bygram.3`, fork `43b0d8d`,

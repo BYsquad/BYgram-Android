@@ -26,7 +26,7 @@ public final class BygramSettingsLink {
             case "root": rows = new int[]{-1, -2, 10, 11, 12}; break;
             case "customization": rows = new int[]{-1}; break;
             case "plugins": rows = new int[]{}; break;
-            case "general": rows = new int[]{-1, -2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 200, 201, 202, 203}; break;
+            case "general": rows = new int[]{-1, -2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 200, 201, 202, 203}; break;
             case "profile": rows = new int[]{-1, 1, 2, 3, 4, 5, 6, 7}; break;
             case "typing": rows = new int[]{-1, 100, 101, 103, 104, 105, 106, 107, 108, 109, 110, 200}; break;
             case "ghost": rows = new int[]{-1, 1, 2, 3, 4, 5, 7}; break;

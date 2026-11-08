@@ -123,6 +123,7 @@
     <string name="BygramHideReplyEmoji">Hide emoji in replies</string>
     <string name="BygramSectionRadius">Section corner radius</string>
     <string name="BygramSeparateHeaders">Separate headers in settings</string>
+    <string name="BygramQrGlassStyle">Glass style for buttons and panels</string>
     <string name="BygramDividerStyle">Dividers in settings</string>
     <string-array name="BygramDividerStyles"><item>Hidden</item><item>Line</item><item>Segments</item></string-array>
     <string name="BygramMessageMenu">Message menu</string>
