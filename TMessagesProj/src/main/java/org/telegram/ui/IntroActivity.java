@@ -991,7 +991,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     };
 
     // last colors applied by onThemeColorsChanged(): avoids per-frame allocations
-    private int lastButtonColor1, lastButtonColor2, lastLogoColor, lastDarkThemeColor;
+    private int lastButtonColor1, lastButtonColor2, lastDarkThemeColor;
 
     @Override
     public void onThemeColorsChanged() {
@@ -1005,11 +1005,6 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                 lastButtonColor1 = buttonColor1;
                 lastButtonColor2 = buttonColor2;
                 startMessagingButtonBackground.setColors(new int[]{buttonColor1, buttonColor2});
-            }
-            final int logoColor = Theme.multAlpha(getThemedColor(Theme.key_actionBarDefaultTitle), 0.9f);
-            if (logoDrawable != null && logoColor != lastLogoColor) {
-                lastLogoColor = logoColor;
-                logoDrawable.setColorFilter(logoColor, PorterDuff.Mode.MULTIPLY);
             }
             fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             if (switchLanguageTextView != null) {

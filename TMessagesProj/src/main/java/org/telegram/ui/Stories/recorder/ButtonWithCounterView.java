@@ -168,7 +168,7 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable, Them
     }
 
     private void setFilledBackground() {
-        final Drawable drawable = Theme.createRoundRectDrawable(dp(radiusDp), backgroundColor);
+        final Drawable drawable = Theme.createButtonBackground(dp(radiusDp), backgroundColor);
         if (customBackgroundColor) {
             setBackground(drawable);
         } else {
@@ -236,7 +236,8 @@ public class ButtonWithCounterView extends FrameLayout implements Loadable, Them
         if (background instanceof android.graphics.drawable.RippleDrawable) {
             ((android.graphics.drawable.RippleDrawable) background).setColor(android.content.res.ColorStateList.valueOf(color));
         } else {
-            rippleView.setBackground(Theme.createRadSelectorDrawable(color, radiusDp, radiusDp));
+            final int radius = QrGlass.isStyleEnabled() ? Math.max(radiusDp, 20) : radiusDp;
+            rippleView.setBackground(Theme.createRadSelectorDrawable(color, radius, radius));
         }
     }
 

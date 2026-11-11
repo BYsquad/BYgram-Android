@@ -660,7 +660,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             return;
         }
         titleTextView[i] = new SimpleTextView(getContext());
-        titleTextView[i].setGravity(isCenterTitle || centerTitleAndGlass ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        titleTextView[i].setGravity(centerTitleAndGlass ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
         if (titleColorToSet != 0) {
             titleTextView[i].setTextColor(titleColorToSet);
         } else {
@@ -727,11 +727,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         centerTitleAndGlass = value;
         for (SimpleTextView title : titleTextView) {
             if (title != null) {
-                title.setGravity(isCenterTitle || value ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
+                title.setGravity(value ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
             }
         }
         if (subtitleTextView != null) {
-            subtitleTextView.setGravity(isCenterTitle || value ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
+            subtitleTextView.setGravity(value ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
         }
         requestLayout();
         invalidate();
@@ -1770,7 +1770,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 if (centerTitleAndGlass || (titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.CENTER_HORIZONTAL) {
                     titleLeft = Math.max(textLeft, Math.min(titleRight - titleTextView[i].getMeasuredWidth(),
                         (getMeasuredWidth() - titleTextView[i].getMeasuredWidth()) / 2));
-                } else if (centerTitleAndGlass || (titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.RIGHT) {
+                } else if ((titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.RIGHT) {
                     titleLeft = Math.max(textLeft, titleRight - titleTextView[i].getMeasuredWidth());
                 }
                 titleTextView[i].layout(titleLeft, additionalTop + textTop - titleTextView[i].getPaddingTop(), titleLeft + titleTextView[i].getMeasuredWidth(), additionalTop + textTop + titleTextView[i].getTextHeight() - titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom());
@@ -2546,23 +2546,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     right = rightDefault;
                 }
 
-            glassDrawable.setBounds(left, t, right, b);
-            if (titleGravityInGlass) {
-                for (SimpleTextView title : titleTextView) {
-                    if (title == null) continue;
-                    float available = Math.max(0, right - left - dp(36));
-                    float scale = Math.min(1f, available / Math.max(1, title.getMeasuredWidth()));
-                    float space = Math.max(0, available - title.getMeasuredWidth() * scale);
-                    int gravity = titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK;
-                    float x = left + dp(18) + (gravity == Gravity.RIGHT ? space : gravity == Gravity.CENTER_HORIZONTAL ? space / 2f : 0);
-                    title.setPivotX(0);
-                    title.setPivotY(title.getHeight() / 2f);
-                    title.setScaleX(scale);
-                    title.setScaleY(scale);
-                    title.setTranslationX(x - title.getLeft() - (useContainerForTitles ? titlesContainer.getX() : 0));
+                glassDrawable.setBounds(left, t, right, b);
+                if (titleGravityInGlass) {
+                    for (SimpleTextView title : titleTextView) {
+                        if (title == null) continue;
+                        float available = Math.max(0, right - left - dp(36));
+                        float scale = Math.min(1f, available / Math.max(1, title.getMeasuredWidth()));
+                        float space = Math.max(0, available - title.getMeasuredWidth() * scale);
+                        int gravity = titleGravity & Gravity.HORIZONTAL_GRAVITY_MASK;
+                        float x = left + dp(18) + (gravity == Gravity.RIGHT ? space : gravity == Gravity.CENTER_HORIZONTAL ? space / 2f : 0);
+                        title.setPivotX(0);
+                        title.setPivotY(title.getHeight() / 2f);
+                        title.setScaleX(scale);
+                        title.setScaleY(scale);
+                        title.setTranslationX(x - title.getLeft() - (useContainerForTitles ? titlesContainer.getX() : 0));
+                    }
                 }
+                glassDrawable.draw(canvas);
             }
-            if (!doNotDrawCenterGlass) glassDrawable.draw(canvas);
         }
         if (glassDrawableBack != null && hasBackButton) {
             glassDrawableBack.setBounds(0, t, s + p * 2, b);

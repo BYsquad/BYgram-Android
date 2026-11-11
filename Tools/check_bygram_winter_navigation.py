@@ -90,6 +90,7 @@ public class WinterSettingsCheck {
         for (int right : new int[]{0,54,108}) for (int text : new int[]{16,110,600}) {
             int textLeft=left;
             Menu menu=new Menu(right);
+            boolean centerTitleAndGlass = false;
             int titleMenuWidth=menu.getMeasuredWidth();
             __MEASURE__
             titleTextView[0].width=Math.min(text,availableWidth);

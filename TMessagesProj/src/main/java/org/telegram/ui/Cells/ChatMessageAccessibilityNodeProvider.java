@@ -369,6 +369,10 @@ class ChatMessageAccessibilityNodeProvider extends AccessibilityNodeProvider {
                     };
                     sb.setSpan(underlineSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 }
+                if (cell.currentMessageObject.messageOwner.bygramChatDeletedAt != 0) {
+                    sb.append("\n").append(formatString(R.string.BygramChatDeletedAt,
+                            LocaleController.formatDateTime(cell.currentMessageObject.messageOwner.bygramChatDeletedAt, false)));
+                }
                 cell.accessibilityText = sb;
                 cell.accessibilityTextUnread = unread;
                 cell.accessibilityTextContentUnread = contentUnread;

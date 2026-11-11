@@ -320,7 +320,7 @@ public class ActionBarMenuItem extends FrameLayout {
                         getParent().requestDisallowInterceptTouchEvent(true);
                     }
                     if (overlayMenu) {
-                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                        performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.LONG_PRESS));
                     }
                     toggleSubMenu();
                     subMenuOpenedByGesture = true;

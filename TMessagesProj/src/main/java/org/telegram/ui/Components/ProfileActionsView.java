@@ -498,7 +498,7 @@ public class ProfileActionsView extends View {
                     downTime = System.currentTimeMillis();
                     hit.bounce.setPressed(true);
 //                    try {
-//                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING);
+//                        performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING);
 //                    } catch (Exception ignore) {}
                     break;
                 }

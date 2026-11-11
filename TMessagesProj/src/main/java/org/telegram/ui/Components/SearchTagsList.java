@@ -493,7 +493,7 @@ public class SearchTagsList extends FrameLayout implements NotificationCenter.No
 //                    ignoreTextChange = true;
 //                    s.delete(MAX_NAME_LENGTH, s.length());
 //                    AndroidUtilities.shakeView(editText);
-//                    editText.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+//                    editText.performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
 //                    ignoreTextChange = false;
 //                }
 //            }

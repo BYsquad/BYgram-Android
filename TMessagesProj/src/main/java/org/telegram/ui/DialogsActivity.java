@@ -5646,6 +5646,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         checkUi_forwardCommentFieldVisible();
         checkUi_searchFieldStyle();
 
+        if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0) {
+            actionBar.setupGlass(glassFactory(), BlurredBackgroundProviderImpl.topPanel(resourceProvider));
+        }
         glassEngine.setGlassInvalidationListener(this::invalidateBlurCaptures);
         glassEngine.setPositionsMerger(new GlassPositionsMerger(Float.POSITIVE_INFINITY, dp(48)));
 

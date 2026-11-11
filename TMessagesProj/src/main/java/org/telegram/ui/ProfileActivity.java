@@ -1284,7 +1284,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private Drawable bygramPageBackground(View target, Drawable fallback, boolean glass) {
         BlurredBackgroundDrawable glassBackground = glass
-                ? iBlur3FactoryLiquidGlass.create(target, BlurredBackgroundProviderImpl.topPanel(resourcesProvider)) : null;
+                ? getBaseSimpleGlass().factory.create(target, BlurredBackgroundProviderImpl.topPanel(resourcesProvider)) : null;
         if (glassBackground != null) {
             glassBackground.setRadius(dp(14));
             glassBackground.setCallback(target);
@@ -1292,7 +1292,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return new Drawable() {
             @Override public void draw(Canvas canvas) {
                 if (drawBygramPageBackground(canvas, target)) {
-                    if (glassBackground != null) {
+                    if (glassBackground != null && !isCapturingProfileGlass()) {
                         Rect bounds = getBounds();
                         glassBackground.setBounds(bounds.left + dp(8), bounds.top + dp(1), bounds.right - dp(8), bounds.bottom - dp(1));
                         glassBackground.draw(canvas);
@@ -3514,7 +3514,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 //                    canvas.drawRect(0, top + extraHeight + searchTransitionOffset, getMeasuredWidth(), top + getMeasuredHeight(), whitePaint);
                 }
                 super.dispatchDraw(canvas);
-                if (userId != 0 && (iBlur3SourceGlass == null || !iBlur3SourceGlass.inRecording())) {
+                if (userId != 0 && !isCapturingProfileGlass()) {
                     AndroidUtilities.rectTmp.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
                     bygramSnow.draw(this, canvas, BygramConfig.SNOW_PROFILES, AndroidUtilities.rectTmp, 0);
                 }
@@ -3996,7 +3996,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             if (BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)) {
                 bygramMusicView = new ProfileMusicView(context, resourcesProvider, currentAccount, true) {
-                    private final BlurredBackgroundDrawable glassBackground = iBlur3FactoryLiquidGlass.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+                    private final BlurredBackgroundDrawable glassBackground = getBaseSimpleGlass().factory.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
 
                     @Override protected void drawCardBackground(Canvas canvas, RectF bounds) {
                         if (topView != null && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)
@@ -4245,7 +4245,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         listView = new ClippedListView(context, resourcesProvider) {
 
-            private final BlurredBackgroundDrawable sectionGlass = iBlur3FactoryLiquidGlass.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+            private final BlurredBackgroundDrawable sectionGlass = getBaseSimpleGlass().factory.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
 
             @Override
             public void drawBackgroundRect(Canvas canvas, RectF rect, float topRadius, float bottomRadius, float alpha) {
@@ -4253,8 +4253,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         && topView.bygramBackground.hasImageLoaded()) {
                     sectionGlass.setRadius(topRadius, topRadius, bottomRadius, bottomRadius);
                     sectionGlass.setBounds((int) rect.left, (int) rect.top, (int) rect.right, (int) rect.bottom);
-                    sectionGlass.setAlpha((int) (255 * alpha * (iBlur3SourceGlass == null ? 0.76f : 1f)));
-                    sectionGlass.draw(canvas);
+                    sectionGlass.setAlpha((int) (255 * alpha * (getGlassSource() == null ? 0.76f : 1f)));
+                    if (!isCapturingProfileGlass()) sectionGlass.draw(canvas);
                 } else {
                     super.drawBackgroundRect(canvas, rect, topRadius, bottomRadius, alpha);
                 }
@@ -6081,6 +6081,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         // only the images of the header: its texts (the name, the status) and buttons are over the glass, not under it
         iBlur3Capture = (c, p) -> {
             final ViewGroup root = (ViewGroup) fragmentView;
+            drawBygramPageBackground(c, root);
             // over the media only they are under the glass: the rows above them would show through the pages' overscan
             final float mediaProgress = sharedMediaLayout != null && sharedMediaLayout.getParent() == listView ? mediaHeaderAnimationProgress : 0f;
             if (mediaProgress < 1f) {
@@ -6109,6 +6110,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         ViewCompat.setOnApplyWindowInsetsListener(fragmentView, this::onApplyWindowInsets);
         extraHeight = getHeaderExtraHeight();
         return fragmentView;
+    }
+
+    private boolean isCapturingProfileGlass() {
+        final GlassSourceRenderNode glass = getGlassSource();
+        final GlassSourceRenderNode frosted = getFrostedGlassSource();
+        return (glass != null && glass.inRecording()) || (frosted != null && frosted.inRecording());
     }
 
     private static final RectF captureViewRect = new RectF();
@@ -8264,6 +8271,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         // the media's ⋮ takes the place of the profile's ⋮ (both the last in the pill): the same button, nothing to animate
         final boolean optionsSwap = sharedMediaLayout != null && sharedMediaLayout.hasSimpleOptions();
         setHeaderItemShown(otherItem, profile, animated && !optionsSwap);
+        setHeaderItemShown(profileViewsItem, profile && !photo, animated);
         if (sharedMediaLayout != null) {
             sharedMediaLayout.setSimpleMenuItemsAllowed(mediaHeaderVisible, animated, animated && !optionsSwap);
         }
@@ -12243,6 +12251,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else {
                     nameTextView.setRightDrawable2(null);
                     nameTextViewRightDrawableContentDescription = null;
+                }
+                if (BygramBadgeController.hasBadge(chat)) {
+                    nameTextView.setRightDrawable2(new BygramBadgeDrawable(getContext(), true, 18, nameTextView.getRightDrawable2()));
                 }
                 if (DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0) {
                     nameTextView.setRightDrawable(getEmojiStatusDrawable(chat.emoji_status, true, false));

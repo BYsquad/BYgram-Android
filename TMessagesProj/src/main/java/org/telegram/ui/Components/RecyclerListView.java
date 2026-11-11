@@ -3845,7 +3845,8 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     private final static float[] radii = new float[8];
     public static void drawBackgroundRect(Canvas canvas, RectF rect, float topRadius, float bottomRadius, float alpha, Theme.ResourcesProvider resourcesProvider) {
         sectionBackgroundPaint.setShadowLayer(0, 0, 0, 0);
-        sectionBackgroundPaint.setColor(multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), alpha));
+        final int color = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+        sectionBackgroundPaint.setColor(multAlpha(color, alpha));
         if (topRadius <= 0 && bottomRadius <= 0) {
             canvas.drawRect(rect, sectionBackgroundPaint);
         } else if (topRadius == bottomRadius) {

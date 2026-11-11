@@ -27,7 +27,10 @@ public class Check extends Base {
     static class Image { boolean loaded; boolean hasImageLoaded() { return loaded; } }
     static class Top { Image bygramBackground=new Image(); }
     static class BygramConfig { static final String FULL_PROFILE_BACKGROUND="full"; static boolean enabled; static boolean getBoolean(String k) { return enabled; } }
-    Top topView=new Top(); Glass sectionGlass=new Glass(); Object iBlur3SourceGlass=new Object();
+    Top topView=new Top(); Glass sectionGlass=new Glass(); Object glassSource=new Object();
+    boolean capturing;
+    Object getGlassSource() { return glassSource; }
+    boolean isCapturingProfileGlass() { return capturing; }
     METHOD
     static class Rect { int top; }
     static class Bar { int getBottom() { return 80; } }
@@ -46,7 +49,9 @@ public class Check extends Base {
         assert t.sectionGlass.top==-30 && t.sectionGlass.bottom==250 && t.sectionGlass.left==12 && t.sectionGlass.right==388;
         assert java.util.Arrays.equals(t.sectionGlass.radii,new float[]{16,16,8,8});
         t.drawBackgroundRect(c,r,0,0,1); assert t.sectionGlass.alpha==255 && t.sectionGlass.radii[0]==0;
-        t.iBlur3SourceGlass=null; t.drawBackgroundRect(c,r,16,16,1); assert t.sectionGlass.alpha==193;
+        t.glassSource=null; t.drawBackgroundRect(c,r,16,16,1); assert t.sectionGlass.alpha==193;
+        int draws=t.sectionGlass.draws; t.capturing=true;
+        t.drawBackgroundRect(c,r,16,16,1); assert t.sectionGlass.draws==draws;
         t.topView=null; t.drawBackgroundRect(c,r,16,16,1); assert t.fallback==3;
         t.header(); assert t.blurBounds.top==80;
         t.blurBounds.top=140; t.header(); assert t.blurBounds.top==140;

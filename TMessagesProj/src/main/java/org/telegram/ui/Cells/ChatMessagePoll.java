@@ -96,6 +96,16 @@ import java.util.Collections;
 
 import me.vkryl.core.BitwiseUtils;
 class ChatMessagePoll {
+    static boolean showResultsPreview(MessageObject message) {
+        if (message.forceShowPollResults) return true;
+        TLRPC.MessageMedia messageMedia = MessageObject.getMedia(message);
+        if (!org.telegram.messenger.BygramConfig.getBoolean("bygram_poll_results")
+                || !(messageMedia instanceof TLRPC.TL_messageMediaPoll)) return false;
+        TLRPC.TL_messageMediaPoll media = (TLRPC.TL_messageMediaPoll) messageMedia;
+        return !media.poll.hide_results_until_close
+                && media.results != null && !media.results.results.isEmpty();
+    }
+
 
     private final ChatMessageCell cell;
 
@@ -168,7 +178,7 @@ class ChatMessagePoll {
             total_voters = media.results.total_voters;
             timerTransitionProgress = media.poll.close_date - ConnectionsManager.getInstance(cell.currentAccount).getCurrentTime() < 60 ? 0.0f : 1.0f;
             cell.pollClosed = media.poll.closed;
-            cell.pollResultsPreview = messageObject.forceShowPollResults;
+            cell.pollResultsPreview = showResultsPreview(messageObject);
             hideResults = media.poll.hide_results_until_close;
             title = media.poll.question;
             if (cell.pollClosed) {
@@ -357,7 +367,7 @@ class ChatMessagePoll {
         int maxVote = 0;
         if (!animateAnswer && cell.pollVoteInProgress && cell.vibrateOnPollVote) {
             try {
-                cell.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                cell.performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP), HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
             } catch (Exception ignored) {}
         }
         animateAnswer = cell.attachedToWindow && (cell.pollVoteInProgress || cell.pollUnvoteInProgress);

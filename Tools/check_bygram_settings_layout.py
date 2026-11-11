@@ -84,8 +84,8 @@ assert "super.drawCardBackground(canvas, bounds);" in profile
 music = (JAVA / "Components/ProfileMusicView.java").read_text(encoding="utf-8")
 assert "drawCardBackground(canvas, rect);" in music
 assert "bygramPageBackground(this, getBackground(), false)" in profile
-assert "boolean bygramBackdrop = drawBygramPageBackground(c, fragmentView);" in profile
-assert "!bygramBackdrop && SharedConfig.chatBlurEnabled()" in profile
+assert "drawBygramPageBackground(c, root);" in profile
+assert "glassBackground != null && !isCapturingProfileGlass()" in profile
 assert "glassBackground.setCallback(target)" in profile
 for folder in ("values", "values-ru", "values-uk"):
     entries = {n.get("name"): "".join(n.itertext()) for n in ET.parse(ROOT / "TMessagesProj/src/main/res" / folder / "bygram_strings.xml").getroot()}

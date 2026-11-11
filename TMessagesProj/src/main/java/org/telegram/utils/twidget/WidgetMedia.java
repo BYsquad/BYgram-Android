@@ -1169,7 +1169,7 @@ public final class WidgetMedia {
                     int feedback = "selection".equals(haptic) ? HapticFeedbackConstants.CLOCK_TICK
                             : "notification".equals(haptic) ? HapticFeedbackConstants.CONFIRM
                             : HapticFeedbackConstants.KEYBOARD_TAP;
-                    view.performHapticFeedback(feedback);
+                    view.performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(feedback));
                 }
             }
         }

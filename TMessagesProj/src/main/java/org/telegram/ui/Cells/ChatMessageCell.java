@@ -2336,7 +2336,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     public void onWidgetHold() {
         if (delegate == null) return;
         try {
-            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.LONG_PRESS));
         } catch (Exception ignore) {}
         delegate.didLongPress(this, lastTouchX, lastTouchY);
     }
@@ -3278,7 +3278,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             if (Math.abs(currentMessageObject.audioProgress - p) > 0.9f) {
                 if (roundSeekbarOutAlpha == 0) {
                     try {
-                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP));
                     } catch (Exception ignored) {}
                 }
                 roundSeekbarOutAlpha = 1f;
@@ -6286,7 +6286,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             if (!pollChanged && newResults != lastPollResults) {
                 pollChanged = true;
             }
-            if (!pollChanged && (messageObject.forceShowPollResults != pollResultsPreview)) {
+            if (!pollChanged && (ChatMessagePoll.showResultsPreview(messageObject) != pollResultsPreview)) {
                 pollChanged = true;
             }
             if (lastPoll != newPoll && (lastPoll != null && lastPoll.closed) != newPoll.closed) {
@@ -6299,7 +6299,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             animatePollAvatars = false;
             if (pollChanged && attachedToWindow) {
                 pollAnimationProgressTime = 0.0f;
-                if ((pollVoted || pollResultsPreview) && !(messageObject.isVoted() || messageObject.forceShowPollResults)) {
+                if ((pollVoted || pollResultsPreview) && !(messageObject.isVoted() || ChatMessagePoll.showResultsPreview(messageObject))) {
                     pollUnvoteInProgress = true;
                 }
                 animatePollAvatars = lastPollResultsVoters == 0 || lastPollResultsVoters != 0 && newVoters == 0;
@@ -15569,7 +15569,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 return LocaleController.formatPmEditedDate(editDate);
             }
-            return getString(R.string.EditedMessage) + " " + LocaleController.getInstance().getFormatterDay().format((long) (message.messageOwner.date) * 1000);
+            return (BygramConfig.getBoolean("bygram_edited_icon") ? "\u270e" : getString(R.string.EditedMessage)) + " " + LocaleController.getInstance().getFormatterDay().format((long) (message.messageOwner.date) * 1000);
         } else if (current.isSaved && current.messageOwner.fwd_from != null && (current.messageOwner.fwd_from.date != 0 || current.messageOwner.fwd_from.saved_date != 0)
                 // A widget keeps its time alone in Saved Messages: the pill over its corner stays short.
                 && !(MessageObject.getMedia(current.messageOwner) instanceof TLRPC.TL_messageMediaWidget)) {
@@ -21285,7 +21285,21 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return !forceNotDrawTime && (currentMessageObject == null || currentMessageObject.type != MessageObject.TYPE_JOINED_CHANNEL);
     }
 
+    private void drawBygramOnline(Canvas canvas) {
+        if (!BygramConfig.getBoolean("bygram_show_online") || currentUser == null || currentUser.bot || currentUser.self) return;
+        boolean online = currentUser.status != null && currentUser.status.expires > ConnectionsManager.getInstance(currentAccount).getCurrentTime()
+                || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(currentUser.id);
+        if (!online) return;
+        float x = avatarImage.getImageX2() - dp(3), y = avatarImage.getImageY2() - dp(3);
+        bygramOnlineBorderPaint.setColor(getThemedColor(Theme.key_chat_messagePanelBackground));
+        bygramOnlinePaint.setColor(getThemedColor(Theme.key_avatar_backgroundGreen));
+        canvas.drawCircle(x, y, dp(5.5f), bygramOnlineBorderPaint);
+        canvas.drawCircle(x, y, dp(3.5f), bygramOnlinePaint);
+    }
+
     public boolean shouldDrawTimeOnMedia() {
+        if (currentMessageObject != null && currentMessageObject.isAnyKindOfSticker()
+                && BygramConfig.getInt("bygram_sticker_time", BygramConfig.getBoolean("bygram_hide_sticker_time") ? 2 : 0) == 1) return false;
         if (overideShouldDrawTimeOnMedia != 0) {
             return overideShouldDrawTimeOnMedia == 1;
         }
@@ -21302,6 +21316,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public void drawTime(Canvas canvas, float alpha, boolean fromParent) {
+        if (currentMessageObject != null && currentMessageObject.isAnyKindOfSticker()
+                && BygramConfig.getInt("bygram_sticker_time", BygramConfig.getBoolean("bygram_hide_sticker_time") ? 2 : 0) == 2) return;
         if (!drawFromPinchToZoom && delegate != null && delegate.getPinchToZoomHelper() != null && delegate.getPinchToZoomHelper().isInOverlayModeFor(this) && shouldDrawTimeOnMedia()) {
             return;
         }
@@ -21666,6 +21682,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
             }
 
+            drawTimeX = timeTitleTimeX + additionalX;
+            drawTimeY = layoutHeight - dp(pinnedBottom || pinnedTop ? 7.5f : 6.5f) - timeLayout.getHeight() + timeYOffset;
             canvas.save();
             if (transitionParams.animateEditedEnter && transitionParams.animateChangeProgress != 1f) {
                 if (transitionParams.animateEditedLayout != null) {
@@ -21689,11 +21707,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     Theme.chat_timePaint.setAlpha(oldAlpha);
                 }
             } else {
-                canvas.translate(drawTimeX = timeTitleTimeX + additionalX, drawTimeY = layoutHeight - dp(pinnedBottom || pinnedTop ? 7.5f : 6.5f) - timeLayout.getHeight() + timeYOffset);
+                canvas.translate(drawTimeX, drawTimeY);
                 SpoilerEffect.layoutDrawMaybe(timeLayout, canvas);
             }
             canvas.restore();
         }
+
+        drawBygramDeletedStatus(canvas, alpha);
 
         if (currentMessageObject.isOutOwner()) {
             int currentStatus = transitionParams.createStatusDrawableParams();
@@ -21919,6 +21939,23 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
             }
         }
+    }
+
+    private void drawBygramDeletedStatus(Canvas canvas, float alpha) {
+        if (!currentMessageObject.isBygramDeleted()) {
+            return;
+        }
+        if (bygramDeletedDrawable == null) {
+            bygramDeletedDrawable = getResources().getDrawable(R.drawable.msg_delete).mutate();
+        }
+        int size = dp(14);
+        int left = (int) (drawTimeX + timeLayout.getLineRight(0) + dp(2));
+        int top = (int) (drawTimeY + (timeLayout.getHeight() - size) / 2f);
+        bygramDeletedDrawable.setColorFilter(new PorterDuffColorFilter(Theme.chat_timePaint.getColor(), PorterDuff.Mode.SRC_IN));
+        bygramDeletedDrawable.setAlpha((int) (255 * alpha * (shouldDrawTimeOnMedia() ? timeAlpha : 1f)));
+        bygramDeletedDrawable.setBounds(left, top, left + size, top + size);
+        bygramDeletedDrawable.draw(canvas);
+        bygramDeletedDrawable.setAlpha(255);
     }
 
     public float getTimeX() {

@@ -878,7 +878,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
             bar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
             bar.createMenu().addItem(1, R.drawable.outline_header_search).setContentDescription(getString(R.string.Search));
             bar.createMenu().addItem(2, R.drawable.msg_edit).setContentDescription(getString(R.string.Edit));
-            org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor color = new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor();
+            org.telegram.utils.glass.source.GlassSourceColor color = new org.telegram.utils.glass.source.GlassSourceColor();
             color.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             bar.setupGlass(new org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory(color),
                     org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl.topPanel(null));

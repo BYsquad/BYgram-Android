@@ -4660,7 +4660,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
 
     private void showUserViewsDialog() {
 //        if (StoriesUtilities.hasExpiredViews(currentStory.storyItem)) {
-//            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+//            performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP));
 //            BulletinFactory bulletinFactory = BulletinFactory.global();
 //            if (bulletinFactory != null) {
 //                bulletinFactory.createErrorBulletin(AndroidUtilities.replaceTags(LocaleController.getString(R.string.ExpiredViewsStub))).show();

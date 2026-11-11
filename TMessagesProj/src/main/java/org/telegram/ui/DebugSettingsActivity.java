@@ -101,6 +101,7 @@ public class DebugSettingsActivity extends UniversalFragment {
     private static final int ID_FRAME_METRICS = 39;
     private static final int ID_VIEW_METRICS = 41;
     private static final int ID_EXPERIMENTAL = 42;
+    private static final int ID_BYGRAM_LITE_ACTIVITY = 10143;
     private static final int ID_CLEAR_WIDGET_HEIGHTS = 43;
     private static final int ID_WIDGET_STATIC_LAYERS = 44;
     private static final int ID_FORGET_HINTS = 45;
@@ -180,6 +181,9 @@ public class DebugSettingsActivity extends UniversalFragment {
             items.add(UItem.asCheck(ID_FLOATING_DEBUG, getString(R.string.FloatingDebugEnable)).setChecked(SharedConfig.isFloatingDebugActive));
         }
         items.add(UItem.asCheck(ID_EXPERIMENTAL, "Experimental settings").setChecked(SharedSettings.experimentalSettingsAllowed.get()));
+        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
+            items.add(UItem.asButton(ID_BYGRAM_LITE_ACTIVITY, BygramSettingsActivity.liteActivityMenuTitle(currentAccount)));
+        }
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader("Interface"));
@@ -435,6 +439,9 @@ public class DebugSettingsActivity extends UniversalFragment {
                 prefs.edit().putBoolean("debugViewMetrics", SharedConfig.debugViewMetrics = !SharedConfig.debugViewMetrics).apply();
                 break;
             }
+            case ID_BYGRAM_LITE_ACTIVITY:
+                BygramSettingsActivity.toggleLiteActivity(this);
+                break;
             case ID_EXPERIMENTAL:
                 SharedSettings.experimentalSettingsAllowed.toggle();
                 break;

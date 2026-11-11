@@ -3427,7 +3427,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 //                        } else {
 //                            delegate.needShowMediaBanHint();
 //                        }
-//                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+//                        performHapticFeedback(org.telegram.messenger.BygramConfig.hapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP));
 //                        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
 //                    } else if (!hasRecordVideo || calledRecordRunnable) {
 //                        startedDraggingX = -1;

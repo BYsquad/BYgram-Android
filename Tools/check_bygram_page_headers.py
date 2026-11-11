@@ -18,8 +18,8 @@ assert "actionBar.setTitle(getString(R.string.BygramSettings));" in root
 assert "asTopViewStatic(" not in root
 assert "if (getPaddingTop() != headerHeight) setPadding(0, headerHeight, 0, 0);" in page
 assert settings.count("FrameLayout content = createSettingsContent(context);") == 8
-assert "actionBarBackground = new View(context) {" in telegram_settings
-assert "getParentLayout().drawHeaderShadow(canvas, top);" in telegram_settings
+assert "simpleActionBar.setTitle(getString(R.string.Settings));" in telegram_settings
+assert "BaseFragmentSimpleGlass.setListViewParams(listView, systemInsets.top, systemInsets.bottom" in telegram_settings
 assert "actionBar.setupGlass(" not in profile and "setTitleCenteredInGlass(" not in contacts
 assert "actionBar.setupGlass(glassFactory(), BlurredBackgroundProviderImpl.topPanel(resourceProvider));" in dialogs
 print("PASS: stock page headers, settings insets and explicit chat list glass")

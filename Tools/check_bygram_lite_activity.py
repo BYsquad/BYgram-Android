@@ -74,9 +74,10 @@ with tempfile.TemporaryDirectory(prefix='bygram-lite-activity-') as temp:
     subprocess.run(['javac', str(path)], check=True)
     subprocess.run(['java', '-cp', temp, 'LiteActivityCheck'], check=True)
 
-settings = (root / 'TMessagesProj/src/main/java/org/telegram/ui/SettingsActivity.java').read_text(encoding='utf-8')
+settings = (root / 'TMessagesProj/src/main/java/org/telegram/ui/DebugSettingsActivity.java').read_text(encoding='utf-8')
 profile = (root / 'TMessagesProj/src/main/java/org/telegram/ui/ProfileActivity.java').read_text(encoding='utf-8')
-assert 'which == 43 && !BuildConfig.BYGRAM_FULL' in settings
+assert 'if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL)' in settings
+assert 'case ID_BYGRAM_LITE_ACTIVITY:' in settings
 assert 'which == 39 && !org.telegram.messenger.BuildConfig.BYGRAM_FULL' in profile
 assert 'BygramSettingsActivity.toggleLiteActivity(' in settings and 'BygramSettingsActivity.toggleLiteActivity(' in profile
 page = (root / 'TMessagesProj/src/main/java/org/telegram/ui/BygramSettingsActivity.java').read_text(encoding='utf-8')

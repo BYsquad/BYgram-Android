@@ -21036,7 +21036,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
     }
 
     private boolean enableSwipeToPiP() {
-        return org.telegram.messenger.BygramConfig.getBoolean("bygram_swipe_pip") && pipIsAvailable();
+        return org.telegram.messenger.BygramConfig.getBoolean("bygram_swipe_pip") && pipAvailable && isPlaying;
     }
 
     @Override
