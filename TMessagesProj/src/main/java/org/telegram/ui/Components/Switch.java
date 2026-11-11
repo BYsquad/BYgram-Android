@@ -44,7 +44,7 @@ import org.telegram.ui.Cells.BaseCell;
 
 import me.vkryl.android.animator.BoolAnimator;
 
-public class Switch extends FrameLayout {
+public class Switch extends FrameLayout implements Theme.Colorable {
 
     private MaterialSwitch materialSwitch;
     private int materialTrack, materialTrackChecked, materialThumb, materialThumbChecked, materialOutline;
@@ -56,6 +56,11 @@ public class Switch extends FrameLayout {
 
     public static int layoutHeight() {
         return org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.MD3_SWITCHES) ? 32 : 20;
+    }
+
+    @Override
+    public void updateColors() {
+        colorSet = 0; // the ripple color is re-read from the theme on the next press
     }
     private final BoolAnimator animatorIconVisibility = new BoolAnimator(this, CubicBezierInterpolator.EASE_OUT_QUINT, 380L, true);
 
