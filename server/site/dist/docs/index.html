@@ -7,66 +7,98 @@
   <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/">
   <title>Документация плагинов BYgram</title>
   <link rel="icon" href="../assets/bygram-logo.png">
-  <script type="module" crossorigin src="../assets/docs.js"></script>
+  <script type="module" crossorigin src="../assets/docs-BwYYVCxM.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill.js">
-  <link rel="stylesheet" crossorigin href="../assets/docs.css">
+  <link rel="stylesheet" crossorigin href="../assets/docs-BhNH_Qpp.css">
 </head>
 <body>
   <a class="skip" href="#content">К содержанию</a>
-  <header class="top">
-    <div class="bar">
-      <a class="brand" href="./"><img src="../assets/bygram-logo.png" width="34" height="34" alt="">BYgram <span>Плагины</span></a>
-      <nav aria-label="Быстрые ссылки">
-        <a href="#catalog">Каталог</a>
-        <a href="../download.html">Скачать BYgram ↗</a>
-      </nav>
-      <button id="search-open" type="button" aria-haspopup="dialog" hidden><span aria-hidden="true">⌕</span> Поиск <kbd>Ctrl K</kbd></button>
-    </div>
-  </header>
   <div class="layout">
-    <aside class="sidebar">
-      <details id="navigation" open>
-        <summary>Разделы документации</summary>
-        <nav aria-label="Разделы документации">
-          <p>Начало работы</p>
-          <a href="#intro" aria-current="location">Введение</a>
-          <a href="#install">Установка плагина</a>
-          <a href="#first-plugin">Первый плагин</a>
-          <p>SDK v1</p>
-          <a href="#manifest">Формат пакета</a>
-          <a href="#sdk">Жизненный цикл и API</a>
-          <a href="#settings">Настройки и интерфейс</a>
-          <a href="#events">События и аккаунты</a>
-          <a href="#hooks">Нативные хуки</a>
-          <p>Распространение</p>
-          <a href="#catalog">Каталог плагинов</a>
-          <a href="#publish">Публикация</a>
-          <a href="#recovery">Диагностика и восстановление</a>
-        </nav>
-      </details>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top"><a class="brand" href="./"><img src="../assets/bygram-logo.png" width="24" height="24" alt="">BYgram</a><button id="sidebar-close" class="icon-button" type="button" aria-label="Свернуть оглавление" hidden></button></div>
+      <nav id="navigation" aria-label="Разделы документации">
+<div class="nav-group"><p>Начало работы</p>
+            <a href="#intro"><span class="nav-icon" aria-hidden="true">◈</span>Введение</a>
+            <a href="#install"><span class="nav-icon" aria-hidden="true">▤</span>Установка</a>
+            <a href="#first-plugin"><span class="nav-icon" aria-hidden="true">◇</span>Первый плагин</a></div>
+<div class="nav-group"><p>Структурированные плагины</p><details><summary>
+            <a href="#elyx"><span class="nav-icon" aria-hidden="true">⬡</span>Elyx</a><span class="chevron" aria-hidden="true">›</span></summary><div class="nested">
+            <a href="#elyx-quick-start">Быстрый старт</a>
+            <a href="#elyx-structure">Структура проекта</a>
+            <a href="#elyx-metadata">Метаданные</a>
+            <a href="#elyx-imports">Модули и импорты</a>
+            <a href="#elyx-assets">Ресурсы</a>
+            <a href="#elyx-localization">Локализация</a>
+            <a href="#elyx-settings">Хранение настроек</a>
+            <a href="#elyx-dependencies">Зависимости</a>
+            <a href="#elyx-development">Разработка и сборка</a>
+            <a href="#elyx-api">Публичный API</a>
+            <a href="#elyx-troubleshooting">Устранение неполадок</a></div></details></div>
+<div class="nav-group"><p>Основы</p>
+            <a href="#sdk"><span class="nav-icon" aria-hidden="true">♧</span>Класс плагина</a>
+            <a href="#events"><span class="nav-icon" aria-hidden="true">♙</span>Несколько аккаунтов</a>
+            <a href="#settings"><span class="nav-icon" aria-hidden="true">⚙</span>Настройки плагина</a>
+            <a href="#logging"><span class="nav-icon" aria-hidden="true">▧</span>Журналирование</a>
+            <a href="#class-proxy"><span class="nav-icon" aria-hidden="true">⬡</span>Class Proxy</a>
+            <a href="#hooks"><span class="nav-icon" aria-hidden="true">⌁</span>Хуки методов Xposed</a></div>
+<div class="nav-group"><p>Утилиты</p>
+            <a href="#android-utils"><span class="nav-icon" aria-hidden="true">▯</span>Утилиты Android</a>
+            <a href="#client-utils"><span class="nav-icon" aria-hidden="true">⌘</span>Утилиты клиента</a>
+            <a href="#text-formatting"><span class="nav-icon" aria-hidden="true">T</span>Форматирование текста</a>
+            <a href="#hook-utils"><span class="nav-icon" aria-hidden="true">⚲</span>Рефлексия Java</a>
+            <a href="#file-utils"><span class="nav-icon" aria-hidden="true">♧</span>Файловые утилиты</a>
+            <a href="#intents"><span class="nav-icon" aria-hidden="true">↗</span>Ссылки и Intent</a>
+            <a href="#dialogs"><span class="nav-icon" aria-hidden="true">▣</span>Диалоги</a>
+            <a href="#bulletins"><span class="nav-icon" aria-hidden="true">▱</span>Уведомления Bulletin</a></div>
+<div class="nav-group"><p>Дополнительно</p>
+            <a href="#repositories"><span class="nav-icon" aria-hidden="true">▤</span>Репозитории плагинов</a>
+            <a href="#dev-server"><span class="nav-icon" aria-hidden="true">▱</span>Сервер разработки</a>
+            <a href="#pip"><span class="nav-icon" aria-hidden="true">▦</span>PyPI и зависимости</a>
+            <a href="#libraries"><span class="nav-icon" aria-hidden="true">▧</span>Доступные библиотеки</a>
+            <a href="#telegram-classes"><span class="nav-icon" aria-hidden="true">⬡</span>Классы Telegram</a></div>
+<div class="nav-group"><p>BYgram</p>
+            <a href="#manifest"><span class="nav-icon" aria-hidden="true">▤</span>Формат пакета</a>
+            <a href="#compatibility"><span class="nav-icon" aria-hidden="true">↔</span>Перенос с exteraGram</a>
+            <a href="#catalog"><span class="nav-icon" aria-hidden="true">▦</span>Каталог BYgram</a>
+            <a href="#publish"><span class="nav-icon" aria-hidden="true">↥</span>Публикация</a>
+            <a href="#recovery"><span class="nav-icon" aria-hidden="true">◈</span>Восстановление</a></div>
+</nav>
     </aside>
-
+    <header class="top">
+      <button id="sidebar-open" class="icon-button" type="button" aria-label="Открыть оглавление" aria-controls="sidebar" aria-expanded="false" hidden></button>
+      <button id="search-open" type="button" aria-haspopup="dialog" hidden><span aria-hidden="true">⌕</span> Поиск <kbd>Ctrl</kbd><kbd>K</kbd></button>
+      <div class="tools">
+        <button id="theme" class="icon-button" type="button" aria-label="Сменить тему" hidden><span aria-hidden="true">☀</span><span aria-hidden="true">☾</span></button>
+        <a class="icon-button" href="https://github.com/BYxarek/BYgram-mobile" aria-label="BYgram на GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.76-.24.76-.54v-2.07c-3.12.68-3.78-1.32-3.78-1.32-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1 1.7 1.1 3.28.62.1-.72.39-1.2.71-1.48-2.49-.28-5.1-1.25-5.1-5.54 0-1.23.44-2.23 1.15-3.02-.12-.28-.5-1.43.11-2.98 0 0 .94-.3 3.08 1.15a10.7 10.7 0 0 1 5.6 0c2.14-1.45 3.08-1.15 3.08-1.15.61 1.55.23 2.7.11 2.98.72.79 1.15 1.79 1.15 3.02 0 4.3-2.62 5.25-5.12 5.53.4.35.76 1.03.76 2.08v3.36c0 .3.2.64.77.53A11.2 11.2 0 0 0 12 .8Z"/></svg></a>
+      </div>
+    </header>
     <main id="content">
       <section id="intro" aria-labelledby="intro-title">
-        <p class="meta">Документация для Android <span>SDK v1</span></p>
-        <h1 id="intro-title">Плагины BYgram</h1>
-        <p class="lead">Создавайте расширения для BYgram Full на Python. Добавляйте действия в меню чатов, настраивайте интерфейс и подписывайтесь на события клиента через SDK.</p>
-        <ul class="facts" aria-label="Требования"><li>Python 3.11</li><li>Android 7.0+</li><li>BYgram Full</li></ul>
-        <div class="routes">
-          <a href="#first-plugin"><strong>Первый плагин <span aria-hidden="true">↗</span></strong><small>Соберите .byplugin и откройте его в BYgram</small></a>
-          <a href="#sdk"><strong>Справочник SDK <span aria-hidden="true">↗</span></strong><small>Контекст, настройки, события и хуки</small></a>
-        </div>
-        <aside class="note"><strong>Исполнение кода</strong><p>Плагин выполняется с правами процесса BYgram. Устанавливайте пакеты от авторов, которым доверяете.</p></aside>
+        <h1 id="intro-title">Введение</h1>
+        <p class="lead">Разработка плагинов для BYgram Full на Python.</p>
+        <h2 id="bygram-plugins">Плагины BYgram</h2>
+        <p>Плагин добавляет функции в Android-клиент BYgram. Соберите свой пакет <code>.byplugin</code> или импортируйте поддерживаемый исходник <code>.plugin</code>, <code>.elyx</code> или <code>.eaf</code>.</p>
+        <p>Встроенный движок использует Chaquopy для связи Python с Java. Перехваты методов работают через отдельный ART-мост.</p>
+        <h2 id="baseline">Требования</h2>
+        <ul><li>Редакция BYgram Full, Android 7.0 и новее.</li><li>Версия SDK <code>1</code>, Python <code>3.11</code>.</li><li>Примеры ниже рассчитаны на <a href="../download.html#full-debug">Full Debug <code>13.2.1 (72919)</code></a>.</li></ul>
+        <aside class="note"><strong>Запуск плагинов</strong><p>Плагины выполняются с правами процесса клиента. Разрешайте запуск пакетов от авторов, которым доверяете.</p></aside>
+        <h2 id="sdk-capabilities">Возможности SDK</h2>
+        <ul><li>Перехваты запросов, ответов, обновлений и отправки сообщений.</li><li>Действия в меню, настройки, диалоги и уведомления Telegram.</li><li>Отправка текста и медиа, Java reflection, Class Proxy и хуки методов.</li><li>Ресурсы, переводы и зависимости Elyx, перезагрузка через Dev Server.</li></ul>
+        <h2 id="reading-order">С чего начать</h2>
+        <ol><li><a href="#install">Установите и включите движок</a>.</li><li><a href="#first-plugin">Соберите первый плагин</a>.</li><li>Изучите <a href="#sdk">класс плагина</a> и <a href="#settings">настройки</a>.</li></ol>
       </section>
 
       <section id="install">
         <h2>Установка плагина</h2>
+        <p class="lead">Включите движок и установите пакет в BYgram Full.</p>
+        <h3 id="install-package">Как установить</h3>
         <ol>
           <li>Откройте <strong>Настройки → Настройки BYgram → Плагины · БЕТА</strong> в редакции Full.</li>
           <li>Выберите пакет из каталога или нажмите «Установить из файла» и откройте архив <code>.byplugin</code>. Пакет также можно открыть из вложения в чате.</li>
           <li>Проверьте источник, возможности и данные пакета, затем подтвердите установку.</li>
           <li>Включите движок и отдельно разрешите исполнение плагина в его карточке.</li>
         </ol>
+        <h3 id="install-manage">Управление установленным плагином</h3>
         <p>В карточке можно открыть файлы пакета, поделиться архивом, настроить разрешённые аккаунты, посмотреть журнал и удалить плагин с выбором судьбы его данных. Настройки, которые создаёт сам плагин, появляются после включения.</p>
       </section>
 
@@ -81,7 +113,6 @@
         <p>Скачайте или клонируйте репозиторий BYgram и выполните команды из его корня. Для команд нужен Python. После установки и включения пакета откройте меню обычного чата и выберите <strong>Hello BYgram</strong>.</p>
         <figure><figcaption>Терминал</figcaption><pre><code>python Tools/package_plugin.py docs/plugins/examples/hello output/hello.byplugin
 python Tools/check_plugins.py</code></pre></figure>
-        <p><a href="https://github.com/BYxarek/BYgram-mobile">Репозиторий BYgram на GitHub ↗</a></p>
       </section>
 
       <section id="manifest">
@@ -90,16 +121,19 @@ python Tools/check_plugins.py</code></pre></figure>
         <dl class="reference">
           <dt><code>id</code> / <code>version</code></dt><dd>Постоянный ID в нижнем регистре, например <code>dev.example.hello</code>, и версия из трёх чисел.</dd>
           <dt><code>manifest_version</code> / <code>sdk</code> / <code>python</code></dt><dd>Версия формата 1, диапазон SDK <code>{"min": 1, "max": 1}</code> и Python <code>3.11</code>.</dd>
-          <dt><code>capabilities</code></dt><dd><code>ui</code>, <code>theme</code>, <code>messages.observe</code>, <code>messages.send</code>, <code>network</code>, <code>hooks.raw</code>, <code>hooks.telegram</code>, <code>telegram.requests</code>. Объявляйте возможности, которые использует плагин.</dd>
+          <dt><code>capabilities</code></dt><dd><code>ui</code>, <code>theme</code>, <code>messages.observe</code>, <code>messages.send</code>, <code>messages.media</code>, <code>network</code>, <code>hooks.raw</code>, <code>hooks.telegram</code>, <code>telegram.requests</code>. Объявляйте возможности, которые использует плагин.</dd>
           <dt><code>account_scope</code> / <code>settings_schema</code></dt><dd><code>global</code> или <code>selected_accounts</code> и положительный номер версии схемы настроек.</dd>
         </dl>
-        <p>Архив ограничен 10 МиБ, распакованное содержимое — 30 МиБ, количество записей — 512. Отдельный файл может занимать до 5 МиБ, manifest — до 64 КиБ. Исходники Python сохраняйте в UTF-8. В пакет можно включить модули и ресурсы, а для внутренних модулей использовать относительные импорты. Установка зависимостей через pip в клиенте отсутствует.</p>
+        <p>Архив ограничен 10 МиБ, распакованное содержимое — 30 МиБ, количество записей — 512. Отдельный файл может занимать до 5 МиБ, manifest — до 64 КиБ. Исходники Python сохраняйте в UTF-8. В пакет можно включить модули и ресурсы, а для внутренних модулей использовать относительные импорты. Конвертер импортируемых плагинов умеет включать совместимые pure-Python wheels.</p>
         <p><a id="schema-download" hidden download="manifest-v1.schema.json">Скачать JSON Schema ↓</a></p>
       </section>
 
       <section id="sdk">
-        <h2>Жизненный цикл и API</h2>
+        <h2>Класс плагина</h2>
+        <p class="lead">Жизненный цикл, контекст и совместимый BasePlugin.</p>
+        <h3 id="plugin-lifecycle">Жизненный цикл</h3>
         <p>Унаследуйте класс от <code>bygram.Plugin</code>. Хост подключает <code>self.context</code> до <code>on_load()</code>, затем вызывает <code>on_enable()</code>. При остановке вызываются <code>on_disable()</code> и <code>on_unload()</code>. Импорт модуля и конструктор запускаются после разрешения исполнения.</p>
+        <h3 id="plugin-context">Контекст BYgram</h3>
         <dl class="reference">
           <dt><code>context.log.info / warning / error</code></dt><dd>Запись в локальный журнал плагина. До 4000 символов на запись.</dd>
           <dt><code>context.settings.get / set</code></dt><dd>Чтение и запись глобальных настроек в JSON.</dd>
@@ -108,33 +142,46 @@ python Tools/check_plugins.py</code></pre></figure>
           <dt><code>context.network.get_json(https_url)</code></dt><dd>HTTPS-запрос с возможностью <code>network</code>. Запускайте в фоне. Таймаут 10 секунд, ответ до 1 МиБ.</dd>
         </dl>
         <p>Хост освобождает зарегистрированные через SDK ресурсы при выключении. Вызов <code>Handle.close()</code> позволяет убрать отдельную регистрацию раньше. Держите lifecycle и callbacks короткими. По таймауту scope инвалидируется, для повторного запуска потребуется перезапуск.</p>
+        <h3 id="plugin-baseplugin">BasePlugin и перехваты Telegram</h3>
+        <p>В адаптере из <code>base_plugin</code> используйте <code>on_plugin_load</code>, <code>on_plugin_unload</code> и <code>on_app_event</code>. <code>add_hook</code> регистрирует перехваты TL-запросов, ответов и обновлений. <code>add_on_send_message_hook</code> перехватывает отправку. <code>HookResult</code> поддерживает отмену, замену и остановку цепочки после замены.</p>
       </section>
 
       <section id="settings">
-        <h2>Настройки и интерфейс</h2>
+        <h2>Настройки плагина</h2>
+        <p class="lead">Нативные строки, страницы и настройки по аккаунтам.</p>
+        <h3 id="settings-controls">Строки и страницы</h3>
         <p>Верните из <code>create_settings()</code> список до 100 элементов из <code>bygram.settings</code>. Доступны <code>Header</code>, <code>Text</code>, <code>Switch</code>, <code>TextInput</code>, <code>Select</code>, <code>Slider</code> и <code>Action</code>. Для полей конкретного аккаунта укажите <code>scope="account"</code>.</p>
         <dl class="reference">
-          <dt><code>context.ui.add_menu(location, id, title, on_click)</code></dt><dd>Действие в <code>chat.actions</code> или <code>profile.actions</code>. Обработчик получает событие с <code>event.account</code>.</dd>
+          <dt><code>context.ui.add_menu(location, id, title, on_click)</code></dt><dd>Действие в меню чата, профиля, списка чатов или сообщения. Обработчик получает событие с <code>event.account</code>.</dd>
           <dt><code>context.ui.bulletin(text)</code> / <code>context.ui.open_page({title, items})</code></dt><dd>Короткое уведомление или нативная страница. SDK передаёт UI-операции основному потоку.</dd>
           <dt><code>context.theme.override(key, color)</code></dt><dd>Временная подмена цвета из <code>ThemeColors</code>, например <code>actionBarDefaultTitle</code>. При закрытии handle подмена снимается.</dd>
         </dl>
+        <h3 id="settings-storage">Хранение и миграция</h3>
         <p>При изменении формата данных увеличьте <code>settings_schema</code> и добавьте <code>migrate_settings</code>. Функция получает копию настроек и возвращает словарь. Имя текущего scope доступно в <code>context.migration_scope</code>.</p>
+        <h3 id="settings-links">Ссылки и маски ввода</h3>
         <p>В <code>ui.settings</code> параметр <code>link_alias</code> добавляет копирование и отправку ссылки по долгому нажатию. BYgram открывает настройки включённого плагина и подсвечивает строку. Чтобы ссылаться на вложенную строку, задайте псевдонимы всем родительским пунктам. <code>EditText(mask=…)</code> принимает регулярное выражение Java и проверяет полное совпадение при сохранении.</p>
       </section>
 
       <section id="events">
-        <h2>События и аккаунты</h2>
+        <h2>Несколько аккаунтов</h2>
+        <p class="lead">Выбор аккаунта, подписки и доступ к сообщениям.</p>
+        <h3 id="account-events">События</h3>
         <p>Регистрируйте подписки через <code>context.events.subscribe(name, callback, account=None)</code>. Примеры событий: <code>ui.page_opened</code>, <code>ui.page_closed</code>, <code>theme.changed</code>, <code>account.logged_out</code>, <code>messages.received</code> и <code>network.completed</code>.</p>
+        <h3 id="account-access">Выбор аккаунтов</h3>
         <p>При <code>selected_accounts</code> владелец выбирает аккаунты в карточке плагина. <code>context.accounts</code> содержит разрешённые слоты, а <code>context.account_settings(slot)</code> открывает настройки выбранного аккаунта. Повторный вход требует нового разрешения.</p>
         <p>Для <code>messages.received</code> укажите слот и <code>messages.observe</code>. Событие передаёт идентификаторы сообщений без их текста. Для отправки через <code>context.client(slot).send_text(peer, text)</code> нужны разрешённый аккаунт и <code>messages.send</code>. Скрытые и защищённые чаты исключены из этих SDK-операций.</p>
       </section>
 
       <section id="hooks">
-        <h2>Нативные хуки</h2>
+        <h2>Хуки методов Xposed</h2>
+        <p class="lead">Перехват методов и конструкторов через ART-мост BYgram.</p>
+        <h3 id="hook-targets">Объявление целей</h3>
         <p><code>context.hooks.method</code>, <code>.constructor</code> и <code>.replace</code> — экспериментальный API. Укажите в manifest <code>hooks.raw</code>, <code>requires_hook_backend: true</code>, точные <code>hook_targets</code> и диапазоны сборок <code>bygram</code> и <code>telegram</code>.</p>
         <p><code>context.telegram.intercept</code> перехватывает TL-запросы, ответы, обновления и исходящую отправку. <code>context.client(slot).send_request</code> отправляет TL-запрос. Для этих возможностей владелец выбирает аккаунты в карточке плагина.</p>
         <p>Для текущего backend нужны 64-битный процесс, <code>arm64-v8a</code> или <code>x86_64</code>, Android API 24–37 и успешная проверка на устройстве. Основной SDK работает без этого backend.</p>
+        <h3 id="hook-callbacks">Обработчики</h3>
         <p>Хуки выполняются синхронно на потоке Java-вызова. Меняйте значения через <code>HookCall.set_arg()</code> и <code>set_result()</code>. <code>call_original()</code> доступен внутри replacement. На одну Java-цель возможен один replacement.</p>
+        <p>В <code>BasePlugin</code> доступны <code>hook_method</code>, <code>hook_all_methods</code> и <code>hook_all_constructors</code>. Для порта с Xposed передайте <code>--hook-manifest</code> конвертеру. Для каждой перегрузки объявите точную сигнатуру.</p>
       </section>
 
       <section id="compatibility">
@@ -170,19 +217,235 @@ python Tools/check_plugins.py</code></pre></figure>
         </dl>
         <p><a href="https://t.me/BYgram_official">Задать вопрос в чате BYgram ↗</a></p>
       </section>
-      <footer><a href="../index.html">Главная BYgram</a><a href="../download.html">Скачать BYgram</a><a href="#intro">К началу ↑</a></footer>
-    </main>
+      <section id="elyx">
+        <h2>Elyx</h2>
+        <p class="lead">Модули, ресурсы, локализация и зависимости в одном архиве.</p>
+        <h3 id="elyx-overview">Как это работает</h3>
+        <p>Elyx используется для многофайловых плагинов. BYgram Full преобразует архив в <code>.byplugin</code> и запускает его через обычный движок.</p>
+        <h3 id="elyx-details">Первый запуск</h3>
+        <p>Начните с <a href="#elyx-quick-start">импорта пакета</a>, затем проверьте <a href="#elyx-structure">структуру проекта</a>.</p>
+      </section>
+      <section id="elyx-quick-start">
+        <h2>Быстрый старт</h2>
+        <p class="lead">Преобразование исходного архива в пакет BYgram.</p>
+        <h3 id="elyx-quick-start-overview">Как это работает</h3>
+        <p>Откройте <code>.elyx</code> или <code>.eaf</code> через «Установить из файла». Full преобразует пакет на устройстве и показывает его карточку. После установки разрешите запуск отдельно.</p>
+        <h3 id="elyx-quick-start-details">Сборка на компьютере</h3>
+        <p>Выполните <code>python Tools/port_extera_plugin.py sample.elyx output/sample.byplugin --ui</code>. Добавьте <code>--resolve-pypi</code>, если проект объявляет зависимости.</p>
+        <figure><figcaption>Терминал</figcaption><pre><code>python Tools/port_extera_plugin.py sample.elyx output/sample.byplugin --ui</code></pre></figure>
+      </section>
+      <section id="elyx-structure">
+        <h2>Структура проекта</h2>
+        <p class="lead">Файлы и каталоги, которые читает конвертер.</p>
+        <h3 id="elyx-structure-overview">Как это работает</h3>
+        <p><code>refmap</code> задаёт точку входа и пути к <code>metainfo</code>, <code>assets</code>, <code>strings</code> и <code>wheels</code>. Точка входа по умолчанию — <code>main.py</code>. После преобразования пакет содержит манифест BYgram.</p>
+        <h3 id="elyx-structure-details">Формат пакета</h3>
+        <p>Используйте относительные пути внутри архива. Общие лимиты указаны в статье <a href="#manifest">Формат пакета</a>.</p>
+      </section>
+      <section id="elyx-metadata">
+        <h2>Метаданные</h2>
+        <p class="lead">Имя, идентификатор, версия и параметры Elyx.</p>
+        <h3 id="elyx-metadata-overview">Как это работает</h3>
+        <p>Конвертер объединяет литеральные метаданные исходника с <code>metainfo</code> и формирует постоянный ID BYgram из исходного ID. Числовая версия приводится к трём компонентам.</p>
+        <h3 id="elyx-metadata-details">Локализованные поля</h3>
+        <p>Имя и описание могут ссылаться на ключ перевода. Конвертер разрешает их при создании манифеста.</p>
+      </section>
+      <section id="elyx-imports">
+        <h2>Модули и импорты</h2>
+        <p class="lead">Импорты исходников и библиотек внутри проекта.</p>
+        <h3 id="elyx-imports-overview">Как это работает</h3>
+        <p>Загрузчик выделяет пространство имён для каждого поколения плагина. Используйте обычные импорты локальных модулей в Elyx, а для динамических импортов — <code>elyx.import_module(name)</code>.</p>
+        <h3 id="elyx-imports-details">Встроенные библиотеки проекта</h3>
+        <p>Упакованные wheels доступны в том же пространстве имён.</p>
+      </section>
+      <section id="elyx-assets">
+        <h2>Ресурсы</h2>
+        <p class="lead">Изображения, анимации, текст и данные.</p>
+        <h3 id="elyx-assets-overview">Как это работает</h3>
+        <p>Используйте <code>from elyx import assets</code> и обращайтесь к ресурсу по имени или пути, например <code>assets['icons/logo.svg']</code>. <code>Asset.content_bytes()</code> читает файл, <code>content_json()</code> и <code>content_yaml()</code> разбирают данные.</p>
+        <h3 id="elyx-assets-details">SVG и Lottie</h3>
+        <p><code>to_svg_drawable()</code> создаёт векторный drawable, <code>to_svg_bitmap(width, height)</code> — bitmap, а <code>to_svg_thumb(color_key, alpha)</code> применяет цвет темы. <code>to_lottie_drawable(width, height)</code> загружает JSON или TGS и принимает размеры в dp.</p>
+        <figure><figcaption>Python</figcaption><pre><code>from elyx import assets
 
-    <aside class="outline">
-      <nav aria-label="Быстрый переход">
-        <p>Быстрый переход</p>
-        <a href="#install">Как установить</a>
-        <a href="#source-files">Файлы проекта</a>
-        <a href="#build-package">Команды сборки</a>
-        <a href="#publish">Как опубликовать</a>
-      </nav>
-    </aside>
+logo = assets[&#x27;icons/logo.svg&#x27;].to_svg_drawable()
+animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></section>
+      <section id="elyx-localization">
+        <h2>Локализация</h2>
+        <p class="lead">Строки интерфейса на языке клиента.</p>
+        <h3 id="elyx-localization-overview">Как это работает</h3>
+        <p>Укажите путь <code>strings</code> в <code>refmap</code>, затем используйте <code>from elyx import strings</code> и <code>strings.get('title')</code>. При отсутствии перевода используется английский набор.</p>
+        <h3 id="elyx-localization-details">Подстановка значений</h3>
+        <p>Вызов <code>strings('greeting', name='Ada')</code> подставляет именованные параметры. <code>strings.pluralize(count, key)</code> работает с набором из трёх форм.</p>
+      </section>
+      <section id="elyx-settings">
+        <h2>Хранение настроек</h2>
+        <p class="lead">Данные, которые остаются после обновления пакета.</p>
+        <h3 id="elyx-settings-overview">Как это работает</h3>
+        <p><code>elyx.settings.get_setting(key, default)</code> и <code>set_setting(key, value)</code> обращаются к глобальным настройкам плагина.</p>
+        <h3 id="elyx-settings-details">Настройки аккаунта</h3>
+        <p>Для отдельных аккаунтов используйте <code>context.account_settings(slot)</code> после разрешения владельца.</p>
+      </section>
+      <section id="elyx-dependencies">
+        <h2>Зависимости</h2>
+        <p class="lead">Локальные wheels, PyPI и обязательные плагины.</p>
+        <h3 id="elyx-dependencies-overview">Как это работает</h3>
+        <p><code>requirements</code> объявляет зависимости PyPI, <code>wheels</code> указывает каталог универсальных pure-Python wheels. При импорте они входят в итоговый пакет.</p>
+        <h3 id="elyx-dependencies-details">Другие плагины</h3>
+        <p><code>requires</code> проверяет доступность и версию обязательного плагина. Установите и включите зависимость отдельно. При отключении обязательного плагина зависимые плагины выгружаются.</p>
+      </section>
+      <section id="elyx-development">
+        <h2>Разработка и сборка</h2>
+        <p class="lead">Упаковка проекта и обновление на устройстве.</p>
+        <h3 id="elyx-development-overview">Как это работает</h3>
+        <p>Для Elyx используйте <code>Tools/port_extera_plugin.py</code>. Для нативного проекта BYgram с <code>manifest.json</code> используйте <code>Tools/package_plugin.py</code>.</p>
+        <h3 id="elyx-development-details">Обновление на устройстве</h3>
+        <p><a href="#dev-server">Dev Server</a> принимает готовый <code>.byplugin</code>. <code>watch</code> передаёт изменения файлов после первого развёртывания.</p>
+      </section>
+      <section id="elyx-api">
+        <h2>Публичный API</h2>
+        <p class="lead">Что доступно после импорта Elyx.</p>
+        <h3 id="elyx-api-overview">Как это работает</h3>
+        <p><code>get_environment()</code> возвращает метаданные и настроенные части окружения. <code>assets</code>, <code>strings</code>, <code>settings</code>, <code>metainfo</code>, <code>refmap</code> и <code>import_module()</code> доступны из модуля <code>elyx</code>.</p>
+        <h3 id="elyx-api-details">Java-интерфейсы</h3>
+        <p><code>gen</code> и <code>gen2</code> создают Python-адаптеры для Java-интерфейсов. Встроены обёртки <code>Runnable</code>, <code>OnClickListener</code> и <code>Callback</code>.</p>
+      </section>
+      <section id="elyx-troubleshooting">
+        <h2>Устранение неполадок</h2>
+        <p class="lead">Как проверить импорт, ресурсы и зависимости.</p>
+        <h3 id="elyx-troubleshooting-overview">Как это работает</h3>
+        <p>Проверьте относительные пути <code>refmap</code>, наличие точки входа и совместимость wheels. Проверьте, что необходимые плагины включены, а исходные зависимости укладываются в лимиты пакета.</p>
+        <h3 id="elyx-troubleshooting-details">Диагностика запуска</h3>
+        <p>После включения откройте журнал в карточке плагина. Дополнительные сценарии описаны в статье <a href="#recovery">Восстановление</a>.</p>
+      </section>
+      <section id="logging">
+        <h2>Журналирование</h2>
+        <p class="lead">Журнал плагина и обработчики записей.</p>
+        <h3 id="logging-overview">Как это работает</h3>
+        <p>Для нативного SDK используйте <code>context.log.info()</code>, <code>warning()</code> и <code>error()</code>. В адаптере доступен <code>self.logger</code> или <code>log_utils.get_logger()</code>.</p>
+        <h3 id="logging-details">Обработчики</h3>
+        <p><code>logger.add_handler(callback)</code> передаёт объект <code>LogRecord</code> с уровнем, сообщением, местом вызова и traceback. Используйте <code>logger.exception()</code> внутри обработки исключения.</p>
+      </section>
+      <section id="class-proxy">
+        <h2>Class Proxy</h2>
+        <p class="lead">Создание Java-подклассов из Python.</p>
+        <h3 id="class-proxy-overview">Как это работает</h3>
+        <p><code>@java_subclass</code> объявляет базовый класс и интерфейсы. <code>@joverride</code> и <code>@joverload</code> переопределяют Java-методы, <code>jfield</code> добавляет поле, <code>jmethod</code> — метод.</p>
+        <h3 id="class-proxy-details">MVEL и DexMaker</h3>
+        <p><code>jMVELmethod</code> и <code>jMVELoverride</code> выполняют MVEL на стороне Java. <code>SUPER_&lt;имя&gt;</code> вызывает родительский метод. <code>@jclassbuilder()</code> получает DexMaker, TypeId нового класса и TypeId родителя перед загрузкой.</p>
+      </section>
+      <section id="android-utils">
+        <h2>Утилиты Android</h2>
+        <p class="lead">Работа с UI-потоком и Java-слушателями.</p>
+        <h3 id="android-utils-overview">Как это работает</h3>
+        <p><code>android_utils.run_on_ui_thread(func, delay=0)</code> планирует вызов на Android UI-потоке. <code>R</code>, <code>OnClickListener</code> и <code>OnLongClickListener</code> адаптируют Python-функции к Java-интерфейсам.</p>
+        <h3 id="android-utils-details">Буфер обмена</h3>
+        <p><code>copy_to_clipboard(text)</code> копирует строку через Android.</p>
+      </section>
+      <section id="client-utils">
+        <h2>Утилиты клиента</h2>
+        <p class="lead">Запросы Telegram, контроллеры, отправка и редактирование.</p>
+        <h3 id="client-utils-overview">Как это работает</h3>
+        <p><code>client_utils.send_request(request, fn, account=…)</code> отправляет TL-запрос. <code>get_client(account)</code> использует аккаунт события по умолчанию. <code>get_messages_controller</code>, <code>get_notification_center</code> и другие getters возвращают Java-контроллеры.</p>
+        <h3 id="client-utils-details">Сообщения и медиа</h3>
+        <p>Доступны <code>send_text</code>, <code>send_message</code>, <code>send_photo</code>, <code>send_video</code>, <code>send_document</code>, <code>send_audio</code> и <code>edit_message</code>. Для файла используйте путь внутри пакета или данных плагина. Укажите нужные возможности в манифесте.</p>
+      </section>
+      <section id="text-formatting">
+        <h2>Форматирование текста</h2>
+        <p class="lead">HTML, Markdown и сущности Telegram.</p>
+        <h3 id="text-formatting-overview">Как это работает</h3>
+        <p><code>extera_utils.text_formatting.parse_text(text, parse_mode='HTML', is_caption=False)</code> возвращает <code>message</code> или <code>caption</code> и список <code>entities</code> со смещениями UTF‑16.</p>
+        <h3 id="text-formatting-details">Отправка</h3>
+        <p>Передайте <code>parse_mode='HTML'</code> или <code>parse_mode='Markdown'</code> в подходящий helper отправки. Для готовых сущностей используйте <code>send_message</code>.</p>
+        <figure><figcaption>Python</figcaption><pre><code>from client_utils import send_text
+
+send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HTML&#x27;)</code></pre></figure></section>
+      <section id="hook-utils">
+        <h2>Рефлексия Java</h2>
+        <p class="lead">Поиск Java-классов и доступ к полям.</p>
+        <h3 id="hook-utils-overview">Как это работает</h3>
+        <p><code>hook_utils.find_class(name)</code> возвращает Java <code>Class</code> для рефлексии. Используйте <code>get_private_field</code> и <code>set_private_field</code> для полей экземпляра.</p>
+        <h3 id="hook-utils-details">Статические поля</h3>
+        <p><code>get_static_private_field</code> и <code>set_static_private_field</code> принимают Java <code>Class</code> и имя поля. В APK имена внутренних классов могут меняться.</p>
+      </section>
+      <section id="file-utils">
+        <h2>Файловые утилиты</h2>
+        <p class="lead">Каталоги, текстовые и двоичные файлы.</p>
+        <h3 id="file-utils-overview">Как это работает</h3>
+        <p><code>get_plugins_dir()</code> возвращает каталог файлов текущего плагина. Для файлов Telegram есть <code>get_cache_dir()</code>, <code>get_images_dir()</code>, <code>get_videos_dir()</code> и другие helpers.</p>
+        <h3 id="file-utils-details">Операции с файлами</h3>
+        <p><code>ensure_dir_exists</code>, <code>list_dir</code>, <code>read_file</code>, <code>write_file</code>, <code>read_file_bytes</code>, <code>write_file_bytes</code> и <code>delete_file</code> выполняют операции над путями.</p>
+      </section>
+      <section id="intents">
+        <h2>Ссылки и Intent</h2>
+        <p class="lead">Обработчики входящих ссылок после разблокировки клиента.</p>
+        <h3 id="intents-overview">Как это работает</h3>
+        <p><code>IntentsManager.new_global_before_handler</code> и <code>new_global_after_handler</code> подписываются на <code>ACTION_VIEW</code>. Они получают копию Intent и работают для разрешённых аккаунтов.</p>
+        <h3 id="intents-details">Фильтры</h3>
+        <p>Фильтруйте по <code>scheme</code>, <code>host</code>, шаблону <code>path</code> и обязательным query-параметрам. Для снятия подписки вызовите <code>close()</code>.</p>
+      </section>
+      <section id="dialogs">
+        <h2>Диалоги</h2>
+        <p class="lead">Нативные диалоги Telegram.</p>
+        <h3 id="dialogs-overview">Как это работает</h3>
+        <p><code>ui.alert.AlertDialogBuilder</code> задаёт заголовок, сообщение, кнопки, элементы списка и пользовательский View.</p>
+        <h3 id="dialogs-details">События</h3>
+        <p>Доступны обработчики закрытия, отмены и Back. В диалоге загрузки можно обновлять прогресс.</p>
+      </section>
+      <section id="bulletins">
+        <h2>Уведомления Bulletin</h2>
+        <p class="lead">Короткие уведомления в текущем фрагменте.</p>
+        <h3 id="bulletins-overview">Как это работает</h3>
+        <p><code>ui.bulletin.BulletinHelper</code> предоставляет <code>show_info</code>, <code>show_error</code> и <code>show_success</code>. Нативный вариант — <code>context.ui.bulletin(text)</code>.</p>
+        <h3 id="bulletins-details">Возможность UI</h3>
+        <p>Объявите <code>ui</code> в манифесте. Уведомление отображается, когда активен подходящий фрагмент.</p>
+      </section>
+      <section id="repositories">
+        <h2>Репозитории плагинов</h2>
+        <p class="lead">Подключаемые источники плагинов.</p>
+        <h3 id="repositories-overview">Как это работает</h3>
+        <p>В каталоге добавьте HTTPS-индекс BYgram, индекс exteraGram <code>extera-plugins.json</code> или публичный Telegram-канал. Для индекса сверяются размер и SHA‑256 файла, а при преобразовании — ID и версия.</p>
+        <h3 id="repositories-details">Официальный каталог</h3>
+        <p>Откройте <a href="#catalog">каталог</a> или прочитайте <a href="#publish">как отправить релиз на модерацию</a>.</p>
+      </section>
+      <section id="dev-server">
+        <h2>Сервер разработки</h2>
+        <p class="lead">Развёртывание, перезагрузка и отладка в Full Debug.</p>
+        <h3 id="dev-server-overview">Как это работает</h3>
+        <p>Сервер слушает loopback и требует токен. Подключите ADB, задайте <code>BYGRAM_DEV_TOKEN</code> и выполните <code>python Tools/plugin_dev.py start</code>. Затем используйте <code>deploy</code> или <code>watch</code> с пакетом.</p>
+        <h3 id="dev-server-details">Отладка</h3>
+        <p><code>debug</code> открывает Pdb, <code>debug-ide</code> подключает debugpy или PyCharm. Для Elyx сначала подготовьте <code>.byplugin</code>.</p>
+        <figure><figcaption>Терминал</figcaption><pre><code>python Tools/plugin_dev.py start
+python Tools/plugin_dev.py deploy output/sample.byplugin
+python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></section>
+      <section id="pip">
+        <h2>PyPI и зависимости</h2>
+        <p class="lead">Зависимости, которые можно включить в пакет.</p>
+        <h3 id="pip-overview">Как это работает</h3>
+        <p>Во время импорта или сборки можно разрешить PyPI requirements и включить универсальные pure-Python wheels. Телефон проверяет SHA‑256 скачанного wheel.</p>
+        <h3 id="pip-details">Ограничения пакетов</h3>
+        <p>Колёса с нативным кодом при переносе отклоняются. Если библиотека уже входит в Full, её можно импортировать напрямую.</p>
+      </section>
+      <section id="libraries">
+        <h2>Доступные библиотеки</h2>
+        <p class="lead">Модули, которые входят в Full и доступны плагинам.</p>
+        <h3 id="libraries-runtime">Python и Java</h3>
+        <p>Доступны стандартная библиотека Python 3.11 и мост Chaquopy <code>java</code>. Full также включает <code>packaging</code>, <code>PyYAML</code> и <code>certifi</code>.</p>
+        <h3 id="libraries-external">Внешние библиотеки</h3>
+        <p>Объявите <code>requirements</code> или добавьте совместимый wheel в Elyx. Правила описаны в статье <a href="#pip">PyPI и зависимости</a>.</p>
+      </section>
+      <section id="telegram-classes">
+        <h2>Классы Telegram</h2>
+        <p class="lead">Java-классы клиента, доступные через Chaquopy.</p>
+        <h3 id="telegram-classes-overview">Как это работает</h3>
+        <p>Часто используемые классы: <code>org.telegram.messenger.MessagesController</code>, <code>SendMessagesHelper</code>, <code>UserConfig</code>, <code>NotificationCenter</code>, <code>org.telegram.tgnet.TLRPC</code> и <code>org.telegram.ui.ActionBar.BaseFragment</code>.</p>
+        <h3 id="telegram-classes-details">Получение экземпляров</h3>
+        <p>Для объектов конкретного аккаунта используйте <a href="#client-utils">утилиты клиента</a>. Для сигнатур и закрытых полей используйте <a href="#hook-utils">рефлексию</a>.</p>
+      </section>
+      <nav id="pagination" aria-label="Соседние статьи"></nav>
+    </main>
+    <aside class="outline"><nav id="outline" aria-label="На этой странице"></nav></aside>
   </div>
+
 
   <dialog id="search" aria-labelledby="search-title">
     <header><h2 id="search-title">Поиск по документации</h2><form method="dialog"><button aria-label="Закрыть поиск">×</button></form></header>

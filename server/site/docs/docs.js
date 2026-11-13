@@ -27,29 +27,128 @@ for (const figure of document.querySelectorAll('main figure')) {
 
 const navigation = document.querySelector('#navigation');
 const navigationLinks = [...navigation.querySelectorAll('a')];
+const sections = navigationLinks.map((link) => document.getElementById(link.hash.slice(1)));
+const outline = document.querySelector('#outline');
+const pagination = document.querySelector('#pagination');
+const sidebarOpen = document.querySelector('#sidebar-open');
+const sidebarClose = document.querySelector('#sidebar-close');
+const theme = document.querySelector('#theme');
 const compact = matchMedia('(max-width: 760px)');
-const sections = [...document.querySelectorAll('main > section')];
 const search = document.querySelector('#search');
 const searchButton = document.querySelector('#search-open');
 const input = search.querySelector('input');
 const results = search.querySelector('#search-results');
 const searchStatus = search.querySelector('#search-status');
+let active;
 
-function updateNavigation() {
-  const target = document.getElementById(location.hash.slice(1))?.closest('main > section');
-  for (const link of navigationLinks) {
-    if (link.hash === `#${target?.id ?? 'intro'}`) link.setAttribute('aria-current', 'location');
+const sidebarIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14"/></svg>';
+sidebarOpen.innerHTML = sidebarClose.innerHTML = sidebarIcon;
+sidebarOpen.hidden = sidebarClose.hidden = theme.hidden = false;
+
+function sidebar(show) {
+  document.body.classList.toggle('sidebar-open', compact.matches && show);
+  if (!compact.matches) document.body.classList.toggle('sidebar-collapsed', !show);
+  sidebarOpen.setAttribute('aria-expanded', String(show));
+}
+
+sidebar(!compact.matches);
+compact.addEventListener('change', () => sidebar(!compact.matches));
+sidebarOpen.addEventListener('click', () => sidebar(sidebarOpen.getAttribute('aria-expanded') !== 'true'));
+sidebarClose.addEventListener('click', () => {
+  sidebar(false);
+  sidebarOpen.focus();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+    sidebar(false);
+    sidebarOpen.focus();
+  }
+});
+
+document.documentElement.dataset.theme = localStorage.getItem('bygram-docs-theme') || 'dark';
+theme.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('bygram-docs-theme', next);
+});
+
+function makeLink(hash, title) {
+  const link = document.createElement('a');
+  link.href = hash;
+  link.textContent = title;
+  return link;
+}
+
+function updateOutline() {
+  if (!active) return;
+  const headings = [...active.querySelectorAll('h2[id], h3[id]')].filter((heading) => heading !== active.firstElementChild);
+  let current = headings[0];
+  for (const heading of headings) {
+    if (heading.getBoundingClientRect().top <= 100) current = heading;
+  }
+  for (const link of outline.querySelectorAll('a')) {
+    if (link.hash === `#${current?.id}`) link.setAttribute('aria-current', 'location');
     else link.removeAttribute('aria-current');
   }
 }
 
-navigation.open = !compact.matches;
-compact.addEventListener('change', () => { navigation.open = !compact.matches; });
+function updateNavigation() {
+  const target = document.getElementById(location.hash.slice(1));
+  const page = target?.closest('main > section') ?? sections[0];
+  const changed = page !== active;
+  if (changed) {
+    active = page;
+    const index = sections.indexOf(page);
+    for (const section of sections) section.hidden = section !== page;
+    for (const link of navigationLinks) {
+      if (link.hash === `#${page.id}`) {
+        link.setAttribute('aria-current', 'page');
+        const group = link.closest('details');
+        if (group) group.open = true;
+      } else link.removeAttribute('aria-current');
+    }
+    const title = page.querySelector('h1, h2');
+    document.title = `${title.textContent} | Плагины BYgram`;
+    const heading = document.createElement('p');
+    heading.textContent = '☰  На этой странице';
+    outline.replaceChildren(heading);
+    for (const item of page.querySelectorAll('h2[id], h3[id]')) {
+      if (item !== title) outline.append(makeLink(`#${item.id}`, item.textContent));
+    }
+    outline.hidden = outline.children.length === 1;
+    pagination.replaceChildren();
+    for (const offset of [-1, 1]) {
+      const adjacent = navigationLinks[index + offset];
+      if (!adjacent) continue;
+      const labelText = adjacent.querySelector('.nav-icon')?.nextSibling?.textContent ?? adjacent.textContent;
+      const link = makeLink(adjacent.hash, labelText.trim());
+      link.className = offset < 0 ? 'previous' : 'next';
+      const label = document.createElement('small');
+      label.textContent = offset < 0 ? '← Предыдущая' : 'Следующая →';
+      link.prepend(label);
+      pagination.append(link);
+    }
+    if (page.id === 'catalog' && !page.dataset.loaded) {
+      page.dataset.loaded = 'true';
+      loadCatalog();
+    }
+  }
+  requestAnimationFrame(() => {
+    if (target && target !== page) target.scrollIntoView();
+    else if (changed) window.scrollTo(0, 0);
+    updateOutline();
+  });
+}
+
 navigation.addEventListener('click', (event) => {
-  if (compact.matches && event.target.closest('a')) navigation.open = false;
+  const link = event.target.closest('a');
+  if (!link) return;
+  const group = link.closest('summary')?.parentElement;
+  if (group) group.open = true;
+  if (compact.matches) sidebar(false);
 });
 window.addEventListener('hashchange', updateNavigation);
-updateNavigation();
+window.addEventListener('scroll', updateOutline, { passive: true });
 
 function renderSearch() {
   results.replaceChildren();
@@ -130,4 +229,4 @@ async function loadCatalog() {
   }
 }
 
-loadCatalog();
+updateNavigation();

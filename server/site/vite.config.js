@@ -19,9 +19,9 @@ export default defineConfig({
         admin: resolve('src/admin.jsx'),
       },
       output: {
-        entryFileNames: (chunk) => chunk.name === 'main' ? 'assets/[name]-[hash].js' : 'assets/[name].js',
+        entryFileNames: (chunk) => ['main', 'docs'].includes(chunk.name) ? 'assets/[name]-[hash].js' : 'assets/[name].js',
         chunkFileNames: (chunk) => chunk.name === 'main' ? 'assets/[name]-[hash].js' : 'assets/[name].js',
-        assetFileNames: (asset) => asset.names.includes('main.css') ? 'assets/[name]-[hash][extname]' : 'assets/[name][extname]',
+        assetFileNames: (asset) => asset.names.some((name) => name === 'main.css' || name === 'docs.css') ? 'assets/[name]-[hash][extname]' : 'assets/[name][extname]',
       },
     },
   },

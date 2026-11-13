@@ -58,7 +58,7 @@
     "src": "assets/spy-current.png"
   },
   "docs/index.html": {
-    "file": "assets/docs.js",
+    "file": "assets/docs-BwYYVCxM.js",
     "name": "docs",
     "src": "docs/index.html",
     "isEntry": true,
@@ -66,7 +66,7 @@
       "_modulepreload-polyfill.js"
     ],
     "css": [
-      "assets/docs.css"
+      "assets/docs-BhNH_Qpp.css"
     ],
     "assets": [
       "assets/manifest-v1.schema.json",
