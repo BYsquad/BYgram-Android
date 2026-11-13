@@ -6,8 +6,8 @@
         "manifest_version": 1,
         "id": "dev.bygram.hello",
         "name": "Hello BYgram",
-        "description": "A reversible toolbar menu with native settings",
-        "version": "1.0.0",
+        "description": "A greeting in the chat menu with native settings",
+        "version": "1.0.1",
         "author": "BYgram SDK example",
         "entrypoint": "main.py:HelloPlugin",
         "sdk": {
@@ -21,9 +21,9 @@
         "account_scope": "global",
         "settings_schema": 1
       },
-      "sha256": "18800a2484ae50ff5b86e1dbc132a863bd4d004c2e5344e7bce96905b3d78456",
-      "size": 742,
-      "file": "18800a2484ae50ff5b86e1dbc132a863bd4d004c2e5344e7bce96905b3d78456.byplugin"
+      "sha256": "da4a5097e2f929b6b875ba4fcaccff9f610a694ea2ec21ce6e04fc3dcbd16193",
+      "size": 745,
+      "file": "da4a5097e2f929b6b875ba4fcaccff9f610a694ea2ec21ce6e04fc3dcbd16193.byplugin"
     },
     {
       "manifest": {
@@ -78,9 +78,9 @@
         "manifest_version": 1,
         "id": "dev.bygram.accounts",
         "name": "Account event example",
-        "description": "Choose an allowed account from its dialogs menu to observe page events",
+        "description": "Open a chat for an allowed account and use its menu to observe page events",
         "author": "BYgram SDK example",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "entrypoint": "main.py:AccountPlugin",
         "sdk": {
           "min": 1,
@@ -93,9 +93,9 @@
         "account_scope": "selected_accounts",
         "settings_schema": 1
       },
-      "sha256": "101c3783863813e991ec37ea9c13be853939b4b3e0ddab44e7d9f27371bb1fc1",
-      "size": 821,
-      "file": "101c3783863813e991ec37ea9c13be853939b4b3e0ddab44e7d9f27371bb1fc1.byplugin"
+      "sha256": "ed2355c485d751bc04ff0ecd1244533dad971ba77bc8a52792148d360efa2410",
+      "size": 825,
+      "file": "ed2355c485d751bc04ff0ecd1244533dad971ba77bc8a52792148d360efa2410.byplugin"
     },
     {
       "manifest": {

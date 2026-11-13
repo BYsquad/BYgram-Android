@@ -1,6 +1,6 @@
 {
   "manifest_version": 1, "id": "dev.bygram.hello", "name": "Hello BYgram",
-  "description": "A reversible toolbar menu with native settings", "version": "1.0.0",
+  "description": "A greeting in the chat menu with native settings", "version": "1.0.1",
   "author": "BYgram SDK example", "entrypoint": "main.py:HelloPlugin",
   "sdk": {"min": 1, "max": 1}, "python": "3.11", "capabilities": ["ui"],
   "account_scope": "global", "settings_schema": 1

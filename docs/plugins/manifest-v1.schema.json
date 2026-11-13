@@ -14,7 +14,7 @@
     "entrypoint": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.py:[A-Za-z_][A-Za-z0-9_]*$"}]},
     "sdk": {"type": "object", "additionalProperties": false, "required": ["min", "max"], "properties": {"min": {"$ref": "#/$defs/positiveInt"}, "max": {"$ref": "#/$defs/positiveInt"}}},
     "python": {"const": "3.11"},
-    "capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["ui", "theme", "messages.observe", "messages.send", "network", "hooks.raw"]}},
+    "capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["ui", "theme", "messages.observe", "messages.send", "messages.media", "network", "hooks.raw", "hooks.telegram", "telegram.requests"]}},
     "account_scope": {"enum": ["global", "selected_accounts"]},
     "settings_schema": {"$ref": "#/$defs/positiveInt"},
     "icon": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.(png|webp)$"}]},
@@ -36,6 +36,10 @@
     }
   },
   "allOf": [
+    {
+      "if": {"properties": {"capabilities": {"contains": {"enum": ["hooks.telegram", "telegram.requests", "messages.media"]}}}},
+      "then": {"properties": {"account_scope": {"const": "selected_accounts"}}}
+    },
     {
       "if": {"properties": {"capabilities": {"contains": {"const": "hooks.raw"}}}},
       "then": {"required": ["requires_hook_backend", "bygram", "telegram", "hook_targets"], "properties": {"requires_hook_backend": {"const": true}}},

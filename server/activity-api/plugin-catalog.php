@@ -174,8 +174,9 @@ function pluginManifest(string $json): array {
     }
     $caps = $manifest['capabilities'];
     if (!is_array($caps) || !array_is_list($caps)) throw new InvalidArgumentException('Неверные capabilities');
-    foreach ($caps as $cap) if (!is_string($cap) || !in_array($cap, ['ui','theme','messages.observe','messages.send','network','hooks.raw'], true)) throw new InvalidArgumentException('Неизвестная capability');
+    foreach ($caps as $cap) if (!is_string($cap) || !in_array($cap, ['ui','theme','messages.observe','messages.send','messages.media','network','hooks.raw','hooks.telegram','telegram.requests'], true)) throw new InvalidArgumentException('Неизвестная capability');
     if (count($caps) !== count(array_unique($caps))) throw new InvalidArgumentException('Повтор capabilities');
+    if (array_intersect(['hooks.telegram', 'telegram.requests', 'messages.media'], $caps) && $manifest['account_scope'] !== 'selected_accounts') throw new InvalidArgumentException('Для доступа к операциям Telegram нужны выбранные аккаунты');
     if (array_key_exists('requires_hook_backend', $manifest) && !is_bool($manifest['requires_hook_backend'])) throw new InvalidArgumentException('Неверный requires_hook_backend');
     if (in_array('hooks.raw', $caps, true)) {
         if (($manifest['requires_hook_backend'] ?? false) !== true || !isset($manifest['bygram'], $manifest['telegram'], $manifest['hook_targets'])
@@ -245,6 +246,50 @@ function preparePluginReview(PDO $pdo, int $id): void {
     $pdo->prepare("UPDATE plugin_submissions SET status='review',release_tag=?,candidate=? WHERE id=? AND status IN ('pending','review')")
         ->execute([$candidate['release']['tag'], json_encode($candidate, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $id]);
 }
+function pluginRevokedHashes(string $directory): array {
+    $file = $directory . '/revoked.json';
+    if (!is_file($file)) return [];
+    $value = json_decode((string) file_get_contents($file), true, 4, JSON_THROW_ON_ERROR);
+    if (!is_array($value['sha256'] ?? null) || !array_is_list($value['sha256'])) throw new RuntimeException('Повреждён список отзывов');
+    foreach ($value['sha256'] as $hash) {
+        if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) throw new RuntimeException('Повреждён список отзывов');
+    }
+    return $value['sha256'];
+}
+function writePluginCatalogFile(string $path, string $bytes): void {
+    if (file_put_contents($path . '.tmp', $bytes, LOCK_EX) !== strlen($bytes) || !rename($path . '.tmp', $path))
+        throw new RuntimeException('Не удалось сохранить файл каталога');
+}
+function revokePlugin(PDO $pdo, int $id, int $admin, string $expectedHash, string $note): void {
+    $directory = dirname(__DIR__) . '/plugins';
+    $lock = is_dir($directory) ? fopen($directory . '/.publish.lock', 'c') : false;
+    if (!$lock || !flock($lock, LOCK_EX)) throw new RuntimeException('Каталог занят');
+    try {
+        $query = $pdo->prepare("SELECT candidate FROM plugin_submissions WHERE id=? AND status='approved'");
+        $query->execute([$id]);
+        $candidate = json_decode((string) ($query->fetchColumn() ?: 'null'), true, 16, JSON_THROW_ON_ERROR);
+        if (!preg_match('/^[a-f0-9]{64}$/D', $expectedHash) || !hash_equals($candidate['sha256'] ?? '', $expectedHash))
+            throw new InvalidArgumentException('Одобренный пакет изменился: откройте заявку заново');
+        $indexFile = $directory . '/index.json';
+        $index = json_decode((string) file_get_contents($indexFile), true, 32, JSON_THROW_ON_ERROR);
+        if (($index['format'] ?? null) !== 1 || !is_array($index['plugins'] ?? null)) throw new RuntimeException('Повреждён индекс каталога');
+
+        // Publish the revocation first so a retry can safely finish removing the public package.
+        $revoked = pluginRevokedHashes($directory);
+        if (!in_array($expectedHash, $revoked, true)) {
+            $revoked[] = $expectedHash;
+            $json = json_encode(['sha256' => $revoked], JSON_THROW_ON_ERROR);
+            if (strlen($json) > 1024 * 1024) throw new RuntimeException('Список отзывов заполнен');
+            writePluginCatalogFile($directory . '/revoked.json', $json);
+        }
+        $index['plugins'] = array_values(array_filter($index['plugins'], static fn($entry) => ($entry['sha256'] ?? '') !== $expectedHash));
+        writePluginCatalogFile($indexFile, json_encode($index, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $package = $directory . '/' . $expectedHash . '.byplugin';
+        if (is_file($package) && !unlink($package)) throw new RuntimeException('Не удалось убрать пакет из каталога');
+        $pdo->prepare("UPDATE plugin_submissions SET status='revoked',reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=? WHERE id=?")
+            ->execute([$admin, $note, $id]);
+    } finally { flock($lock, LOCK_UN); fclose($lock); }
+}
 function approvePlugin(PDO $pdo, int $id, int $admin, string $expectedHash): void {
     $directory = dirname(__DIR__) . '/plugins';
     if (!is_dir($directory) && !mkdir($directory, 0755, true)) throw new RuntimeException('Каталог недоступен');
@@ -255,6 +300,7 @@ function approvePlugin(PDO $pdo, int $id, int $admin, string $expectedHash): voi
         if (!$submission) throw new InvalidArgumentException('Заявка не подготовлена к модерации');
         $candidate = json_decode($submission['candidate'], true, 16, JSON_THROW_ON_ERROR);
         if (!preg_match('/^[a-f0-9]{64}$/D', $expectedHash) || !hash_equals($candidate['sha256'], $expectedHash)) throw new InvalidArgumentException('Кандидат изменился: откройте заявку заново');
+        if (in_array($expectedHash, pluginRevokedHashes($directory), true)) throw new InvalidArgumentException('Этот пакет отозван');
         $bytes = file_get_contents(pluginCandidateDirectory() . '/' . $candidate['file']);
         if ($bytes === false || !hash_equals($expectedHash, hash('sha256', $bytes)) || strlen($bytes) !== $candidate['size']) throw new RuntimeException('Кандидат повреждён');
         $indexFile = $directory . '/index.json';
@@ -270,13 +316,24 @@ function approvePlugin(PDO $pdo, int $id, int $admin, string $expectedHash): voi
             if (version_compare($candidate['manifest']['version'], $entry['manifest']['version'], '<=')) throw new InvalidArgumentException('Нужна новая версия Release');
             unset($index['plugins'][$position]);
         }
+        $history = $pdo->prepare("SELECT candidate FROM plugin_submissions WHERE status='revoked' AND JSON_UNQUOTE(JSON_EXTRACT(candidate, '$.manifest.id'))=?");
+        $history->execute([$candidate['manifest']['id']]);
+        foreach ($history->fetchAll(PDO::FETCH_COLUMN) as $previousJson) {
+            $previous = json_decode($previousJson, true, 16, JSON_THROW_ON_ERROR);
+            if (($previous['release']['repository_id'] ?? null) !== $candidate['release']['repository_id'])
+                throw new InvalidArgumentException('Этот ID принадлежит другому репозиторию');
+            if (isset($previous['author_key']) && ($candidate['author_key'] ?? null) !== $previous['author_key'])
+                throw new InvalidArgumentException('Ключ автора изменился');
+            if (version_compare($candidate['manifest']['version'], $previous['manifest']['version'], '<='))
+                throw new InvalidArgumentException('Нужна новая версия Release');
+        }
         $index['plugins'][] = $candidate; $index['plugins'] = array_values($index['plugins']);
         foreach ($index['plugins'] as $entry) pluginManifest(json_encode($entry['manifest'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         $json = json_encode($index, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         if (count($index['plugins']) > 100 || strlen($json) > 1024 * 1024) throw new RuntimeException('Каталог заполнен');
         $package = $directory . '/' . $candidate['file'];
-        if (file_put_contents($package . '.tmp', $bytes, LOCK_EX) !== strlen($bytes) || !rename($package . '.tmp', $package)) throw new RuntimeException('Не удалось опубликовать пакет');
-        if (file_put_contents($indexFile . '.tmp', $json, LOCK_EX) !== strlen($json) || !rename($indexFile . '.tmp', $indexFile)) throw new RuntimeException('Не удалось опубликовать индекс');
+        writePluginCatalogFile($package, $bytes);
+        writePluginCatalogFile($indexFile, $json);
         $pdo->prepare("UPDATE plugin_submissions SET status='approved',reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note='' WHERE id=?") ->execute([$admin, $id]);
     } finally { flock($lock, LOCK_UN); fclose($lock); }
 }

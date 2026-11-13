@@ -8,6 +8,13 @@ public final class PluginCatalogCheck {
         byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
         JsonArray entries = PluginCatalog.parse(bytes, 72379, 7237);
         assert entries.size() == 6;
+        checkExtera();
+        assert PluginCatalog.repository("https://example.org/repository/index.json").getHost().equals("example.org");
+        for (String url : new String[]{"http://example.org/index.json", "https://user@example.org/index.json",
+                "https://example.org/index.json?token=one", "https://example.org/index.json#fragment", "https://example.org/repository"}) {
+            try { PluginCatalog.repository(url); throw new AssertionError("Accepted " + url); }
+            catch (java.io.IOException expected) { }
+        }
         JsonObject dense = new JsonObject(); dense.addProperty("format", 1);
         JsonArray denseEntries = new JsonArray(); dense.add("plugins", denseEntries);
         for (int index = 0; index < 4; index++) {
@@ -42,8 +49,15 @@ public final class PluginCatalogCheck {
             for (JsonElement value : entries) {
                 JsonObject entry = value.getAsJsonObject();
                 byte[] data = Files.readAllBytes(Paths.get(args[0]).getParent().resolve(entry.get("file").getAsString()));
-                PluginPackage pkg = PluginCatalog.stage(entry, data, new java.io.File(temporary, "valid" + index++), 72379, 7237);
+                PluginPackage pkg = PluginCatalog.stage(entry, data, new java.io.File(temporary, "valid" + index++), 72379, 7237, true);
                 assert pkg.source.equals("catalog");
+                if (index == 1) {
+                    JsonObject externalEntry = entry.deepCopy();
+                    externalEntry.add("release", provenance);
+                    PluginPackage external = PluginCatalog.stage(externalEntry, data, new java.io.File(temporary, "external"),
+                            72379, 7237, false);
+                    assert external.source.equals("local_file") && external.catalogRelease == null;
+                }
                 PluginStore store = new PluginStore(new java.io.File(temporary, "store" + index)); store.install(pkg);
                 assert !store.plugins().getAsJsonObject(pkg.manifest.id()).get("desired").getAsBoolean();
                 assert new PluginStore(store.root).plugins().getAsJsonObject(pkg.manifest.id()).get("source").getAsString().equals("catalog");
@@ -52,7 +66,7 @@ public final class PluginCatalogCheck {
                     if (field.equals("sha256")) changed.addProperty(field, "0".repeat(64));
                     else if (field.equals("size")) changed.addProperty(field, data.length + 1);
                     else changed.getAsJsonObject("manifest").addProperty("name", "Changed");
-                    try { PluginCatalog.stage(changed, data, new java.io.File(temporary, "bad" + index++), 72379, 7237); throw new AssertionError(field); }
+                    try { PluginCatalog.stage(changed, data, new java.io.File(temporary, "bad" + index++), 72379, 7237, true); throw new AssertionError(field); }
                     catch (java.io.IOException expected) { }
                 }
             }
@@ -70,5 +84,31 @@ public final class PluginCatalogCheck {
             catch (java.io.IOException expected) { }
         }
         System.out.println("PASS: catalog manifests, immutable paths, hash and size validation");
+    }
+
+    private static void checkExtera() throws Exception {
+        String hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        String json = "{\"schema\":1,\"name\":\"Example\",\"plugins\":[{\"id\":\"example\",\"name\":\"Example\","
+                + "\"version\":\"1.2\",\"file\":\"packages/example.elyx\",\"sha256\":\"" + hash + "\",\"size\":3}]}";
+        String url = "https://example.org/plugins/extera-plugins.json";
+        JsonArray parsed = PluginCatalog.parseRepository(json.getBytes(java.nio.charset.StandardCharsets.UTF_8), url, 72379, 7237);
+        JsonObject entry = parsed.get(0).getAsJsonObject();
+        assert entry.get("file").getAsString().equals("https://example.org/plugins/packages/example.elyx");
+        assert entry.get("archive").getAsBoolean();
+        PluginCatalog.verifyExtera(entry, new byte[]{'a', 'b', 'c'});
+        try {
+            PluginCatalog.verifyExtera(entry, new byte[]{'x', 'y', 'z'});
+            throw new AssertionError("External archive mismatch accepted");
+        } catch (java.io.IOException expected) { }
+        try {
+            PluginCatalog.parseRepository(json.replace("packages/example.elyx", "http://example.org/source.elyx")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8), url, 72379, 7237);
+            throw new AssertionError("HTTP external package accepted");
+        } catch (java.io.IOException expected) { }
+        assert "SomeChannel".equals(PluginCatalog.channelName("https://t.me/SomeChannel"));
+        assert "SomeChannel".equals(PluginCatalog.channelName("https://t.me/exteraPluginRepo?c=SomeChannel"));
+        assert PluginCatalog.channelName("https://t.me/SomeChannel/1") == null;
+        assert PluginCatalog.channelName("https://t.me/+private") == null;
+        System.out.println("PASS: native extera index, package integrity and Telegram channel URLs");
     }
 }

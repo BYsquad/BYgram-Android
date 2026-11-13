@@ -30,7 +30,6 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
-
     lintOptions {
         disable 'MissingTranslation'
         disable 'ExtraTranslation'

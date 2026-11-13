@@ -18,6 +18,18 @@ class Plugin:
     def _settings_json(self):
         return self.context.ui._page_json({"title": self.context.plugin_id, "items": self.create_settings()})
 
+    def _settings_link_json(self, target):
+        *ancestors, alias = target.split("/")
+        page = {"title": self.context.plugin_id, "items": self.create_settings()}
+        for parent in ancestors:
+            item = next((row for row in page["items"] if row.get("link_alias") == parent), None)
+            if item is None or "_subpage" not in item:
+                raise ValueError("PluginSettingsLinkUnavailable")
+            page = item["_subpage"]()
+        if not any(item.get("link_alias") == alias for item in page["items"]):
+            raise ValueError("PluginSettingsLinkUnavailable")
+        return self.context.ui._page_json(dict(page, link_path=ancestors, focus_alias=alias))
+
     def _migrate_json(self, old_version, new_version, values):
         migrated = self.migrate_settings(old_version, new_version, json.loads(values))
         if not isinstance(migrated, dict): raise TypeError("SettingsMigrationFailed")
@@ -47,7 +59,17 @@ class Settings:
 class UI:
     def __init__(self, bridge): self._bridge = bridge
     def run(self, callback): self._bridge.runUi(callback)
-    def bulletin(self, text): self._bridge.bulletin(text)
+    def bulletin(self, text, kind="info"):
+        if kind == "info":
+            self._bridge.bulletin(text)
+        else:
+            self._bridge.bulletin(text, kind)
+
+    def alert(self, options, on_click=None, view=None):
+        return self._bridge.alert(json.dumps(options, ensure_ascii=False), view, on_click)
+
+    def current_fragment(self):
+        return self._bridge.currentFragment()
 
     def add_menu(self, location, id, title, on_click):
         def invoke(event): on_click(SimpleNamespace(**json.loads(event)))
@@ -60,10 +82,17 @@ class UI:
         try:
             for original in page.get("items", []):
                 item = dict(original)
-                callback = item.pop("on_click", None)
-                if callback is not None:
-                    item["callback"] = self._bridge.registerCallback(callback)
-                    registered.append(item["callback"])
+                subpage = item.pop("_subpage", None)
+                if subpage is not None:
+                    parent = page.get("link_path", [])
+                    alias = item.get("link_alias")
+                    path = [*parent, alias] if alias is not None and parent is not None and len(parent) < 11 else None
+                    item["on_click"] = lambda *_, build=subpage, path=path: self.open_page(dict(build(), link_path=path))
+                for source, target in _PAGE_CALLBACKS.items():
+                    callback = item.pop(source, None)
+                    if callback is not None:
+                        item[target] = self._bridge.registerCallback(callback)
+                        registered.append(item[target])
                 items.append(item)
             page["items"] = items
             serialized = json.dumps(page, allow_nan=False, ensure_ascii=False)
@@ -78,8 +107,14 @@ class UI:
         try: self._bridge.openPage(serialized)
         except BaseException:
             for item in json.loads(serialized)["items"]:
-                if "callback" in item: self._bridge.releaseCallback(item["callback"])
+                for key in _PAGE_CALLBACKS.values():
+                    if key in item:
+                        self._bridge.releaseCallback(item[key])
             raise
+
+
+_PAGE_CALLBACKS = {"on_click": "callback", "on_change": "change_callback",
+                   "on_long_click": "long_callback", "factory": "row_factory"}
 
 
 class _Log:
@@ -152,7 +187,9 @@ class Context:
         self.events, self.work, self.theme = _Events(bridge), _Work(bridge), _Theme(bridge)
         self.network = _Network(bridge)
         from .hooks import Hooks
+        from .telegram import TelegramHooks
         self.hooks = Hooks(bridge)
+        self.telegram = TelegramHooks(bridge)
 
     def account_settings(self, account):
         identity = self._bridge.accountIdentity(account)
@@ -172,6 +209,27 @@ class Client:
 
     def send_text(self, peer, text):
         self._bridge.sendText(self.account, self._identity, peer, text)
+
+    def send_request(self, request, callback):
+        return self._bridge.sendRequest(self.account, self._identity, request, callback)
+
+    def send_media(self, peer, kind, path, caption=""):
+        self._bridge.sendMedia(self.account, self._identity, peer, kind, str(path), caption)
+
+    def send_photo(self, peer, path, caption=""):
+        self.send_media(peer, "photo", path, caption)
+
+    def send_document(self, peer, path, caption=""):
+        self.send_media(peer, "document", path, caption)
+
+    def send_video(self, peer, path, caption=""):
+        self.send_media(peer, "video", path, caption)
+
+    def send_audio(self, peer, path, caption=""):
+        self.send_media(peer, "audio", path, caption)
+
+    def edit_text(self, message, text):
+        self._bridge.editText(self.account, self._identity, message, text)
 
     def draft_text(self, peer):
         return self._bridge.draftText(self.account, self._identity, peer)

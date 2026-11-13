@@ -1,53 +1,28 @@
-# Настройки BYgram: документация разработчика
+# Настройки BYgram для Android
 
-01.11.2026, Android Full: [каталог плагинов и исправления SDK](../plugins/catalog-2026-11-01.md).
-
-30.10.2026: начата [разработка системы плагинов](../plugins/development-report.md).
-Строка «Плагины» и страницы менеджера пока не добавлены. Текущий шаг меняет
-совместимость установки Full (API 24+) и проверку manifest, системные страницы
-Telegram не затрагивает.
-
-31.10.2026: в Full добавлены строка «Плагины» после «Кастомизация», native список,
-карточка, SAF-установка выключенным, согласие на hash, настройки, локальный журнал,
-выбор аккаунтов и recovery. Общий header/insets сохранён. Extension points
-добавлены в BaseFragment/Theme; [проверки и ограничения](../plugins/development-report.md).
-
-Раздел открывается из `SettingsActivity` и реализован в `BygramSettingsActivity`. Настройки/Spy history сосредоточены в `BygramConfig`; платная активность — в `BygramActivityController` и `server/activity-api`. Кастомные статусы печати работают только в Full через `BygramTypingController`, значки — через `BygramBadgeController`.
-
-## Карта экранов
+Full: **Настройки → Настройки BYgram**. Точка входа — `SettingsActivity`, общая панель кастомных страниц — `BygramSettingsPage`. В Lite основного модуля этот раздел скрыт; добровольная отправка активности доступна отдельно через меню отладки.
 
 ```text
 Настройки → Настройки BYgram
-├─ Кастомизация
-│  ├─ Профиль
-│  ├─ Общие
-│  └─ Кастомные статусы печати (Full)
+├─ Кастомизация (профиль, статусы набора, оформление)
+├─ Плагины · БЕТА
 ├─ Режим призрака
 ├─ Шпион
-├─ Система активности (Full)
+├─ Система активности
 ├─ Скрытые чаты
 ├─ Запароленные чаты
-├─ Другое
-└─ Канал / Чат / Переводы (GitHub)
+├─ Просмотры профиля
+├─ Другое (телеметрия, экспорт и сброс)
+└─ Канал / Чат / Переводы
 ```
 
-## Документы
-
-- [Плагины Android: проект отдельной страницы, движка и SDK, 30.10.2026](../plugins/README.md) — план, пока не реализовано.
-- [Новый аудит iOS: дизайн настроек и текущие различия с Android, 16.10.2026](../../../BYgram-ios/docs/bygram-ios-design-and-feature-audit-2026-10-16.md)
-- [Независимая повторная проверка переноса настроек Android → iOS, 16.10.2026](ios-settings-audit-2026-10-16.md)
-- [Конфигурация, ключи, экспорт и сброс](configuration.md)
+- [Конфигурация, экспорт и сброс](configuration.md)
 - [Кастомизация интерфейса и профиля](customization.md)
-- [Ghost Mode и Spy Mode](privacy-modes.md)
-- [«Кто с кем общается?» и badges](activity-sharing.md)
-- [Примечания для разработчиков: флаги, ID и решения при обновлении](../development-notes.md)
-- [Проверка изменений](testing.md)
-- [Обновление Telegram до 13.0.2 и совместимость BYgram](telegram-13.0.2-upgrade.md)
-- [Обновление Telegram до 13.0.3 с сохранением upstream-истории](telegram-13.0.3-upgrade.md)
-- [Статус переноса в Windows-клиент](desktop-port-status.md)
-- [Девять Windows-функций: реализация и непройденные тесты](desktop-nine-features.md)
-- [Актуальный аудит](../BYGRAM_SETTINGS_AUDIT_2026-09-16.md)
-- [Сборка проекта](../build.md)
+- [Призрак, Шпион и защита чатов](privacy-modes.md)
+- [Активность, просмотры профиля и привязка аккаунта](activity-sharing.md)
+- [Ссылки на пункты настроек](links.md)
+- [Плагины Android](../plugins/README.md)
+- [Сборка](../build.md) и [проверки](testing.md)
 
 ## Главные исходники
 
@@ -72,9 +47,6 @@ Telegram не затрагивает.
 5. решение для export/reset/migration;
 6. минимальная regression check.
 
-Privacy-функции должны быть opt-in, не отправлять данные до действия пользователя и не логировать message text, viewer list или tokens. Основной package всегда `com.bygram.mobile`; instrumentation package `com.bygram.mobile.test` является только тестовым package.
+Privacy-функции должны быть opt-in, не отправлять данные до действия пользователя и не логировать message text, viewer list или tokens. Пакеты редакций и параметры сборки описаны в [инструкции](../build.md#две-редакции-apk).
 
 При изменениях актуализируйте эту директорию и `docs/readme.md`.
-
-
-31.10.2026 — завершение текущего BYgram SDK P0–P8: native lifecycle, recovery/update, scoped accounts, composer preview, страницы и проверки. Актуальный протокол: [приёмка плагинов](../plugins/completion-2026-10-31.md). Системная граница Full account events повторно сверяет auth identity; core Telegram UI этим проходом не переписан.

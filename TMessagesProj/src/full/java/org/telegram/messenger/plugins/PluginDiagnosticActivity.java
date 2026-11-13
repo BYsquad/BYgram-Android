@@ -35,6 +35,17 @@ public final class PluginDiagnosticActivity extends Activity {
     }
     private String checks() throws Exception {
         if (HookBridge.available()) PluginBackendProbe.ensure(this);
+        if (!com.chaquo.python.Python.isStarted())
+            com.chaquo.python.Python.start(new com.chaquo.python.android.AndroidPlatform(getApplicationContext()));
+        PyObject python = com.chaquo.python.Python.getInstance().getBuiltins();
+        python.callAttr("exec", "from extera_utils.text_formatting import parse_text\n"
+                + "from hook_utils import find_class\n"
+                + "from android_utils import R\n"
+                + "assert find_class('org.telegram.messenger.plugins.HookBridge$Probe') is not None\n"
+                + "formatted = parse_text('\\U0001f642 <b>bold</b>')\n"
+                + "assert formatted['entities'][0].offset == 3 and formatted['entities'][0].length == 4\n"
+                + "events = []\nR(lambda: events.append(True)).run()\nassert events == [True]\n",
+                python.callAttr("dict"));
         return checks(true);
     }
     private String checks(boolean androidUi) throws Exception {
@@ -51,6 +62,34 @@ public final class PluginDiagnosticActivity extends Activity {
                 + "{\"class\":\"org.telegram.messenger.plugins.HookBridge$Probe\",\"method\":\"throwsOriginal\",\"args\":[]}]}";
         PluginManifest metadata = PluginManifest.parse(manifest.getBytes(StandardCharsets.UTF_8), 1, PluginManager.hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
         String code = "from bygram import Plugin\nclass Fixture(Plugin):\n"
+                + " def compatibility(self, directory):\n"
+                + "  from pathlib import Path\n"
+                + "  from elyx import Asset\n"
+                + "  from java import jclass\n"
+                + "  from extera_utils.classes import Base, java_subclass, jclassbuilder, jMVELmethod, jMVELoverride, jfield\n"
+                + "  from bygram._menu_condition import compile_condition\n"
+                + "  assert compile_condition('sum = 0; foreach (x : [1, 2, 3]) { sum += x; }; return sum == 6 && account == 2;')({'account': 2})\n"
+                + "  @java_subclass('java.util.ArrayList')\n"
+                + "  class Test(Base):\n"
+                + "   total = jfield('int', default=0)\n"
+                + "   @staticmethod\n"
+                + "   @jclassbuilder()\n"
+                + "   def build(dex, generated, parent):\n"
+                + "    TypeId = jclass('com.android.dx.TypeId')\n"
+                + "    dex.declare(generated.getField(TypeId.INT, 'customField'), 1, None)\n"
+                + "   add = jMVELoverride(arguments=[('value', 'java.lang.Object')], code='total += 1; return SUPER_add(value);')\n"
+                + "   result = jMVELmethod(return_type='int', arguments=[('extra', 'int')], code='return total + extra + argc;')\n"
+                + "  peer = Test.new_instance()\n"
+                + "  assert peer.add('ok') and peer.size() == 1 and peer.total == 1 and peer.result(5) == 7\n"
+                + "  assert peer.java.getClass().getField('customField') is not None\n"
+                + "  svg = Path(directory) / 'image.svg'\n"
+                + "  svg.write_text('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\" fill=\"red\"/></svg>')\n"
+                + "  asset = Asset.from_path(svg)\n"
+                + "  assert asset.to_svg_bitmap(10, 10).getWidth() == 10\n"
+                + "  assert asset.to_svg_drawable() is not None\n"
+                + "  lottie = Path(directory) / 'motion.json'\n"
+                + "  lottie.write_text('{\"v\":\"5.7.4\",\"fr\":30,\"ip\":0,\"op\":30,\"w\":32,\"h\":32,\"layers\":[]}')\n"
+                + "  assert Asset.from_path(lottie).to_lottie_drawable(16, 16).getFramesCount() > 0\n"
                 + " def on_load(self): self.observed_events = []; self.context.settings.set('loaded', True)\n"
                 + " def observed(self, event): self.observed_events.append(event)\n"
                 + " def on_enable(self):\n  self.context.settings.set('enabled', True)\n  self.context.settings.set('nothing', None)\n  assert self.context.settings.get('nothing', 'default') is None\n"
@@ -62,6 +101,7 @@ public final class PluginDiagnosticActivity extends Activity {
         PyObject plugin = runtime.load(root, metadata, context);
         boolean hooksAvailable = HookBridge.available();
         try {
+            if (androidUi) plugin.callAttr("compatibility", root.getAbsolutePath());
             context.migrate(plugin); plugin.callAttr("on_load");
             context.configureSettings(plugin.callAttr("_settings_json").toString());
             for (int i = 0; i < 600; i++) context.configureSettings(plugin.callAttr("_settings_json").toString());
@@ -189,7 +229,7 @@ public final class PluginDiagnosticActivity extends Activity {
         PluginStore.write(new android.util.AtomicFile(new File(data, "account-0-123.json")), large);
         stageInstall(store, manifest.replace("1.0.0", "2.0.0"), code, "two");
         PluginPackage.check(store.plugins().getAsJsonObject(id).get("hash").getAsString().equals(oldHash), "UpdateActivatedEarly");
-        store.applyPending();
+        store.applyPending(PluginManager.hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
         PluginPackage.check(new File(storeRoot, "registry.json").length() < 64 * 1024, "SnapshotBloatedRegistry");
         PluginPackage.check(!store.plugins().getAsJsonObject(id).get("desired").getAsBoolean(), "UpdateAutoEnabled");
         store.rollback(id);

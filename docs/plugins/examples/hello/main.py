@@ -4,7 +4,7 @@ from bygram.settings import Switch, TextInput, Action
 
 class HelloPlugin(Plugin):
     def on_enable(self):
-        self.context.ui.add_menu("dialogs.toolbar", "hello", "Hello BYgram", self.show)
+        self.context.ui.add_menu("chat.actions", "hello", "Hello BYgram", self.show)
 
     def show(self, event=None):
         if self.context.settings.get("enabled", True):

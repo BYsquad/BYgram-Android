@@ -82,6 +82,14 @@ public class PluginManifestCheck {
             throw new AssertionError("Accepted malformed UTF-8");
         } catch (PluginManifest.ValidationException e) { assert e.field.equals("utf8"); checks++; }
 
+        for (String capability : new String[]{"hooks.telegram", "telegram.requests", "messages.media"}) {
+            JsonObject telegram = base.deepCopy();
+            telegram.getAsJsonArray("capabilities").add(capability);
+            reject(telegram.toString(), "InvalidManifest");
+            telegram.addProperty("account_scope", "selected_accounts");
+            parse(telegram.toString());
+        }
+
         JsonObject raw = base.deepCopy();
         raw.getAsJsonArray("capabilities").add("hooks.raw");
         reject(raw.toString(), "InvalidManifest");

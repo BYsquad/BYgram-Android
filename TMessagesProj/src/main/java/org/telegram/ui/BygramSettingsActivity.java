@@ -32,6 +32,7 @@ import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.BulletinFactory;
@@ -63,10 +64,6 @@ abstract class BygramSettingsPage extends BaseFragment {
     @Override public ArrayList<ThemeDescription> getThemeDescriptions() {
         ArrayList<ThemeDescription> descriptions = super.getThemeDescriptions();
         descriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, settingsBackgroundKey()));
-        descriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
-        descriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_TITLECOLOR, null, null, null, null, Theme.key_actionBarDefaultTitle));
-        descriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_ITEMSCOLOR, null, null, null, null, Theme.key_actionBarDefaultIcon));
-        descriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SELECTORCOLOR, null, null, null, null, Theme.key_actionBarDefaultSelector));
         return descriptions;
     }
 
@@ -75,26 +72,53 @@ abstract class BygramSettingsPage extends BaseFragment {
         return BuildConfig.BYGRAM_FULL && super.onFragmentCreate();
     }
 
+    @Override
+    protected boolean useSimpleActionBar() {
+        return true;
+    }
+
+    @Override
+    public boolean isSupportEdgeToEdge() {
+        return true;
+    }
+
     protected FrameLayout createSettingsContent(Context context) {
-        return new FrameLayout(context) {
-            @Override
-            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                // Window insets can replace root padding; restore it before measuring the rows.
-                int headerHeight = actionBar.getMeasuredHeight();
-                if (headerHeight == 0) {
-                    headerHeight = ActionBar.getCurrentActionBarHeight()
-                            + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0);
-                }
-                if (getPaddingTop() != headerHeight) setPadding(0, headerHeight, 0, 0);
-                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            }
-        };
+        setHasOwnBackground(true);
+        return new FrameLayout(context);
+    }
+
+    @Override
+    protected RecyclerListView getListViewForSimpleGlass() {
+        View content = ((FrameLayout) fragmentView).getChildAt(0);
+        return content instanceof RecyclerListView ? (RecyclerListView) content : null;
     }
 
     @Override
     protected void onViewCreated(View view) {
         super.onViewCreated(view);
-        view.setFitsSystemWindows(true);
+        if (getListViewForSimpleGlass() == null) {
+            getBaseSimpleGlass().setViews((FrameLayout) view, simpleActionBar, getResourceProvider());
+            simpleActionBar.setBackground(getBaseSimpleGlass().createActionBarFadeDrawable(simpleActionBar));
+            onInsets(mSystemInsets.left, mSystemInsets.top, mSystemInsets.right, mSystemInsets.bottom);
+        }
+    }
+
+    @Override
+    public void onInsets(int left, int top, int right, int bottom) {
+        if (getListViewForSimpleGlass() == null) {
+            View content = ((FrameLayout) fragmentView).getChildAt(0);
+            AndroidUtilities.setViewLayoutMargins(content, left,
+                    top + ActionBar.getCurrentActionBarHeight() + simpleActionBar.getExtraHeight(), right, bottom);
+        }
+    }
+
+    @Override
+    public boolean onBackPressed(boolean invoked) {
+        if (simpleActionBar != null && simpleActionBar.isSearchFieldVisible()) {
+            if (invoked) simpleActionBar.closeSearchField();
+            return false;
+        }
+        return super.onBackPressed(invoked);
     }
 }
 
@@ -217,7 +241,10 @@ public class BygramSettingsActivity extends BygramSettingsPage {
 
     public static boolean showLinkMenu(BaseFragment fragment, View view, UniversalRecyclerView list, String target) {
         if (target == null) return false;
-        String link = BygramSettingsLink.PREFIX + target;
+        return showUrlMenu(fragment, view, list, BygramSettingsLink.PREFIX + target);
+    }
+
+    public static boolean showUrlMenu(BaseFragment fragment, View view, UniversalRecyclerView list, String link) {
         ItemOptions.makeOptions(fragment, view)
                 .add(R.drawable.msg_link2, getString(R.string.CopyLink), () -> {
                     AndroidUtilities.addToClipboard(link);
@@ -287,9 +314,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
     @Override
     public View createView(Context context) {
         BygramConfig.clearRemovedCustomizationSettings();
-        actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle(getString(R.string.BygramSettings));
-        actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+        simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+        simpleActionBar.setTitle(getString(R.string.BygramSettings));
+        simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
                 if (id == -1) finishFragment();
@@ -308,7 +335,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asHeader(getString(R.string.BygramCategories)).setId(-1));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
-        if (BuildConfig.BYGRAM_FULL) items.add(UItem.asButton(ROW_PLUGINS, R.drawable.settings_account, getString(R.string.BygramPlugins), org.telegram.messenger.PluginEntry.summary()));
+        if (BuildConfig.BYGRAM_FULL) items.add(UItem.asButton(ROW_PLUGINS, R.drawable.settings_account, getString(R.string.BygramPluginsBeta), org.telegram.messenger.PluginEntry.summary()));
         items.add(UItem.asButton(1, R.drawable.settings_privacy, getString(R.string.BygramGhostMode)));
         items.add(UItem.asButton(2, R.drawable.settings_devices, getString(R.string.BygramSpyMode)));
         if (BuildConfig.BYGRAM_FULL) {
@@ -417,9 +444,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         private JSONArray views = new JSONArray();
 
         @Override public View createView(Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(R.string.BygramProfileViews));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(R.string.BygramProfileViews));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
             });
             FrameLayout content = createSettingsContent(context);
@@ -535,9 +562,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         }
 
         @Override public View createView(Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(name);
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(name);
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
             });
             FrameLayout content = createSettingsContent(context);
@@ -604,16 +631,16 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         }
 
         @Override public View createView(Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(hidden ? R.string.BygramHiddenChats : R.string.BygramProtectedChats));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(hidden ? R.string.BygramHiddenChats : R.string.BygramProtectedChats));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override public void onItemClick(int id) {
                     if (id == -1) finishFragment();
                     else if (id == 2) openChatPicker();
                 }
             });
             if (!revealOnly) {
-                actionBar.createMenu().addItemWithWidth(2, R.drawable.msg_add, AndroidUtilities.dp(54), getString(R.string.SelectChat));
+                simpleActionBar.createMenu().addItem(2, R.drawable.msg_add).setContentDescription(getString(R.string.SelectChat));
             }
             FrameLayout content = createSettingsContent(context);
             content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
@@ -962,9 +989,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         @Override
         public View createView(Context context) {
             md3Expanded = md3Expanded || linkedRow(this) >= 200 && linkedRow(this) <= 203;
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(R.string.BygramCustomization));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(R.string.BygramCustomization));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override
                 public void onItemClick(int id) {
                     if (id == -1) finishFragment();
@@ -1371,9 +1398,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         private UniversalRecyclerView listView;
 
         @Override public View createView(Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(R.string.BygramOther));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(R.string.BygramOther));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
             });
             FrameLayout content = createSettingsContent(context);
@@ -1444,15 +1471,15 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         @Override
         public View createView(Context context) {
             expanded = expanded || linkedRow(this) == -2;
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(R.string.BygramShareActivity));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(R.string.BygramShareActivity));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override
                 public void onItemClick(int id) {
                     if (id == -1) finishFragment();
                 }
             });
-            actionBar.createMenu().addItem(0, R.drawable.outline_header_search).setIsSearchField(true)
+            simpleActionBar.createMenu().addItem(0, R.drawable.outline_header_search).setIsSearchField(true)
                     .setActionBarMenuItemSearchListener(new ActionBarMenuItem.ActionBarMenuItemSearchListener() {
                         @Override public void onSearchExpand() { expanded = true; listView.adapter.update(true); }
                         @Override public void onSearchCollapse() { query = ""; listView.adapter.update(true); }
@@ -1561,9 +1588,9 @@ public class BygramSettingsActivity extends BygramSettingsPage {
 
         @Override
         public View createView(Context context) {
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle(getString(getTitleRes()));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(getTitleRes()));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override
                 public void onItemClick(int id) {
                     if (id == -1) finishFragment();

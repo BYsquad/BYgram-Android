@@ -6,7 +6,7 @@ class AccountPlugin(Plugin):
     subscription = None
 
     def on_enable(self):
-        self.context.ui.add_menu("dialogs.toolbar", "observe", "Observe this account", self.observe)
+        self.context.ui.add_menu("chat.actions", "observe", "Observe this account", self.observe)
 
     def create_settings(self):
         return [Switch("observe", "Log page names", True, scope="account")]

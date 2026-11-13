@@ -73,7 +73,23 @@ try {
     $candidate['release']['repository_id'] = 999;
     $pdo->prepare("UPDATE plugin_submissions SET status='review',candidate=? WHERE id=?")->execute([json_encode($candidate), $next]);
     try { approvePlugin($pdo, $next, 456, $candidate['sha256']); throw new RuntimeException('plugin ID takeover accepted'); } catch (InvalidArgumentException) { }
-    echo "PASS: MySQL migration twice, signed-user ownership boundary, duplicates, GitHub/tag/hash/size validation, exact-candidate publication and repository ID takeover rejection\n";
+    try { revokePlugin($pdo, $id, 456, str_repeat('0', 64), 'wrong hash'); throw new RuntimeException('wrong hash revoked'); } catch (InvalidArgumentException) { }
+    revokePlugin($pdo, $id, 456, $candidate['sha256'], 'fixture revocation');
+    assert(pluginRevokedHashes($root . '/plugins') === [$candidate['sha256']]);
+    assert(json_decode((string) file_get_contents($root . '/plugins/index.json'), true)['plugins'] === []);
+    assert(!is_file($root . '/plugins/' . $candidate['file']));
+    assert(pluginSubmissions($pdo, 123)[1]['status'] === 'revoked');
+    try { approvePlugin($pdo, $next, 456, $candidate['sha256']); throw new RuntimeException('revoked hash republished'); }
+    catch (InvalidArgumentException $error) { assert(str_contains($error->getMessage(), 'отозван')); }
+    $changedBytes = $bytes . 'new fixture';
+    $candidate['sha256'] = hash('sha256', $changedBytes);
+    $candidate['file'] = $candidate['sha256'] . '.byplugin';
+    $candidate['size'] = strlen($changedBytes);
+    file_put_contents(pluginCandidateDirectory() . '/' . $candidate['file'], $changedBytes);
+    $pdo->prepare("UPDATE plugin_submissions SET candidate=? WHERE id=?")->execute([json_encode($candidate), $next]);
+    try { approvePlugin($pdo, $next, 456, $candidate['sha256']); throw new RuntimeException('revocation released plugin ID'); }
+    catch (InvalidArgumentException $error) { assert(str_contains($error->getMessage(), 'другому репозиторию')); }
+    echo "PASS: MySQL migration twice, signed-user ownership boundary, duplicates, GitHub/tag/hash/size validation, exact-candidate publication and repository ID takeover rejection, exact-hash revocation and blocked republication\n";
 } finally {
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
     foreach ($files as $file) { if ($file->isDir()) rmdir($file->getPathname()); else unlink($file->getPathname()); }

@@ -2,7 +2,13 @@ package org.telegram.messenger;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+import androidx.core.app.NotificationCompat;
 import android.os.Bundle;
 import android.util.AtomicFile;
 import android.widget.Button;
@@ -22,6 +28,32 @@ public final class PluginRecovery extends Activity {
         return false;
     }
     private static boolean independentProcess(String name) { return name.endsWith(":plugin_recovery") || name.endsWith(":plugin_probe"); }
+
+    private static final String CHANNEL = "bygram_plugin_recovery";
+
+    public static void showNotification(Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null || !manager.areNotificationsEnabled()) return;
+        String title = LocaleController.getString(R.string.BygramPluginRecoveryTitle);
+        if (Build.VERSION.SDK_INT >= 26)
+            manager.createNotificationChannel(new NotificationChannel(CHANNEL, title, NotificationManager.IMPORTANCE_DEFAULT));
+        PendingIntent open = PendingIntent.getActivity(context, 0, new Intent(context, PluginRecovery.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        String message = LocaleController.getString(R.string.BygramPluginRecoveryNotification);
+        try {
+            manager.notify(CHANNEL, 1, new NotificationCompat.Builder(context, CHANNEL)
+                    .setSmallIcon(R.drawable.notification).setContentTitle(title).setContentText(message)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(message)).setContentIntent(open)
+                    .setAutoCancel(true).setOnlyAlertOnce(true).build());
+        } catch (SecurityException denied) {
+            FileLog.e(denied);
+        }
+    }
+
+    public static void clearNotification(Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) manager.cancel(CHANNEL, 1);
+    }
 
     private static AtomicFile flag(Context context) {
         return new AtomicFile(new File(context.getNoBackupFilesDir(), "plugin-safe-mode"));
@@ -49,7 +81,7 @@ public final class PluginRecovery extends Activity {
         int padding = (int) (24 * getResources().getDisplayMetrics().density);
         layout.setPadding(padding, padding, padding, padding);
         TextView text = new TextView(this);
-        text.setText(recoveryString("BygramPluginRecoveryHelp"));
+        text.setText(recoveryString(isSafe(this) ? "BygramPluginRecoveryNotification" : "BygramPluginRecoveryHelp"));
         try {
             AtomicFile status = new AtomicFile(new File(getNoBackupFilesDir(), "plugins/last-stage.json"));
             try (InputStream in = status.openRead(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {

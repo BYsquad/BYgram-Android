@@ -41,7 +41,7 @@ def main():
         java = ROOT / "TMessagesProj/src/full/java/org/telegram/messenger/plugins"
         subprocess.run(["javac", "-encoding", "UTF-8", "-cp", str(gson), "-d", str(work),
             str(ROOT / "Tools/fixtures/plugins/android/util/AtomicFile.java"), str(ROOT / "Tools/fixtures/plugins/android/util/Base64.java"),
-            *(str(java / name) for name in ("PluginManifest.java", "PluginSignature.java", "PluginPackage.java", "PluginStore.java", "PluginSettingsFile.java")),
+            *(str(java / name) for name in ("PluginManifest.java", "PluginSignature.java", "PluginPackage.java", "PluginPackageAccess.java", "PluginStore.java", "PluginSettingsFile.java")),
             str(ROOT / "Tools/PluginSignatureCheck.java")], check=True)
         result = subprocess.check_output(["java", "-ea", "-cp", str(work) + os.pathsep + str(gson),
             "org.telegram.messenger.plugins.PluginSignatureCheck", str(ROOT / "Tools/fixtures/plugins/hello-manifest.json"), str(archive)], text=True)

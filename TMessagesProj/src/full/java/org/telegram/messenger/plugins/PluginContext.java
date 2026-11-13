@@ -4,6 +4,8 @@ import android.util.AtomicFile;
 import com.chaquo.python.PyObject;
 import com.google.gson.*;
 import org.telegram.messenger.*;
+import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLObject;
 import org.telegram.ui.PluginHost;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +24,7 @@ public final class PluginContext {
     private final Map<String, PyObject> callbacks = new HashMap<>();
     private final Map<String, JsonObject> fields = new HashMap<>();
     private volatile boolean migrating;
+    volatile boolean interceptorsReady;
     private long errorWindow;
     private int errors;
     public String migrationScope = "";
@@ -91,11 +94,40 @@ public final class PluginContext {
     }
     public void log(String level, String text) { check(); manager.log(id(), level + ": " + text); }
 
+    public static void setReflectedField(java.lang.reflect.Field field, Object object, PyObject value)
+            throws IllegalAccessException {
+        field.set(object, value == null ? null : value.toJava(field.getType()));
+    }
+
+    public String filesPath() {
+        check();
+        return new File(dataDirectory, "files").getAbsolutePath();
+    }
+
     public synchronized String settingsGet(String key, String account) throws IOException {
         check(); JsonObject values = settings(account);
         return values.has(key) ? values.get(key).toString() : "null";
     }
     public synchronized boolean settingsHas(String key, String account) throws IOException { check(); return settings(account).has(key); }
+    public synchronized String settingsExport() throws IOException {
+        check();
+        return settings("").toString();
+    }
+    public synchronized void settingsImport(String json) throws IOException {
+        check();
+        PluginPackage.check(json.length() <= 64 * 1024, "SettingsLimitExceeded");
+        JsonObject values = JsonParser.parseString(json).getAsJsonObject();
+        validateJson(values, 0);
+        for (String key : values.keySet()) {
+            PluginPackage.check(key.matches("[A-Za-z_][A-Za-z0-9_.-]{0,119}"), "InvalidSettingKey");
+            JsonObject field = fields.get("global:" + key);
+            if (field != null) PluginPageSpec.validateValue(field, values.get(key));
+        }
+        check();
+        PluginStore.write(settingsFile(""), values);
+        settings.put("", values);
+        PluginHost.settingsChanged();
+    }
     public synchronized void settingsSet(String key, String json, String account) throws IOException {
         check(); PluginPackage.check(key != null && key.matches("[A-Za-z_][A-Za-z0-9_.-]{0,119}"), "InvalidSettingKey");
         PluginPackage.check(json.length() <= 64 * 1024, "SettingsLimitExceeded");
@@ -166,6 +198,24 @@ public final class PluginContext {
         check();
         dispatchUiCallback(callback);
     }
+    public void runUiDelayed(PyObject callback, long delay) throws Exception {
+        check();
+        if (delay < 0) throw new IllegalArgumentException("InvalidDelay");
+        class Task implements Runnable {
+            AutoCloseable registration;
+            @Override public void run() {
+                try {
+                    registration.close();
+                    if (!scope.beginCallback()) return;
+                    try { callback.call(); } finally { scope.endCallback(); }
+                } catch (Exception error) { failed(error); }
+            }
+        }
+        Task task = new Task();
+        task.registration = scope.own(() -> AndroidUtilities.cancelRunOnUIThread(task));
+        AndroidUtilities.runOnUIThread(task, delay);
+        if (!scope.isActive()) AndroidUtilities.cancelRunOnUIThread(task);
+    }
     public AutoCloseable submit(PyObject callback) throws Exception {
         check();
         return work.submit(scope, () -> call(callback));
@@ -185,10 +235,26 @@ public final class PluginContext {
             if (elapsed > 16) manager.log(id(), "SlowCallback " + elapsed + "ms");
         }
     }
+    void appEvent(PyObject plugin, String event) {
+        PyObject callback = plugin.get("_compat_app_event");
+        if (callback == null) return;
+        try { dispatchUiCallback(callback, event); }
+        catch (Exception error) { failed(error); }
+    }
     private void dispatchUiCallback(PyObject callback, Object... args) throws Exception {
-        uiCallbacks.dispatch(scope, () -> call(callback, args), () -> {
+        dispatchUiCallback(() -> call(callback, args));
+    }
+    private void dispatchUiCallback(Runnable callback) throws Exception {
+        uiCallbacks.dispatch(scope, callback, () -> {
             scope.invalidate(); manager.callbackFailed(scope, new IOException("PluginRestartRequired"));
         });
+    }
+    public void callMessageMenu(PyObject callback, int account, String identity, long peer, Object... event) {
+        try {
+            dispatchUiCallback(() -> {
+                if (accountAvailable(account, identity) && dialogAvailable(account, peer)) call(callback, event);
+            });
+        } catch (Exception error) { failed(error); }
     }
     public synchronized void failed(Exception error) {
         long now = android.os.SystemClock.elapsedRealtime();
@@ -197,12 +263,66 @@ public final class PluginContext {
         if (++errors >= 3) { scope.invalidate(); manager.callbackFailed(scope, error); }
     }
     public void bulletin(String text) {
+        bulletin(text, "info");
+    }
+    public void bulletin(String text, String type) {
         capability("ui");
-        if (text.length() > 1000) throw new IllegalArgumentException("TextLimitExceeded");
-        PluginHost.bulletin(this, text);
+        if (text.length() > 1000 || !Arrays.asList("info", "error", "success").contains(type))
+            throw new IllegalArgumentException("InvalidBulletin");
+        PluginHost.bulletin(this, text, type);
+    }
+    public org.telegram.ui.ActionBar.BaseFragment currentFragment() {
+        capability("ui");
+        return PluginHost.currentFragment();
+    }
+    public PluginHost.PluginAlert alert(String json, android.view.View view, PyObject callback) throws Exception {
+        capability("ui");
+        if (json.length() > 64 * 1024) throw new IllegalArgumentException("PageLimitExceeded");
+        return PluginHost.alert(this, JsonParser.parseString(json).getAsJsonObject(), view, callback);
     }
     public AutoCloseable menu(String location, String localId, String title, PyObject callback) throws Exception {
         capability("ui"); return scope.own(PluginHost.menu(this, location, localId, title, callback));
+    }
+    public AutoCloseable compatMenu(String location, String id, String title, String icon, String subtext,
+                                    int priority, PyObject callback, PyObject condition) throws Exception {
+        capability("ui");
+        if ("message.context".equals(location)) capability("messages.observe");
+        return scope.own(PluginHost.menu(this, location, id, title, icon, subtext, priority, callback, condition));
+    }
+    public boolean menuVisible(PyObject condition, Object... args) {
+        if (condition == null) return active();
+        if (!scope.beginCallback()) return false;
+        try { return condition.call(args).toBoolean(); }
+        catch (Exception error) { failed(error); return false; }
+        finally { scope.endCallback(); }
+    }
+    public AutoCloseable intentHandler(boolean before, int priority, PyObject callback) throws Exception {
+        capability("hooks.telegram");
+        return scope.own(PluginHost.intentHandler(this, before, priority, callback));
+    }
+    public AutoCloseable intercept(String kind, String filter, boolean substring, int priority, PyObject callback) throws Exception {
+        capability("hooks.telegram");
+        if (!Arrays.asList("request", "response", "updates", "update", "send").contains(kind)
+                || filter == null || !filter.matches("[A-Za-z0-9_$]{0,128}") || callback == null) {
+            throw new IllegalArgumentException("InvalidTelegramHook");
+        }
+        return scope.own(PluginInterceptors.add(id(), kind, filter, substring, priority, (slot, name, value, detail) -> {
+            if (!interceptorsReady || !scope.beginCallback()) return null;
+            long started = android.os.SystemClock.elapsedRealtime();
+            try {
+                String identity;
+                try { identity = currentIdentity(slot); }
+                catch (IllegalStateException | IllegalArgumentException unavailable) { return null; }
+                if (!accountAvailable(slot, identity)) return null;
+                PyObject result = callback.call(name, slot, value, detail);
+                return accountAvailable(slot, identity) && result != null
+                        ? result.toJava(PluginInterceptors.Result.class) : null;
+            } finally {
+                scope.endCallback();
+                long elapsed = android.os.SystemClock.elapsedRealtime() - started;
+                if (elapsed > 16) manager.log(id(), "SlowTelegramHook " + elapsed + "ms");
+            }
+        }, this::failed));
     }
     public void openPage(String json) {
         capability("ui");
@@ -230,7 +350,7 @@ public final class PluginContext {
         if (keys.size() > 512) throw new IllegalArgumentException("SettingsLimitExceeded");
         for (String key : validated.keySet()) {
             JsonObject previous = fields.get(key), next = validated.get(key);
-            if (previous != null) for (String property : new String[]{"type", "scope", "max_length", "min", "max", "step", "options"})
+            if (previous != null) for (String property : new String[]{"type", "scope", "max_length", "mask", "min", "max", "step", "options"})
                 if (!Objects.equals(previous.get(property), next.get(property))) throw new IllegalArgumentException("SettingSchemaConflict");
         }
         fields.putAll(validated);
@@ -257,16 +377,28 @@ public final class PluginContext {
         if (!page.has("items") || !page.get("items").isJsonArray()) return;
         for (JsonElement item : page.getAsJsonArray("items")) {
             if (item.isJsonObject()) {
-                JsonElement callback = item.getAsJsonObject().get("callback");
-                if (callback != null && callback.isJsonPrimitive()) releaseCallback(callback.getAsString());
+                for (String property : new String[]{"callback", "change_callback", "long_callback", "row_factory"}) {
+                    JsonElement callback = item.getAsJsonObject().get(property);
+                    if (callback != null && callback.isJsonPrimitive()) releaseCallback(callback.getAsString());
+                }
             }
         }
     }
-    public void callNamed(String key) {
+    public void callNamed(String key, Object... args) {
         PyObject callback;
         synchronized (callbacks) { callback = callbacks.get(key); }
         if (callback == null) throw new IllegalArgumentException("UnknownCallback");
-        call(callback);
+        call(callback, args);
+    }
+    public Object createSettingsRow(String key, android.content.Context context) {
+        PyObject callback;
+        synchronized (callbacks) { callback = callbacks.get(key); }
+        if (callback == null || !scope.beginCallback()) return null;
+        try {
+            PyObject result = callback.call(context);
+            return result == null ? null : result.toJava(Object.class);
+        } catch (Exception error) { failed(error); return null; }
+        finally { scope.endCallback(); }
     }
     public void sendText(int slot, String identity, long peer, String text) {
         capability("messages.send"); account(slot, identity);
@@ -278,6 +410,111 @@ public final class PluginContext {
                 if (BygramChatPrivacy.isHidden(slot, peer) || BygramChatPrivacy.isProtected(slot, peer)) throw new IllegalStateException("PrivateDialogUnavailable");
                 SendMessagesHelper.getInstance(slot).sendMessage(SendMessagesHelper.SendMessageParams.of(text, peer));
             } catch (Exception e) { failed(e); }
+        });
+    }
+    public int sendRequest(int slot, String identity, TLObject request, PyObject callback) {
+        capability("telegram.requests");
+        account(slot, identity);
+        if (request == null || callback == null) throw new IllegalArgumentException("InvalidTelegramRequest");
+        return ConnectionsManager.getInstance(slot).sendPluginRequest(request, (response, error) -> {
+            if (accountAvailable(slot, identity)) call(callback, response, error);
+        }, () -> accountAvailable(slot, identity));
+    }
+    private File mediaFile(String path) throws IOException {
+        File source = new File(path);
+        if (!source.isAbsolute()) {
+            source = contained(dataDirectory, path);
+            if (!source.isFile()) source = contained(packageDirectory, path);
+        }
+        File file = source.getCanonicalFile();
+        String absolute = file.getPath();
+        if ((!absolute.startsWith(dataDirectory.getCanonicalPath() + File.separator)
+                && !absolute.startsWith(packageDirectory.getCanonicalPath() + File.separator)) || !file.isFile() || file.length() == 0)
+            throw new IOException("InvalidStoragePath");
+        return file;
+    }
+    private java.util.function.LongPredicate sendGuard(int slot, String identity, long peer) {
+        return actualPeer -> actualPeer == peer && accountAvailable(slot, identity)
+                && !BygramChatPrivacy.isHidden(slot, peer) && !BygramChatPrivacy.isProtected(slot, peer);
+    }
+    private SendMessageChatArguments sendArguments(java.util.function.LongPredicate allowed) {
+        SendMessageChatArguments.Builder builder = new SendMessageChatArguments.Builder();
+        builder.setBygramPluginSendAllowed(allowed);
+        return builder.build();
+    }
+    public void sendPrepared(int slot, String identity, SendMessagesHelper.SendMessageParams params) throws IOException {
+        boolean media = params.photo != null || params.document != null;
+        capability(media ? "messages.media" : "messages.send");
+        account(slot, identity);
+        long peer = params.peer;
+        if (peer == 0 || !media && (params.message == null || params.message.isEmpty() || params.message.length() > 4096)
+                || params.caption != null && params.caption.length() > 1024
+                || params.replyToMsg != null && (params.replyToMsg.currentAccount != slot || params.replyToMsg.getDialogId() != peer))
+            throw new IllegalArgumentException("InvalidMessage");
+        if (params.path != null) params.path = mediaFile(params.path).getAbsolutePath();
+        java.util.function.LongPredicate allowed = sendGuard(slot, identity, peer);
+        params.sendMessageChatArguments = sendArguments(allowed);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (!allowed.test(params.peer)) return;
+            try { SendMessagesHelper.getInstance(slot).sendMessage(params); }
+            catch (Exception error) { failed(error); }
+        });
+    }
+    public void setSendParameter(SendMessagesHelper.SendMessageParams params, String key, PyObject value)
+            throws ReflectiveOperationException {
+        check();
+        if (!Arrays.asList("peer", "message", "caption", "photo", "document", "path", "replyToMsg",
+                "replyMarkup", "entities", "params", "notify", "scheduleDate", "ttl",
+                "hasMediaSpoilers", "sendingHighQuality", "searchLinks").contains(key))
+            throw new IllegalArgumentException("InvalidMessageParameter");
+        setReflectedField(SendMessagesHelper.SendMessageParams.class.getField(key), params, value);
+    }
+    public void sendMedia(int slot, String identity, long peer, String kind, String path, String caption) throws IOException {
+        mediaPrepared(slot, identity, peer, kind, path, caption, null, null, true, 0, 0, false, false, null);
+    }
+    public void mediaPrepared(int slot, String identity, long peer, String kind, String path, String caption,
+                              ArrayList<org.telegram.tgnet.TLRPC.MessageEntity> entities, MessageObject reply, boolean notify,
+                              int schedule, int ttl, boolean spoiler, boolean quality, MessageObject edit) throws IOException {
+        capability("messages.media");
+        account(slot, identity);
+        if (peer == 0 || caption == null || caption.length() > 1024
+                || !Arrays.asList("photo", "document", "video", "audio").contains(kind)
+                || reply != null && (reply.currentAccount != slot || reply.getDialogId() != peer)
+                || edit != null && (edit.currentAccount != slot || edit.getDialogId() != peer))
+            throw new IllegalArgumentException("InvalidPluginMedia");
+        File file = mediaFile(path);
+        String absolute = file.getAbsolutePath();
+        java.util.function.LongPredicate allowed = sendGuard(slot, identity, peer);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (!allowed.test(peer)) return;
+            try {
+                SendMessageChatArguments arguments = sendArguments(allowed);
+                AccountInstance instance = AccountInstance.getInstance(slot);
+                SendMessagesHelper.SendingMediaInfo info = new SendMessagesHelper.SendingMediaInfo();
+                info.path = absolute; info.caption = caption; info.entities = entities; info.ttl = ttl;
+                info.isVideo = kind.equals("video"); info.hasMediaSpoilers = spoiler; info.highQuality = quality;
+                boolean document = kind.equals("document") || kind.equals("audio");
+                SendMessagesHelper.prepareSendingMedia(instance, new ArrayList<>(Collections.singletonList(info)),
+                        peer, reply, null, null, null, document, false, edit, notify, schedule, 0, 0,
+                        false, null, arguments, 0, false, 0, 0, null);
+            } catch (Exception failure) { failed(failure); }
+        });
+    }
+    public void editText(int slot, String identity, MessageObject message, String text) {
+        editPrepared(slot, identity, message, text, null);
+    }
+    public void editPrepared(int slot, String identity, MessageObject message, String text,
+                             ArrayList<org.telegram.tgnet.TLRPC.MessageEntity> entities) {
+        capability("messages.media");
+        account(slot, identity);
+        if (message == null || message.currentAccount != slot || text == null || text.isEmpty() || text.length() > 4096)
+            throw new IllegalArgumentException("InvalidMessage");
+        long peer = message.getDialogId();
+        AndroidUtilities.runOnUIThread(() -> {
+            if (!accountAvailable(slot, identity) || BygramChatPrivacy.isHidden(slot, peer)
+                    || BygramChatPrivacy.isProtected(slot, peer)) return;
+            try { SendMessagesHelper.getInstance(slot).editMessage(message, text, false, PluginHost.currentFragment(), entities, 0, 0); }
+            catch (Exception failure) { failed(failure); }
         });
     }
     public String draftText(int slot, String identity, long peer) {
@@ -312,7 +549,7 @@ public final class PluginContext {
             account(slot, currentIdentity(slot));
             if (BygramChatPrivacy.isHidden(slot, peer) || BygramChatPrivacy.isProtected(slot, peer)) return false;
             for (JsonElement value : manifest.metadata().getAsJsonArray("capabilities"))
-                if (value.getAsString().equals("messages.observe") || value.getAsString().equals("messages.send")) return true;
+                if (Arrays.asList("messages.observe", "messages.send", "messages.media").contains(value.getAsString())) return true;
         } catch (IllegalStateException | IllegalArgumentException unavailable) { }
         return false;
     }

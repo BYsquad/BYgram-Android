@@ -36,8 +36,23 @@ public final class PluginSignatureCheck {
             PluginStore store = new PluginStore(new java.io.File(root, "store"));
             java.lang.reflect.Constructor<PluginPackage> ctor = PluginPackage.class.getDeclaredConstructor(PluginManifest.class, String.class, java.io.File.class); ctor.setAccessible(true);
             PluginManifest manifest = PluginManifest.parse(Files.readAllBytes(Paths.get(args[0])), 1, 72379, 7237);
-            PluginPackage initial = ctor.newInstance(manifest, "a".repeat(64), content); initial.signer = fingerprint;
+            java.io.File rebuilt = new java.io.File(root, "rebuilt.byplugin");
+            PluginPackageAccess.export(content, new java.io.File(root, "missing.byplugin"), rebuilt);
+            PluginPackage initial;
+            try (java.io.InputStream input = Files.newInputStream(rebuilt.toPath())) {
+                initial = PluginPackage.stage(input, new java.io.File(store.staging, "initial"), 1, 72379, 7237);
+            }
+            assert fingerprint.equals(initial.signer) : "legacy export changed the signed contents";
             store.install(initial);
+            java.io.File exported = new java.io.File(root, "exported.byplugin");
+            java.io.File archive = new java.io.File(store.packages, initial.sha256 + ".byplugin");
+            PluginPackageAccess.export(store.packageDir(store.plugins().getAsJsonObject(manifest.id())), archive, exported);
+            assert java.util.Arrays.equals(Files.readAllBytes(rebuilt.toPath()), Files.readAllBytes(exported.toPath()));
+            assert PluginPackageAccess.files(store.packageDir(store.plugins().getAsJsonObject(manifest.id()))).contains("main.py");
+            try {
+                PluginPackageAccess.source(content, "../main.py", "truncated");
+                throw new AssertionError("source preview accepted traversal");
+            } catch (java.io.IOException expected) { }
             java.io.File update = new java.io.File(root, "update"); update.mkdir();
             PluginPackage replacement = ctor.newInstance(manifest, "b".repeat(64), update);
             for (String otherKey : new String[]{PluginSignature.hash(second.getPublic().getEncoded()), null}) {
@@ -45,7 +60,7 @@ public final class PluginSignatureCheck {
                 try { store.install(replacement); throw new AssertionError("author key replacement accepted"); }
                 catch (java.io.IOException expected) { assert expected.getMessage().equals("AuthorKeyChanged"); }
             }
-            assert store.plugins().getAsJsonObject(manifest.id()).get("hash").getAsString().equals("a".repeat(64));
+            assert store.plugins().getAsJsonObject(manifest.id()).get("hash").getAsString().equals(initial.sha256);
             if (args.length > 1) {
                 PluginPackage signed = PluginPackage.stage(Files.newInputStream(Paths.get(args[1])), new java.io.File(root, "cross-language"), 1, 72379, 7237);
                 assert signed.signer != null;

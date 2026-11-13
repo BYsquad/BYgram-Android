@@ -15,6 +15,15 @@ public final class PluginPageSpecCheck {
         String text = "{\"type\":\"TextInput\",\"key\":\"label\",\"title\":\"Label\",\"default\":\"ok\",\"max_length\":4}";
         Map<String, JsonObject> fields = PluginPageSpec.validate(page(text), false, Collections.emptySet());
         assert fields.size() == 1;
+        String masked = text.replace("\"ok\"", "\"\"").replace("\"max_length\":4", "\"max_length\":4,\"mask\":\"[0-9]{4}\",\"link_alias\":\"pin\"");
+        JsonObject maskedField = PluginPageSpec.validate(page(masked), false, Collections.emptySet()).get("global:label");
+        PluginPageSpec.validateValue(maskedField, new JsonPrimitive("0123"));
+        try {
+            PluginPageSpec.validateValue(maskedField, new JsonPrimitive("123"));
+            throw new AssertionError("Accepted partial masked value");
+        } catch (IllegalArgumentException expected) { }
+        reject(masked.replace("[0-9]{4}", "["));
+        reject(masked + "," + masked.replace("\"label\"", "\"other\""));
         PluginPageSpec.validateValue(fields.get("global:label"), new JsonPrimitive("four"));
         assert PluginPageSpec.validate(page(text + "," + text.replace("\"Label\"", "\"Account\"").replace("\"key\"", "\"scope\":\"account\",\"key\"")), true, Collections.emptySet()).size() == 2;
         reject(text + "," + text);

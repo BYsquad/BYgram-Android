@@ -31,6 +31,7 @@ public final class PluginStoreCheck {
             assert new File(store.packages, first).isDirectory() : "previous registry package was collected";
             Files.write(new File(root, "registry.json").toPath(), "{\"schema\":1,\"engine\":false,\"plugins\":[]}".getBytes(StandardCharsets.UTF_8));
             PluginStore recovered = new PluginStore(root);
+            assert recovered.recoveredFromBackup && !new PluginStore(root).recoveredFromBackup : "backup recovery repeated across starts";
             assert recovered.plugins().getAsJsonObject(ID).get("hash").getAsString().equals(first) : "structurally corrupt registry did not recover";
             assert !recovered.state.get("engine").getAsBoolean();
             assert !recovered.plugins().getAsJsonObject(ID).get("desired").getAsBoolean();
@@ -68,6 +69,7 @@ public final class PluginStoreCheck {
             JsonObject previous = store.plugins().getAsJsonObject(ID).deepCopy();
             previous.addProperty("desired", true);
             JsonObject updated = previous.deepCopy(); updated.addProperty("hash", second);
+            updated.addProperty("pinned", true);
             updated.add("rollback", previous); updated.addProperty("activated", true);
             store.plugins().add(ID, updated); store.save();
             JsonObject activation = new JsonObject(); activation.addProperty("plugin_id", ID); activation.addProperty("hash", second);
@@ -79,6 +81,7 @@ public final class PluginStoreCheck {
             activation.addProperty("hash", second);
             store.recoverActivation(activation);
             assert !store.plugins().getAsJsonObject(ID).has("rollback") : "interrupted first activation did not roll back";
+            assert store.plugins().getAsJsonObject(ID).get("pinned").getAsBoolean() : "rollback lost the pin";
             assert !store.plugins().getAsJsonObject(ID).get("desired").getAsBoolean() : "recovery auto-enabled previous version";
             JsonObject settingsBefore = store.settingsSnapshot(ID);
             JsonObject corruptJournal = json("{\"schema.json\":{\"version\":99},\"not-settings.json\":{}}");

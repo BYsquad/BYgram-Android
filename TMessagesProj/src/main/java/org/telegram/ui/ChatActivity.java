@@ -1344,6 +1344,7 @@ public class ChatActivity extends BaseFragment implements
     public final static int OPTION_SEND_MONEY = 117;
     public final static int OPTION_BYGRAM_EDIT_HISTORY = 1001;
     public final static int OPTION_BYGRAM_DETAILS = 1002;
+    private static final int OPTION_BYGRAM_PLUGINS = 1098;
     public final static int OPTION_BYGRAM_SAVE = 1003;
     public final static int OPTION_BYGRAM_REPEAT = 1004;
     public final static int OPTION_BYGRAM_COPY_PHOTO = 1005;
@@ -34451,6 +34452,9 @@ public class ChatActivity extends BaseFragment implements
                 }
                 break;
             }
+            case OPTION_BYGRAM_PLUGINS:
+                org.telegram.messenger.PluginEntry.showMessageMenu(this, selectedObject);
+                break;
             case OPTION_BYGRAM_DETAILS: {
                 String details = "ID: " + selectedObject.getId() + "\nChat ID: " + selectedObject.getDialogId()
                         + "\nSender ID: " + DialogObject.getPeerDialogId(selectedObject.messageOwner.from_id)
@@ -47378,6 +47382,11 @@ public class ChatActivity extends BaseFragment implements
             icons.add(R.drawable.outline_revert_24);
         }
         if (!forGesture) {
+            if (org.telegram.messenger.PluginEntry.hasMessageMenu(this, message)) {
+                options.add(OPTION_BYGRAM_PLUGINS);
+                items.add(getString(R.string.BygramPlugins));
+                icons.add(R.drawable.settings_account);
+            }
             if (BygramConfig.getBoolean("bygram_menu_details")) {
                 options.add(OPTION_BYGRAM_DETAILS); items.add(getString(R.string.BygramMessageDetails)); icons.add(R.drawable.msg_info);
             }

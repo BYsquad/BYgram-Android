@@ -23,13 +23,16 @@ public final class PluginManager {
     private volatile JsonObject snapshot = new JsonObject();
     private volatile Map<String, Set<String>> accountGrants = Collections.emptyMap();
     private boolean initialized;
+    private volatile boolean recoveryRequired;
     private long generation;
+    private long nextRevocationCheck;
     private volatile String failure = "";
     private final java.util.concurrent.atomic.AtomicInteger pendingLogs = new java.util.concurrent.atomic.AtomicInteger();
     private long logBytes = -1;
 
     private static final class Running {
         PluginScope scope; PyObject plugin; PluginContext context;
+        Set<String> dependencies = Collections.emptySet();
         boolean enabling;
         Running(PluginScope scope) { this.scope = scope; }
     }
@@ -56,18 +59,25 @@ public final class PluginManager {
 
     private void init() throws Exception {
         if (initialized) return;
-        store = new PluginStore(new File(ApplicationLoader.applicationContext.getNoBackupFilesDir(), "plugins"));
-        if (hasMarker("activation") || hasMarker("startup"))
-            PluginRecovery.setSafe(ApplicationLoader.applicationContext, true);
+        try {
+            store = new PluginStore(new File(ApplicationLoader.applicationContext.getNoBackupFilesDir(), "plugins"));
+        } catch (Exception unavailable) {
+            enterRecovery();
+            throw unavailable;
+        }
+        if (store.recoveredFromBackup || hasMarker("activation") || hasMarker("startup")) enterRecovery();
+        else if (safe()) PluginRecovery.showNotification(ApplicationLoader.applicationContext);
         store.state.remove("recovery_error");
         try {
             for (String id : store.plugins().keySet()) PluginContext.recoverMigration(new File(store.data, id));
             if (hasMarker("activation")) store.recoverActivation(PluginStore.read(new android.util.AtomicFile(new File(store.root, "activation"))));
             store.applyRollbacks();
-            store.applyPending();
+            if (!store.plugins().isEmpty()) loadStartupRevocations();
+            store.applyPending(hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+            quarantineRevoked();
             store.collectPackages();
         } catch (Exception recoveryError) {
-            PluginRecovery.setSafe(ApplicationLoader.applicationContext, true);
+            enterRecovery();
             store.state.addProperty("engine", false);
             store.state.addProperty("recovery_error", error(recoveryError));
             log("host", "Recovery failed: " + android.util.Log.getStackTraceString(recoveryError));
@@ -78,19 +88,31 @@ public final class PluginManager {
                 record.remove("error"); record.addProperty("desired", false);
             }
         }
-        store.save();
+        try { store.save(); }
+        catch (IOException unavailable) { enterRecovery(); throw unavailable; }
         initialized = true;
         publish();
         if (engine() && !safe()) {
-            marker("startup", true);
+            boolean starting = false;
             for (String id : new ArrayList<>(store.plugins().keySet())) {
                 JsonObject record = store.plugins().getAsJsonObject(id);
                 if (record.get("desired").getAsBoolean() && record.has("approved")
                         && record.get("hash").equals(record.get("approved"))) {
-                    try { enable(id); } catch (Exception e) { fail(id, e); }
+                    if (!starting) {
+                        marker("startup", true);
+                        starting = true;
+                    }
+                    try { enable(id); } catch (Exception e) {
+                        if (restartRequired.contains(id)) enterRecovery();
+                        fail(id, e);
+                        if (safe()) {
+                            stopAll();
+                            break;
+                        }
+                    }
                 }
             }
-            AndroidUtilities.runOnUIThread(() -> queue.execute(() -> {
+            if (starting) AndroidUtilities.runOnUIThread(() -> queue.execute(() -> {
                 try { marker("startup", false); } catch (IOException e) { failure = "RecoveryMarkerFailed"; }
             }), 10000);
         }
@@ -101,10 +123,90 @@ public final class PluginManager {
         submit(() -> {
             init();
             if (safe()) stopAll();
+            else emitAppEvent("RESUME");
+            refreshRevocations();
             publish();
         }, null);
     }
-    public boolean safe() { return PluginRecovery.isSafe(ApplicationLoader.applicationContext); }
+    public void appEvent(String event) {
+        submit(() -> { if (initialized) emitAppEvent(event); }, null);
+    }
+    private void emitAppEvent(String event) {
+        for (Running instance : running.values()) {
+            if (instance.context != null && instance.plugin != null)
+                instance.context.appEvent(instance.plugin, event);
+        }
+    }
+    private void loadStartupRevocations() throws IOException {
+        nextRevocationCheck = android.os.SystemClock.elapsedRealtime() + 60000;
+        PluginCatalog.Request request = new PluginCatalog.Request();
+        Future<Set<String>> pending;
+        try { pending = downloads.submit(() -> PluginCatalog.fetchRevocations(request)); }
+        catch (RejectedExecutionException busy) { return; }
+        Set<String> revoked;
+        try { revoked = pending.get(2500, TimeUnit.MILLISECONDS); }
+        catch (InterruptedException interrupted) {
+            request.close(); pending.cancel(true); Thread.currentThread().interrupt();
+            return;
+        } catch (TimeoutException | ExecutionException unavailable) {
+            request.close(); pending.cancel(true);
+            return;
+        }
+        store.rememberRevoked(revoked);
+    }
+
+    private void refreshRevocations() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now < nextRevocationCheck) return;
+        nextRevocationCheck = now + 60000;
+        catalogWork(() -> {
+            Set<String> revoked;
+            try { revoked = PluginCatalog.fetchRevocations(new PluginCatalog.Request()); }
+            catch (Exception unavailable) { return; }
+            queue.execute(() -> {
+                try {
+                    store.rememberRevoked(revoked);
+                    if (quarantineRevoked()) publish();
+                } catch (IOException error) {
+                    enterRecovery();
+                    stopAll();
+                    log("host", "Revocation check: " + android.util.Log.getStackTraceString(error));
+                    publish();
+                }
+            });
+        }, (value, error) -> { });
+    }
+
+    private boolean quarantineRevoked() throws IOException {
+        boolean changed = false;
+        for (String id : store.plugins().keySet()) {
+            JsonObject record = record(id);
+            if (!store.isRevoked(record.get("hash").getAsString())) continue;
+            if (running.containsKey(id)) {
+                stop(id);
+                record = record(id);
+                changed = true;
+            }
+            if (record.get("desired").getAsBoolean() || record.has("approved")
+                    || !record.has("error") || !"PluginRevoked".equals(record.get("error").getAsString())) {
+                record.remove("approved");
+                record.addProperty("desired", false);
+                record.addProperty("error", "PluginRevoked");
+                changed = true;
+            }
+        }
+        if (changed) store.save();
+        return changed;
+    }
+
+    private void enterRecovery() {
+        recoveryRequired = true;
+        try { PluginRecovery.setSafe(ApplicationLoader.applicationContext, true); }
+        catch (IOException error) { FileLog.e(error); }
+        PluginRecovery.showNotification(ApplicationLoader.applicationContext);
+    }
+
+    public boolean safe() { return recoveryRequired || PluginRecovery.isSafe(ApplicationLoader.applicationContext); }
     private boolean engine() { return store.state.get("engine").getAsBoolean(); }
 
     public void setEngine(boolean enabled, Result<Void> callback) {
@@ -123,13 +225,19 @@ public final class PluginManager {
     }
     public void safeMode(boolean enabled, Result<Void> callback) {
         submit(() -> {
-            init(); PluginRecovery.setSafe(ApplicationLoader.applicationContext, enabled);
-            if (enabled) stopAll();
+            init();
+            if (enabled) {
+                PluginRecovery.setSafe(ApplicationLoader.applicationContext, true);
+                stopAll();
+            }
             // Leaving recovery never enables code implicitly.
             else {
                 store.state.addProperty("engine", false);
                 for (String id : store.plugins().keySet()) store.plugins().getAsJsonObject(id).addProperty("desired", false);
                 store.save(); marker("startup", false); marker("activation", false);
+                PluginRecovery.setSafe(ApplicationLoader.applicationContext, false);
+                recoveryRequired = false;
+                PluginRecovery.clearNotification(ApplicationLoader.applicationContext);
             }
             publish();
         }, callback);
@@ -145,7 +253,27 @@ public final class PluginManager {
     public AutoCloseable stage(Uri uri, Result<String> callback) {
         return readFile(uri, PluginPackage.MAX_ZIP, (request, bytes, readError) -> {
             if (readError != null) { AndroidUtilities.runOnUIThread(() -> callback.done(null, readError)); return; }
-            queue.execute(() -> {
+            boolean archive = bytes.length >= 4 && bytes[0] == 'P' && bytes[1] == 'K' &&
+                    (bytes[2] == 3 && bytes[3] == 4 || bytes[2] == 5 && bytes[3] == 6 || bytes[2] == 7 && bytes[3] == 8);
+            if (archive) stageFileBytes(bytes, request, true, callback);
+            else convertFile(bytes, false, request, callback);
+        });
+    }
+    private void convertFile(byte[] bytes, boolean archive, PluginFiles.Request request, Result<String> callback) {
+        catalogWork(() -> {
+            try {
+                request.check();
+                byte[] converted = runtime.convertExtera(bytes, archive, null, null);
+                request.check();
+                stageFileBytes(converted, request, false, callback);
+            } catch (Exception failure) {
+                String reason = error(failure);
+                AndroidUtilities.runOnUIThread(() -> callback.done(null, reason));
+            }
+        }, callback);
+    }
+    private void stageFileBytes(byte[] bytes, PluginFiles.Request request, boolean tryExtera, Result<String> callback) {
+        queue.execute(() -> {
             String token = UUID.randomUUID().toString();
             File dir = null;
             try {
@@ -161,9 +289,12 @@ public final class PluginManager {
                 AndroidUtilities.runOnUIThread(() -> callback.done(token, null));
             } catch (Exception e) {
                 if (dir != null) try { PluginPackage.delete(dir); } catch (IOException ignored) { }
+                if (tryExtera && "ManifestMissing".equals(e.getMessage())) {
+                    convertFile(bytes, true, request, callback);
+                    return;
+                }
                 String error = error(e); AndroidUtilities.runOnUIThread(() -> callback.done(null, error));
             }
-            });
         });
     }
     private static void validateIcon(PluginPackage pkg) throws IOException {
@@ -174,11 +305,20 @@ public final class PluginManager {
             PluginPackage.check(bounds.outWidth > 0 && bounds.outWidth <= 256 && bounds.outHeight > 0 && bounds.outHeight <= 256, "InvalidIcon");
         }
     }
-    public PluginCatalog.Request catalog(Result<JsonArray> callback) {
+    public PluginCatalog.Request catalog(String repository, int account, Result<JsonArray> callback) {
         PluginCatalog.Request request = new PluginCatalog.Request();
         catalogWork(() -> {
             try {
-                JsonArray entries = PluginCatalog.parse(PluginCatalog.fetch("index.json", 1024 * 1024, request), hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+                String channel = PluginCatalog.channelName(repository);
+                if (channel != null) {
+                    JsonArray entries = PluginChannelCatalog.list(channel, account, request);
+                    AndroidUtilities.runOnUIThread(() -> callback.done(entries, null));
+                    return;
+                }
+                byte[] bytes = repository == null ? PluginCatalog.fetch("index.json", 1024 * 1024, request)
+                        : PluginCatalog.fetchRepository(repository, null, 1024 * 1024, request);
+                JsonArray entries = repository == null ? PluginCatalog.parse(bytes, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD)
+                        : PluginCatalog.parseRepository(bytes, repository, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
                 AndroidUtilities.runOnUIThread(() -> callback.done(entries, null));
             } catch (Exception e) { String error = error(e); AndroidUtilities.runOnUIThread(() -> callback.done(null, error)); }
         }, callback);
@@ -188,11 +328,33 @@ public final class PluginManager {
         try { downloads.execute(task); }
         catch (RejectedExecutionException busy) { AndroidUtilities.runOnUIThread(() -> callback.done(null, "CatalogBusy")); }
     }
-    public PluginCatalog.Request stageCatalog(JsonObject entry, Result<String> callback) {
+    public PluginCatalog.Request stageCatalog(String repository, int account, JsonObject entry, Result<String> callback) {
         PluginCatalog.Request request = new PluginCatalog.Request();
         catalogWork(() -> {
             final byte[] bytes;
-            try { bytes = PluginCatalog.fetch(entry.get("file").getAsString(), PluginPackage.MAX_ZIP, request); }
+            boolean extera = repository != null && entry.has("extera_id");
+            String channel = PluginCatalog.channelName(repository);
+            try {
+                if (channel != null) {
+                    byte[] original = PluginChannelCatalog.download(channel, account, entry, request);
+                    String format = entry.get("format").getAsString();
+                    request.check();
+                    bytes = format.equals("bygram") ? original
+                            : runtime.convertExtera(original, format.equals("archive"), null, null);
+                    request.check();
+                } else if (extera) {
+                    byte[] original = PluginCatalog.fetchExtera(entry, request);
+                    PluginCatalog.verifyExtera(entry, original);
+                    request.check();
+                    bytes = runtime.convertExtera(original, entry.get("archive").getAsBoolean(),
+                            entry.get("extera_id").getAsString(), entry.getAsJsonObject("manifest").get("version").getAsString());
+                    request.check();
+                } else {
+                    String file = entry.get("file").getAsString();
+                    bytes = repository == null ? PluginCatalog.fetch(file, PluginPackage.MAX_ZIP, request)
+                            : PluginCatalog.fetchRepository(repository, file, PluginPackage.MAX_ZIP, request);
+                }
+            }
             catch (Exception e) {
                 String error = error(e); AndroidUtilities.runOnUIThread(() -> callback.done(null, error)); return;
             }
@@ -201,7 +363,9 @@ public final class PluginManager {
                 try {
                     request.check();
                     init(); dir = new File(store.staging, token);
-                    PluginPackage pkg = PluginCatalog.stage(entry, bytes, dir, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+                    PluginPackage pkg = extera || channel != null
+                            ? PluginPackage.stage(new ByteArrayInputStream(bytes), dir, 1, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD)
+                            : PluginCatalog.stage(entry, bytes, dir, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD, repository == null);
                     validateIcon(pkg);
                     staged.put(token, pkg);
                     AndroidUtilities.runOnUIThread(() -> callback.done(token, null));
@@ -233,11 +397,145 @@ public final class PluginManager {
             publish();
         }, callback);
     }
+    Future<JsonObject> deployDeveloper(byte[] bytes) {
+        return queue.submit(() -> deployDeveloperInternal(bytes));
+    }
+    Future<JsonObject> patchDeveloper(String id, String baseHash, JsonObject changes, JsonArray removed) {
+        return queue.submit(() -> {
+            requireDeveloperMode();
+            init();
+            JsonObject installed = developerRecord(id);
+            PluginPackage.check(baseHash.equals(installed.get("hash").getAsString()), "DeveloperBaseChanged");
+            File root = store.packageDir(installed);
+            Set<String> names = new TreeSet<>(PluginPackageAccess.files(root));
+            for (JsonElement name : removed) names.remove(name.getAsString());
+            names.addAll(changes.keySet());
+            PluginPackage.check(names.size() <= 512, "PackageLimitExceeded");
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            int total = 0;
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                for (String name : names) {
+                    byte[] content = changes.has(name)
+                            ? android.util.Base64.decode(changes.get(name).getAsString(), android.util.Base64.DEFAULT)
+                            : PluginPackage.read(new File(root, name), PluginPackage.MAX_FILE);
+                    total += content.length;
+                    PluginPackage.check(content.length <= PluginPackage.MAX_FILE && total <= PluginPackage.MAX_TOTAL, "PackageLimitExceeded");
+                    java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry(name);
+                    entry.setTime(0);
+                    zip.putNextEntry(entry);
+                    zip.write(content);
+                    zip.closeEntry();
+                }
+            }
+            PluginPackage.check(bytes.size() <= PluginPackage.MAX_ZIP, "PackageLimitExceeded");
+            return deployDeveloperInternal(bytes.toByteArray(), id);
+        });
+    }
+    private JsonObject deployDeveloperInternal(byte[] bytes) throws Exception {
+        return deployDeveloperInternal(bytes, null);
+    }
+    private JsonObject deployDeveloperInternal(byte[] bytes, String expectedId) throws Exception {
+            requireDeveloperMode();
+            init();
+            if (!engine() || safe()) throw new IOException("EngineDisabled");
+            File directory = new File(store.staging, UUID.randomUUID().toString());
+            try {
+                int host = hostBuild();
+                PluginPackage pkg = PluginPackage.stage(new ByteArrayInputStream(bytes), directory, 1, host, BuildConfig.BYGRAM_BASE_BUILD);
+                validateIcon(pkg);
+                String id = pkg.manifest.id();
+                PluginPackage.check(expectedId == null || expectedId.equals(id), "DeveloperPackageConflict");
+                JsonObject existing = store.plugins().getAsJsonObject(id);
+                PluginPackage.check(existing == null || PluginStore.isDeveloper(existing) && !existing.has("pending"), "DeveloperPackageConflict");
+                store.checkNotRevoked(pkg.sha256);
+                if (existing != null) stopForMutation(id);
+                if (existing == null || !existing.get("hash").getAsString().equals(pkg.sha256)) {
+                    store.install(pkg, true);
+                    store.applyPending(host, BuildConfig.BYGRAM_BASE_BUILD, id);
+                }
+                JsonObject installed = record(id);
+                PluginPackage.check(pkg.sha256.equals(installed.get("hash").getAsString()), "DeveloperUpdateFailed");
+                activateDeveloper(id, installed);
+                JsonObject result = new JsonObject();
+                result.addProperty("plugin_id", id);
+                result.addProperty("sha256", pkg.sha256);
+                result.addProperty("path", store.packageDir(installed).getAbsolutePath());
+                return result;
+            } finally {
+                PluginPackage.delete(directory);
+                publish();
+            }
+    }
+    Future<JsonObject> developerCommand(String command, String id) {
+        return queue.submit(() -> {
+            requireDeveloperMode();
+            init();
+            JsonObject result = new JsonObject();
+            if (command.equals("get_plugins")) {
+                JsonArray entries = new JsonArray();
+                for (Map.Entry<String, JsonElement> entry : store.plugins().entrySet()) {
+                    JsonObject value = entry.getValue().getAsJsonObject();
+                    if (!PluginStore.isDeveloper(value)) continue;
+                    JsonObject status = new JsonObject();
+                    status.addProperty("plugin_id", entry.getKey());
+                    status.add("manifest", value.get("manifest").deepCopy());
+                    status.addProperty("active", running.containsKey(entry.getKey()));
+                    entries.add(status);
+                }
+                result.add("plugins", entries);
+                return result;
+            }
+            JsonObject installed = developerRecord(id);
+            try {
+                switch (command) {
+                    case "enable_plugin": activateDeveloper(id, installed); break;
+                    case "disable_plugin": stopForMutation(id); break;
+                    case "reload_plugin": stopForMutation(id); activateDeveloper(id, installed); break;
+                    case "remove_plugin": stopForMutation(id); store.remove(id, false); break;
+                    default: throw new IOException("UnknownDeveloperCommand");
+                }
+                result.addProperty("plugin_id", id);
+                return result;
+            } finally { publish(); }
+        });
+    }
+    private JsonObject developerRecord(String id) throws IOException {
+        JsonObject record = record(id);
+        PluginPackage.check(PluginStore.isDeveloper(record), "DeveloperPackageConflict");
+        return record;
+    }
+    private void activateDeveloper(String id, JsonObject installed) throws Exception {
+        if (!engine() || safe()) throw new IOException("EngineDisabled");
+        checkRestart(id);
+        installed.add("approved", installed.get("hash"));
+        installed.addProperty("desired", false);
+        installed.remove("error");
+        store.save();
+        try { enable(id); }
+        catch (Exception failure) { fail(id, failure); throw failure; }
+    }
+    private static void requireDeveloperMode() throws IOException {
+        PluginPackage.check(BuildConfig.DEBUG_VERSION && BuildConfig.BYGRAM_FULL, "DeveloperModeUnavailable");
+    }
+    void debugDeveloper(String id, String method, PluginDevServer.Terminal terminal, String adapter, int port) throws Exception {
+        requireDeveloperMode();
+        Running target = queue.submit(() -> {
+            init();
+            developerRecord(id);
+            Running instance = running.get(id);
+            if (instance == null || !instance.context.interceptorsReady) throw new IOException("PluginDisabled");
+            return instance;
+        }).get(15, TimeUnit.SECONDS);
+        if (!target.scope.beginCallback()) throw new IOException("PluginDisabled");
+        try { runtime.debug(target.plugin, method, terminal, adapter, port); }
+        finally { target.scope.endCallback(); }
+    }
     public void setEnabled(String id, boolean enabled, Result<Void> callback) {
         submit(() -> {
             init(); JsonObject record = record(id);
             if (enabled) {
                 checkRestart(id);
+                store.checkNotRevoked(record.get("hash").getAsString());
                 if (!engine() || safe()) throw new IOException("EngineDisabled");
                 record.addProperty("approved", record.get("hash").getAsString());
                 record.addProperty("desired", true); record.remove("error"); store.save();
@@ -247,20 +545,38 @@ public final class PluginManager {
         }, callback);
     }
     private void enable(String id) throws Exception {
+        enable(id, new HashSet<>());
+    }
+    private void enable(String id, Set<String> stack) throws Exception {
         if (running.containsKey(id)) return;
+        if (!stack.add(id)) throw new IOException("PluginDependencyCycle: " + id);
         if (!engine() || safe()) throw new IOException("EngineDisabled");
         JsonObject record = record(id);
         checkRestart(id);
+        store.checkNotRevoked(record.get("hash").getAsString());
         if (!record.has("approved") || !record.get("approved").equals(record.get("hash"))) throw new IOException("ApprovalRequired");
         File directory = store.packageDir(record);
         String signer = PluginSignature.verify(directory);
         PluginPackage.check(Objects.equals(record.has("author_key") ? record.get("author_key").getAsString() : null, signer), "InvalidAuthorSignature");
         PluginManifest manifest = PluginManifest.parse(PluginPackage.read(new File(directory, "manifest.json")),
                 1, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+        JsonObject dependencies = runtime.dependencies(directory);
+        for (String dependency : dependencies.keySet()) {
+            JsonObject required = store.plugins().getAsJsonObject(dependency);
+            if (required == null || !running.containsKey(dependency) && !required.get("desired").getAsBoolean())
+                throw new IOException("PluginDependencyUnavailable: " + dependency);
+            String version = required.getAsJsonObject("manifest").get("version").getAsString();
+            if (PluginStore.compareVersions(version, dependencies.get(dependency).getAsString()) < 0)
+                throw new IOException("PluginDependencyOutdated: " + dependency);
+            enable(dependency, stack);
+            if (!running.get(dependency).scope.isActive()) throw new IOException("PluginDependencyUnavailable: " + dependency);
+        }
+        stack.remove(id);
         if (manifest.metadata().has("requires_hook_backend") && manifest.metadata().get("requires_hook_backend").getAsBoolean()
                 && !HookBridge.available()) throw new IOException("HookBackendUnavailable");
         activation(id, "import");
         Running instance = new Running(new PluginScope(id, ++generation));
+        instance.dependencies = dependencies.keySet();
         running.put(id, instance);
         try {
             if (manifest.metadata().has("requires_hook_backend") && manifest.metadata().get("requires_hook_backend").getAsBoolean()) {
@@ -280,12 +596,17 @@ public final class PluginManager {
             instance.scope.check();
             record.addProperty("activated", true); store.save();
             marker("activation", false);
+            context.interceptorsReady = true;
+            context.appEvent(instance.plugin, "START");
         } catch (Exception e) {
             if ("PluginRestartRequired".equals(e.getMessage())) restartRequired.add(id);
             stop(id); marker("activation", false); throw e;
         }
     }
     private void stop(String id) {
+        for (Map.Entry<String, Running> entry : new ArrayList<>(running.entrySet())) {
+            if (entry.getValue().dependencies.contains(id)) stop(entry.getKey());
+        }
         Running instance = detach(id);
         if (instance != null) cleanup(id, instance);
     }
@@ -340,7 +661,12 @@ public final class PluginManager {
         submit(() -> { init(); stopForMutation(id); store.remove(id, data); publish(); }, callback);
     }
     public void rollback(String id, Result<Void> callback) {
-        submit(() -> { init(); stopForMutation(id); store.rollback(id); publish(); }, callback);
+        submit(() -> {
+            init();
+            JsonObject previous = record(id).getAsJsonObject("rollback");
+            if (previous != null) store.checkNotRevoked(previous.get("hash").getAsString());
+            stopForMutation(id); store.rollback(id); publish();
+        }, callback);
     }
     public void cancelUpdate(String id, Result<Void> callback) {
         submit(() -> { init(); store.cancelPending(id); publish(); }, callback);
@@ -371,21 +697,88 @@ public final class PluginManager {
             catch (Exception e) { fail(id, e); throw e; }
         }, callback);
     }
-    public void exportSettings(String id, Uri uri, Result<Void> callback) {
+    public void settingsLink(String id, String path, Result<Void> callback) {
         submit(() -> {
-            init(); JsonObject record = record(id), exported = new JsonObject();
-            JsonObject scopes = store.settingsSnapshot(id);
-            if (!scopes.has("schema.json")) {
-                JsonObject schema = new JsonObject(); schema.add("version", record.getAsJsonObject("manifest").get("settings_schema"));
-                scopes.add("schema.json", schema);
-            }
-            exported.addProperty("format", 1); exported.addProperty("plugin_id", id); exported.add("scopes", scopes);
-            byte[] bytes = exported.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            PluginSettingsFile.parse(bytes, id);
-            try (OutputStream out = ApplicationLoader.applicationContext.getContentResolver().openOutputStream(uri, "wt")) {
-                if (out == null) throw new IOException("FileUnavailable"); out.write(bytes);
-            }
+            init();
+            Running instance = running.get(id);
+            if (instance == null || !instance.scope.isActive()) throw new IOException("PluginDisabled");
+            String page = PluginTasks.call(instance.scope, () -> instance.plugin.callAttr("_settings_link_json", path).toString());
+            instance.context.openSettings(page);
         }, callback);
+    }
+    public void pin(String id, Result<Void> callback) {
+        submit(() -> {
+            init();
+            JsonObject record = record(id);
+            record.addProperty("pinned", !record.has("pinned") || !record.get("pinned").getAsBoolean());
+            store.save();
+            publish();
+        }, callback);
+    }
+
+    public void exportPackage(String id, Result<Uri> callback) {
+        readPackage(id, null, directory -> {
+            File cache = new File(ApplicationLoader.applicationContext.getCacheDir(), "bygram-plugin-share/" + directory.getName());
+            PluginPackage.check(cache.isDirectory() || cache.mkdirs(), "StorageUnavailable");
+            File destination = new File(cache, id + ".byplugin");
+            File original = new File(directory.getParentFile().getCanonicalFile(), directory.getName() + ".byplugin");
+            PluginPackageAccess.export(directory, original, destination);
+            return androidx.core.content.FileProvider.getUriForFile(ApplicationLoader.applicationContext,
+                    ApplicationLoader.getApplicationId() + ".provider", destination);
+        }, callback);
+    }
+
+    public void sourceFiles(String id, String token, Result<List<String>> callback) {
+        readPackage(id, token, directory -> {
+            List<String> files = PluginPackageAccess.files(directory);
+            files.removeIf(name -> !name.endsWith(".py") && !name.equals("manifest.json"));
+            return files;
+        }, callback);
+    }
+
+    public void sourceFile(String id, String token, String path, String truncated, Result<String> callback) {
+        readPackage(id, token, directory -> PluginPackageAccess.source(directory, path, truncated), callback);
+    }
+
+    private interface PackageReader<T> { T read(File directory) throws IOException; }
+
+    private <T> void readPackage(String id, String token, PackageReader<T> reader, Result<T> callback) {
+        queue.execute(() -> {
+            try {
+                init();
+                PluginPackage pending = token == null ? null : staged.get(token);
+                if (token != null && pending == null) throw new IOException("StageExpired");
+                T result = reader.read(pending == null ? store.packageDir(record(id)) : pending.directory);
+                AndroidUtilities.runOnUIThread(() -> callback.done(result, null));
+            } catch (Exception failure) {
+                String reason = error(failure);
+                AndroidUtilities.runOnUIThread(() -> callback.done(null, reason));
+            }
+        });
+    }
+    public AutoCloseable exportSettings(String id, Uri uri, Result<Void> callback) {
+        android.os.CancellationSignal signal = new android.os.CancellationSignal();
+        return PluginFiles.write(() -> {
+            android.content.res.AssetFileDescriptor file = ApplicationLoader.applicationContext.getContentResolver()
+                    .openAssetFileDescriptor(uri, "wt", signal);
+            if (file == null) throw new IOException("FileUnavailable");
+            try { return file.createOutputStream(); } catch (Exception error) { file.close(); throw error; }
+        }, () -> {
+            Future<byte[]> content = queue.submit(() -> {
+                init(); JsonObject record = record(id), exported = new JsonObject();
+                JsonObject scopes = store.settingsSnapshot(id);
+                if (!scopes.has("schema.json")) {
+                    JsonObject schema = new JsonObject(); schema.add("version", record.getAsJsonObject("manifest").get("settings_schema"));
+                    scopes.add("schema.json", schema);
+                }
+                exported.addProperty("format", 1); exported.addProperty("plugin_id", id); exported.add("scopes", scopes);
+                byte[] bytes = exported.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                PluginSettingsFile.parse(bytes, id);
+                return bytes;
+            });
+            try { return content.get(); }
+            catch (InterruptedException cancelled) { content.cancel(false); throw cancelled; }
+        }, signal::cancel, (request, bytes, error) -> AndroidUtilities.runOnUIThread(() -> callback.done(null, error)), 30000);
     }
     public AutoCloseable importSettings(String id, Uri uri, Result<Void> callback) {
         return readFile(uri, PluginSettingsFile.MAX_BYTES, (request, bytes, readError) -> {

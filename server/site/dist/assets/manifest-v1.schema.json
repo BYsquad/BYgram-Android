@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BYgram plugin manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "id", "name", "description", "version", "author", "entrypoint", "sdk", "python", "capabilities", "account_scope", "settings_schema"],
+  "properties": {
+    "manifest_version": {"const": 1},
+    "id": {"type": "string", "minLength": 3, "maxLength": 120, "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"},
+    "name": {"allOf": [{"$ref": "#/$defs/text"}, {"minLength": 1, "maxLength": 80, "pattern": "\\S"}]},
+    "description": {"allOf": [{"$ref": "#/$defs/text"}, {"maxLength": 1000}]},
+    "author": {"allOf": [{"$ref": "#/$defs/text"}, {"maxLength": 120}]},
+    "version": {"type": "string", "maxLength": 80, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "entrypoint": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.py:[A-Za-z_][A-Za-z0-9_]*$"}]},
+    "sdk": {"type": "object", "additionalProperties": false, "required": ["min", "max"], "properties": {"min": {"$ref": "#/$defs/positiveInt"}, "max": {"$ref": "#/$defs/positiveInt"}}},
+    "python": {"const": "3.11"},
+    "capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["ui", "theme", "messages.observe", "messages.send", "messages.media", "network", "hooks.raw", "hooks.telegram", "telegram.requests"]}},
+    "account_scope": {"enum": ["global", "selected_accounts"]},
+    "settings_schema": {"$ref": "#/$defs/positiveInt"},
+    "icon": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.(png|webp)$"}]},
+    "bygram": {"$ref": "#/$defs/buildRange"},
+    "telegram": {"$ref": "#/$defs/buildRange"},
+    "requires_hook_backend": {"type": "boolean", "default": false},
+    "hook_targets": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["class", "args"],
+        "properties": {
+          "class": {"type": "string", "maxLength": 512, "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$"},
+          "method": {"type": "string", "maxLength": 256, "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"},
+          "constructor": {"const": true},
+          "args": {"type": "array", "items": {"type": "string", "maxLength": 512, "pattern": "^(?!void(?:\\[\\])*$)([A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*|boolean|byte|char|short|int|long|float|double)(\\[\\])*$"}}
+        },
+        "oneOf": [{"required": ["method"], "not": {"required": ["constructor"]}}, {"required": ["constructor"], "not": {"required": ["method"]}}]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"capabilities": {"contains": {"enum": ["hooks.telegram", "telegram.requests", "messages.media"]}}}},
+      "then": {"properties": {"account_scope": {"const": "selected_accounts"}}}
+    },
+    {
+      "if": {"properties": {"capabilities": {"contains": {"const": "hooks.raw"}}}},
+      "then": {"required": ["requires_hook_backend", "bygram", "telegram", "hook_targets"], "properties": {"requires_hook_backend": {"const": true}}},
+      "else": {"not": {"required": ["hook_targets"]}}
+    }
+  ],
+  "$defs": {
+    "text": {"type": "string", "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$"},
+    "positiveInt": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "buildRange": {"type": "object", "additionalProperties": false, "required": ["min_build", "max_build"], "properties": {"min_build": {"$ref": "#/$defs/positiveInt"}, "max_build": {"$ref": "#/$defs/positiveInt"}}}
+  }
+}

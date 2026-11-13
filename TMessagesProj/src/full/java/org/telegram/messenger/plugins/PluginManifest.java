@@ -98,6 +98,9 @@ public final class PluginManifest {
         }
         String scope = string(root, "account_scope", 32, true);
         require(scope.equals("global") || scope.equals("selected_accounts"), "InvalidManifest", "account_scope");
+        require(!capabilities.contains("hooks.telegram") || scope.equals("selected_accounts"), "InvalidManifest", "hooks.telegram");
+        require(!capabilities.contains("telegram.requests") || scope.equals("selected_accounts"), "InvalidManifest", "telegram.requests");
+        require(!capabilities.contains("messages.media") || scope.equals("selected_accounts"), "InvalidManifest", "messages.media");
         integer(root, "settings_schema");
         if (root.has("icon")) {
             String icon = string(root, "icon", MAX_BYTES, true);
@@ -221,7 +224,7 @@ public final class PluginManifest {
 
     private static final String JAVA_CLASS = "[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*";
     private static final Set<String> CAPABILITIES = new HashSet<>(Arrays.asList(
-            "ui", "theme", "messages.observe", "messages.send", "network", "hooks.raw"));
+            "ui", "theme", "messages.observe", "messages.send", "messages.media", "network", "hooks.raw", "hooks.telegram", "telegram.requests"));
     private static final Set<String> PYTHON_KEYWORDS = new HashSet<>(Arrays.asList(
             "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
             "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in",

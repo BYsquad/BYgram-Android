@@ -331,6 +331,10 @@ public class LinkManager {
             return true;
         }
         if (getUserConfig().isClientActivated()) {
+            if (org.telegram.messenger.PluginEntry.openSettingsLink(uri)) {
+                done();
+                return true;
+            }
             BygramSettingsLink target = BygramSettingsLink.parse(uri.getQueryParameter("s"));
             // Unknown or unavailable destinations fall back to the settings overview.
             if (target == null || target.requiresFullEdition() && !BuildConfig.BYGRAM_FULL) {

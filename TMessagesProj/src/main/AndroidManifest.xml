@@ -114,16 +114,45 @@
         <activity android:name="org.telegram.messenger.plugins.PluginDiagnosticActivity"
             android:enabled="${bygramPluginDiagnosticsEnabled}" android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="org.telegram.messenger.plugins.PluginDevActivity"
+            android:enabled="${bygramPluginDiagnosticsEnabled}" android:exported="true"
+            android:permission="android.permission.DUMP" android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="org.telegram.messenger.PluginRecovery"
             android:enabled="${bygramPluginsEnabled}"
-            android:exported="true" android:process=":plugin_recovery"
+            android:exported="false" android:process=":plugin_recovery"
             android:label="@string/BygramPluginRecoveryTitle"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            android:taskAffinity="${applicationId}.plugin_recovery"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="org.telegram.ui.PluginFileActivity"
+            android:enabled="${bygramPluginsEnabled}"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.TMessages.Transparent" />
+        <activity-alias android:name="org.telegram.ui.OpenPluginFile"
+            android:enabled="${bygramPluginsEnabled}"
+            android:exported="true"
+            android:targetActivity="org.telegram.ui.PluginFileActivity">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/vnd.bygram.plugin" />
             </intent-filter>
-        </activity>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.byplugin" android:pathSuffix=".byplugin" />
+                <data android:pathSuffix=".plugin" />
+                <data android:pathSuffix=".elyx" />
+                <data android:pathSuffix=".eaf" />
+                <data android:pathSuffix=".elyx.zip" />
+                <data android:pathSuffix=".eaf.zip" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="text/x-python" />
+            </intent-filter>
+        </activity-alias>
 
         <activity-alias
             android:enabled="true"

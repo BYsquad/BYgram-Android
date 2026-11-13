@@ -15,6 +15,7 @@ export default defineConfig({
         changelog: resolve('changelog.html'),
         editions: resolve('editions.html'),
         thanks: resolve('thanks.html'),
+        docs: resolve('docs/index.html'),
         admin: resolve('src/admin.jsx'),
       },
       output: {

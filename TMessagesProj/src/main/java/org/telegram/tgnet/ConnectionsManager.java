@@ -41,6 +41,7 @@ import org.telegram.messenger.KeepAliveJob;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
+import org.telegram.messenger.PluginEntry;
 import org.telegram.messenger.PushListenerController;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.StatsController;
@@ -385,6 +386,19 @@ public class ConnectionsManager extends BaseController {
         return sendRequest(object, completionBlock, null, 0);
     }
 
+    public int sendPluginRequest(TLObject object, RequestDelegate completion, java.util.function.BooleanSupplier allowed) {
+        final int requestToken = lastRequestToken.getAndIncrement();
+        Utilities.stageQueue.postRunnable(() -> {
+            if (allowed.getAsBoolean()) {
+                sendRequestInternal(object, completion, null, null, null, 0,
+                        DEFAULT_DATACENTER_ID, ConnectionTypeGeneric, true, requestToken);
+            } else {
+                object.freeResources();
+            }
+        });
+        return requestToken;
+    }
+
     public int sendRequest(TLObject object, RequestDelegate completionBlock, int flags) {
         return sendRequest(object, completionBlock, null, null, null, flags, DEFAULT_DATACENTER_ID, ConnectionTypeGeneric, true);
     }
@@ -419,11 +433,24 @@ public class ConnectionsManager extends BaseController {
         return requestToken;
     }
 
-    private void sendRequestInternal(TLObject object, RequestDelegate onComplete, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
+    private void sendRequestInternal(TLObject original, RequestDelegate onComplete, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
+        TLObject object = original != null && PluginEntry.hasInterceptor("request")
+                ? PluginEntry.intercept("request", currentAccount, original.getClass(), TLObject.class, original, null)
+                : original;
+        if (object == null && original != null) {
+            original.freeResources();
+            Utilities.stageQueue.postRunnable(() -> {
+                TLRPC.TL_error error = pluginCancelledError();
+                if (onComplete != null) onComplete.run(null, error);
+                else if (onCompleteTimestamp != null) onCompleteTimestamp.run(null, error, 0);
+            });
+            return;
+        }
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("send request " + object + " with token = " + requestToken);
         }
         try {
+            if (object != original) original.freeResources();
             NativeByteBuffer buffer = new NativeByteBuffer(object.getObjectSize());
             object.serializeToStream(buffer);
             object.freeResources();
@@ -482,19 +509,30 @@ public class ConnectionsManager extends BaseController {
                         FileLog.d("java received " + resp + (error != null ? " error = " + error : "") + " messageId = 0x" + Long.toHexString(requestMsgId));
                         FileLog.dumpResponseAndRequest(currentAccount, object, resp, error, requestMsgId, finalStartRequestTime, requestToken);
                     }
-                    final TLObject finalResponse = resp;
-                    final TLRPC.TL_error finalError = error;
+                    final TLObject originalResponse = resp;
+                    final TLRPC.TL_error originalError = error;
                     Utilities.stageQueue.postRunnable(() -> {
-                        if (onComplete != null) {
-                            onComplete.run(finalResponse, finalError);
-                        } else if (onCompleteTimestamp != null) {
-                            onCompleteTimestamp.run(finalResponse, finalError, timestamp);
-                        } else if (finalResponse instanceof TLRPC.Updates) {
-                            KeepAliveJob.finishJob();
-                            AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) finalResponse, false);
-                        }
-                        if (finalResponse != null) {
-                            finalResponse.freeResources();
+                        TLObject finalResponse = originalResponse;
+                        try {
+                            if (PluginEntry.hasInterceptor("response")) {
+                                finalResponse = PluginEntry.intercept("response", currentAccount, object.getClass(),
+                                        TLObject.class, originalResponse, originalError);
+                                if (finalResponse != null) finalResponse.networkType = networkType;
+                            }
+                            TLRPC.TL_error finalError = finalResponse != null ? null
+                                    : originalResponse != null ? pluginCancelledError() : originalError;
+                            if (onComplete != null) {
+                                onComplete.run(finalResponse, finalError);
+                            } else if (onCompleteTimestamp != null) {
+                                onCompleteTimestamp.run(finalResponse, finalError, timestamp);
+                            } else if (finalResponse instanceof TLRPC.Updates || originalResponse instanceof TLRPC.Updates) {
+                                KeepAliveJob.finishJob();
+                                if (finalResponse instanceof TLRPC.Updates)
+                                    AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) finalResponse, false);
+                            }
+                        } finally {
+                            if (finalResponse != null) finalResponse.freeResources();
+                            if (originalResponse != null && originalResponse != finalResponse) originalResponse.freeResources();
                         }
                     });
                 } catch (Exception e) {
@@ -516,6 +554,13 @@ public class ConnectionsManager extends BaseController {
         } catch (Exception e) {
             FileLog.e(e);
         }
+    }
+
+    private static TLRPC.TL_error pluginCancelledError() {
+        TLRPC.TL_error error = new TLRPC.TL_error();
+        error.code = -2000;
+        error.text = "PLUGIN_CANCELLED";
+        return error;
     }
 
     private final ConcurrentHashMap<Integer, RequestCallbacks> requestCallbacks = new ConcurrentHashMap<>();

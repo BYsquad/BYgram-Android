@@ -86,4 +86,21 @@
 -keep class org.telegram.messenger.plugins.HookBridge { public *; }
 -keep class org.telegram.messenger.plugins.HookBridge$Call { public *; }
 -keep class org.telegram.messenger.plugins.HookBridge$Probe { *; }
+-keep class org.telegram.messenger.plugins.PluginInterceptors$Result { public *; }
+-keep class org.telegram.messenger.plugins.PluginClassProxy { public *; }
+-keep class org.telegram.messenger.plugins.PluginMvel { public *; }
+-keep class org.telegram.messenger.plugins.PluginMvel$Body { public *; }
+-keep class org.telegram.messenger.plugins.PluginAssets { public *; }
+-keep class com.android.dx.** { public *; }
+-keep class org.telegram.ui.PluginHost$PluginAlert { public *; }
+-keep class org.telegram.ui.ActionBar.BaseFragment {
+    public android.app.Activity getParentActivity();
+}
+-keep class org.telegram.messenger.SendMessagesHelper$SendMessageParams { public *; }
+-keepclassmembers class org.telegram.messenger.UserConfig { public static int selectedAccount; }
+-keepnames class org.telegram.messenger.UserConfig
+-keep interface org.telegram.messenger.Utilities$Callback* { *; }
+-keep class org.telegram.messenger.ImageLocation {
+    public static org.telegram.messenger.ImageLocation getForPath(java.lang.String);
+}
 -keep class de.robv.android.xposed.** { *; }

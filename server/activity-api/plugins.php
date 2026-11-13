@@ -12,6 +12,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') try {
     $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT); if (!$id || $id < 1) throw new InvalidArgumentException('Неверная заявка');
     if (($_POST['action'] ?? '') === 'prepare') preparePluginReview(db(), $id);
     elseif (($_POST['action'] ?? '') === 'approve' && isset($_POST['reviewed'])) approvePlugin(db(), $id, $admin, (string) ($_POST['hash'] ?? ''));
+    elseif (($_POST['action'] ?? '') === 'revoke') {
+        $note = trim((string) ($_POST['note'] ?? ''));
+        if ($note === '' || mb_strlen($note) > 1000) throw new InvalidArgumentException('Укажите причину, до 1000 символов');
+        revokePlugin(db(), $id, $admin, (string) ($_POST['hash'] ?? ''), $note);
+    }
     elseif (($_POST['action'] ?? '') === 'reject') {
         $note = trim((string) ($_POST['note'] ?? '')); if ($note === '' || mb_strlen($note) > 1000) throw new InvalidArgumentException('Укажите причину, до 1000 символов');
         db()->prepare("UPDATE plugin_submissions SET status='rejected',review_note=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=? AND status IN ('pending','review')")->execute([$note, $admin, $id]);
@@ -42,4 +47,8 @@ function pluginEscape(mixed $value): string { return htmlspecialchars((string) $
 <button name="action" value="prepare">Получить последний стабильный Release</button>
 <?php if ($row['status'] === 'review'): ?><p><a href="?download=<?= (int) $row['id'] ?>">Скачать точный кандидат для проверки</a></p><input type="hidden" name="hash" value="<?= pluginEscape($candidate['sha256']) ?>"><label><input type="checkbox" name="reviewed" value="1"> Я проверил исходники и этот пакет</label><button name="action" value="approve">Одобрить и опубликовать</button><?php endif; ?>
 <label>Причина отказа <input name="note" maxlength="1000"></label><button name="action" value="reject">Отклонить</button></form>
+<?php elseif ($row['status'] === 'approved' && $candidate): ?>
+<form method="post"><input type="hidden" name="csrf" value="<?= pluginEscape($_SESSION['plugins_csrf']) ?>"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+<input type="hidden" name="hash" value="<?= pluginEscape($candidate['sha256']) ?>">
+<label>Причина отзыва <input name="note" maxlength="1000" required></label><button name="action" value="revoke">Отозвать этот пакет</button></form>
 <?php else: ?><p><?= pluginEscape($row['review_note']) ?></p><?php endif; ?></section><?php endforeach; ?></main></html>

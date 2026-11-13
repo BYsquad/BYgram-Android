@@ -1,11 +1,6 @@
-# SDK v1: реализованный прототип Android
+# SDK v1 плагинов BYgram для Android
 
-Актуальный статус 01.11.2026: [обновление hook и аудит оставшихся работ](hook-update-and-audit-2026-11-01.md).
-
-31.10.2026. Это документация реализации в текущем дереве. Приёмка v1 ещё
-не завершена; статус устройств и артефакта — в [отчёте](development-report.md).
-Архитектурные требования, ещё не подтверждённые тестами, остаются в
-[плане](implementation-plan.md) и [матрице](testing-and-release.md).
+Доступные API и ограничения Full. См. [менеджер плагинов](README.md) и [проверки](testing-and-release.md).
 
 ## Установка и доверие
 
@@ -31,7 +26,7 @@ python Tools/check_plugins.py
 ```
 
 Упаковщик не импортирует код. Он не заменяет host validation. Формат manifest:
-[правила](sdk-v1-draft.md#2-manifest), [Schema](manifest-v1.schema.json).
+[правила manifest](manifest-v1.schema.json).
 Лимиты: ZIP 10 MiB, распакованное 30 MiB, 512 entries, файл 5 MiB,
 manifest 64 KiB, путь 12 компонентов; PNG/WebP до 256 KiB и 256×256.
 Не допускаются traversal, symlink, case collisions, duplicates, encryption,
@@ -62,12 +57,16 @@ namespace, но не отменяет произвольные изменени�
 | `storage.read_text/read_asset/write_text` | Проверка canonical containment; чтение до 5 MiB, запись до 1 MiB |
 | `ui.run(callback)` | Асинхронная очередь callbacks плагина, deadline 5 s, отмена при disable; UI-операции выполняет host |
 | `ui.bulletin(text)` | Текущая native страница, до 1000 символов |
+| `ui.alert(options, on_click=None, view=None)` | Нативный диалог, список и кнопки, опциональный Android View. Возвращает handle с `close` и `setProgress` |
 | `ui.add_menu(location, id, title, on_click)` | Owned handle, уникальный `(plugin_id, id)`; callback получает `event.account` |
 | `ui.open_page({title, items})` | Native страница, закрывается host при disable |
 | `theme.override(key, color)` | Owned cached Java override; не перезаписывает тему пользователя |
 | `events.subscribe(name, callback, account=None)` | Owned handle; DTO, без mutable TLRPC |
 | `work.submit(callback)` | До двух worker threads на экземпляр плагина, отдельная очередь 32; handle отменяет queued работу |
 | `client(slot).send_text(peer, text)` | Explicit identity, capability messages.send, 1–4096 символов, штатный SendMessagesHelper, без собственного retry |
+| `client(slot).send_request(request, callback)` | TLObject и `callback(response, error)`, capability telegram.requests. Возвращает токен запроса. Host проверяет identity на очереди отправки и при доставке ответа |
+| `client(slot).send_media(peer, kind, path, caption="")` | `photo`, `document`, `video` или `audio` из каталога пакета или данных. Capability messages.media. Перед отправкой повторно проверяются аккаунт и диалог |
+| `client(slot).edit_text(message, text)` | Редактирование текста сообщения через штатный редактор. Нужны `MessageObject` выбранного аккаунта и capability messages.media |
 | `client(slot).draft_text(peer)` | Host читает main thread, worker ждёт до 1 s; ui + messages.observe, выбранный аккаунт; plain text только текущего обычного чата |
 | `client(slot).preview_text(peer, text)` | ui + messages.send; до 4096 символов, native-предпросмотр/отмена, повторная проверка identity/чата/черновика; заменяет текст только по нажатию владельца |
 | `network.get_json(https_url)` | Capability network; запрещён main thread; timeout 10 s, ответ до 1 MiB, без credentials в URL |
@@ -101,9 +100,7 @@ Slider (числовой диалог с min/max/step), Action (callback). До 
 При ошибке/незавершённой записи следующий старт восстанавливает исходные JSON.
 Миграция не выполняется при установке или без согласия на новый код.
 
-Меню: `dialogs.toolbar`, `profile.actions`, `chat.actions`. Действия находятся
-под отдельной кнопкой плагинов обычного ActionBar; поиск/action mode сохраняют
-штатную видимость menu. Host обрабатывает клик на main thread, авторский callback исполняется в отдельной последовательной очереди. Не удерживать event/View.
+Доступные точки меню включают `dialogs.toolbar` в списке чатов, `profile.actions`, `chat.actions` и `message.context`. Последняя добавляет пункт «Плагины» в контекстное меню сообщения для выбранного аккаунта и требует `ui` и `messages.observe` или `messages.send`. Нативный SDK передаёт `account`, `dialog_id`, `message_id` и `topic_id`. Скрытые, защищённые и секретные диалоги исключены. Адаптер exteraGram передаёт также объект сообщения и данные альбома. Host обрабатывает клик на main thread, авторский callback исполняется в отдельной последовательной очереди. [API совместимости](exteragram-port.md)
 
 Theme keys — имена из `ThemeColors` Telegram, например `windowBackgroundWhite`,
 `windowBackgroundGray`, `actionBarDefault`, `actionBarDefaultTitle`. Неизвестное имя
@@ -156,6 +153,41 @@ grant, disable или изменение текста до подтвержде�
 
 ## Hooks и восстановление
 
+### Перехваты операций Telegram
+
+В Full `context.telegram.intercept(kind, callback, name="", match_substring=False, priority=0)` возвращает handle. Нужны `hooks.telegram`, `account_scope: "selected_accounts"` и выбор аккаунтов владельцем. Перехваты работают после успешной активации пакета и используют штатные точки клиента без зависимости от native ART backend.
+
+| `kind` | Операция и объект |
+| --- | --- |
+| `request` | TL-запрос перед сериализацией |
+| `response` | Ответ на Java-запрос перед обработчиком. `detail` содержит Telegram-ошибку при наличии |
+| `updates` | Пакет обновлений при первом входе в обработчик, до постановки в очередь |
+| `update` | Отдельное обновление на входе в `processUpdateArray` |
+| `send` | `SendMessageParams` перед обработкой штатной отправки |
+
+`callback(name, account, value, detail)` получает короткое Java-имя операции. Для ответа используется имя запроса. Пустой фильтр охватывает все имена данного типа. Обработчики идут по убыванию приоритета, затем по ID плагина и порядку регистрации. `None` и `HookResult()` продолжают цепочку. `CANCEL` прерывает операцию, `MODIFY` передаёт новый объект дальше, `MODIFY_FINAL` завершает цепочку с новым объектом. Для отмены запроса существующий обработчик получает ошибку `PLUGIN_CANCELLED`. Отмена отдельного update убирает его из массива обработки.
+
+```python
+from bygram import Plugin
+from bygram.telegram import HookResult, HookStrategy
+
+class Uppercase(Plugin):
+    def on_enable(self):
+        self.context.telegram.intercept("send", self.uppercase)
+
+    def uppercase(self, name, account, params, detail):
+        message = str(params.message) if params.message is not None else ""
+        if message.startswith("/upper "):
+            params.message = message[7:].upper()
+            return HookResult(HookStrategy.MODIFY_FINAL, params)
+```
+
+Обработчик выполняется синхронно в потоке операции. Рекурсивная операция на том же потоке пропускает цепочку. Java-объекты изменяемы и могут содержать данные выбранного аккаунта. Ошибка, закрытие handle или отзыв доступа не отменяют уже сделанную мутацию объекта. Плагин должен возвращать объект, совместимый с вызывающей стороной, и завершать обработку быстро. Для ответа действителен срок жизни Java-объекта, ограниченный callback.
+
+Прямой `client(slot).send_request` также работает с изменяемыми TL-объектами. Доступ к нему относится ко всему выбранному аккаунту. Вызывающая сторона передаёт владение объектом запроса клиенту и читает ответ внутри callback. Отключение плагина или отзыв аккаунта блокируют новые отправки и доставку ответа. Уже переданный серверу запрос может завершиться.
+
+### Хуки Java и ART
+
 `HookCall`: `args`, `result`, `exception`, `member`, `this_object`; `set_arg`,
 `set_result`, `set_exception`, `call_original`. Для primitive conversion применять
 `set_arg`/`set_result`, а не присваивание Python int в Java Object[].
@@ -188,12 +220,12 @@ retention workaround. Лимит — 1024 одновременно удержи�
 Все ссылки на context/callbacks удаляются при закрытии registrations,
 после окончательного cleanup количество registrations равно нулю.
 
-Recovery shortcut «BYgram: восстановление плагинов» работает в отдельном
-процессе без Telegram initialization/Python и пишет только safe-mode flag.
-После флага нужно штатно закрыть основной клиент в настройках Android и открыть
-снова. Незавершённый activation/startup marker включает safe mode; это подозрение
-на сбой, а не доказательство вины плагина. Выход из recovery выключает engine и
-desired flags; код сам не включается. Данные Telegram не удаляются.
+Незавершённый activation/startup marker включает безопасный режим автоматически
+в фоновой очереди до загрузки плагинов. Таймаут lifecycle при автозапуске и ошибка
+восстановления также переводят клиент в безопасный режим. Уведомление открывает
+экран в отдельном процессе без запуска Python. При отключённых уведомлениях
+состояние видно в настройках плагинов. Выход выключает движок и плагины. Данные
+Telegram сохраняются.
 
 Логи локальны и могут содержать данные, которые автор вывел сам. Копирование
 только по действию владельца. Подпись содержимого и закрепление ключа автора доступны;
@@ -204,6 +236,13 @@ desired flags; код сам не включается. Данные Telegram н
 карточка показывает это отдельно от текущего ACTIVE. Можно выключить такой
 плагин и при остановленном движке. Pending update содержит версию/hash/capabilities
 и отменяется до холодного старта отдельным действием, не отключающим старый пакет.
+Обновление должно иметь более новую версию. На холодном старте проверяется
+совместимость с текущим BYgram. При отказе рабочая версия и её настройки сохраняются,
+а причина показывается в карточке. Для возврата на прежнюю версию есть явный откат.
+
+Клиент проверяет список отозванных SHA-256 при запуске и возвращении в приложение.
+При отсутствии сети применяются ранее полученные отзывы. Впервые опубликованный
+отзыв вступит в силу на устройстве после получения списка.
 Журнал показывает текущий и предыдущий сегмент; очистка удаляет оба.
 
 Ошибка восстановления данных оставляет менеджер доступным с engine off/safe mode.
@@ -219,11 +258,13 @@ desired flags; код сам не включается. Данные Telegram н
 код и разрешения исполнения/аккаунтов не переносятся. Лимит 8 MiB, на scope
 1 MiB. Дубликаты ключей, неверный UTF-8, чрезмерная вложенность и чужой ID
 отклоняются до остановки плагина. Успешный импорт оставляет плагин выключенным.
+Экспорт записывает снимок вне очереди менеджера. Запись можно отменить, таймаут
+срабатывает через 30 секунд. При прерывании провайдер может оставить неполный файл.
 
 ## Примеры с аккаунтом и hooks
 
 `examples/accounts`: владелец сначала выбирает разрешённые аккаунты в карточке.
-В меню списка чатов «Observe this account» создаёт одну подписку на
+В меню открытого чата «Observe this account» создаёт одну подписку на
 `ui.page_opened` именно этого аккаунта. Поле настроек `observe` имеет
 `scope="account"`. Пример пишет только имя страницы, без сообщений и user ID.
 Меню аккаунта без выданного доступа возвращает `AccountUnavailable`.
@@ -236,7 +277,7 @@ desired flags; код сам не включается. Данные Telegram н
 Встроенная Android diagnostic fixture отдельно проверяет настоящий native
 backend; Python mock test примера не считается native PASS.
 
-## Исправления аудита 01.11.2026
+## Границы доступа SDK
 
 Изоляция не добавляется по решению владельца: весь авторский код остаётся доверенным, включая Java/raw hooks. Отдельное предупреждение перед установкой из файла не делает выполнение безопасным. Подпись доказывает владение ключом и целостность пакета, а не личность автора и не отсутствие вредоносного поведения.
 
@@ -247,5 +288,3 @@ backend; Python mock test примера не считается native PASS.
 Callbacks событий, меню и Action, доставляемые host с main thread, а также ui.run выполняются асинхронно в порядке очереди одного плагина. По истечении 5 s scope инвалидируется и запрашивается restart; thread, игнорирующий interruption, безопасно уничтожить нельзя. Синхронные before/after/replacement hooks сохраняют поток вызываемого Java-метода. Прямой Java Handler/raw-hook код автора может блокировать UI или VM: без отказа от полного API это ограничение устранить нельзя.
 
 Чтение URI для локального пакета и импорта настроек: отдельный bounded pool, 30 s deadline, Cancel, лимиты bytes; management queue не ожидает провайдера. Отмена проверяется перед применением результата.
-
-Подробности и фактические проверки: [исправления аудита](isolation-and-audit-fixes-2026-11-01.md).

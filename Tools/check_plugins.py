@@ -16,6 +16,7 @@ def run(*command):
 
 
 def main():
+    run(sys.executable, "Tools/check_extera_port.py")
     jars = list((Path.home() / ".gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.11.0").rglob("*.jar"))
     if len(jars) != 1:
         raise RuntimeError("Resolve existing Gson 2.11.0 with Gradle before running checks")
@@ -25,8 +26,11 @@ def main():
         run("javac", "--release", "8", "-encoding", "UTF-8", "-cp", str(jars[0]), "-d", str(work),
             "Tools/fixtures/plugins/android/util/AtomicFile.java",
             "Tools/fixtures/plugins/android/util/Base64.java",
-            *(str(source / name) for name in ("PluginManifest.java", "PluginSignature.java", "PluginPackage.java", "PluginScope.java", "PluginTasks.java", "PluginWork.java", "PluginCallbacks.java", "PluginFiles.java", "PluginSettingsFile.java", "PluginPageSpec.java", "PluginStore.java", "PluginCatalog.java")))
+            *(str(source / name) for name in ("PluginManifest.java", "PluginSignature.java", "PluginPackage.java", "PluginPackageAccess.java", "PluginScope.java", "PluginTasks.java", "PluginWork.java", "PluginCallbacks.java", "PluginFiles.java", "PluginSettingsFile.java", "PluginPageSpec.java", "PluginStore.java", "PluginCatalog.java")))
         cp = str(work) + os.pathsep + str(jars[0])
+        run("javac", "--release", "8", "-encoding", "UTF-8", "-d", str(work),
+            str(source / "PluginInterceptors.java"), "Tools/PluginInterceptorsCheck.java")
+        run("java", "-ea", "-cp", cp, "org.telegram.messenger.plugins.PluginInterceptorsCheck")
         run("javac", "-encoding", "UTF-8", "-cp", cp, "-d", str(work), "Tools/PluginTasksCheck.java")
         run("java", "-ea", "-cp", cp, "org.telegram.messenger.plugins.PluginTasksCheck")
         run("javac", "-encoding", "UTF-8", "-cp", cp, "-d", str(work), "Tools/PluginFilesCheck.java")
@@ -386,7 +390,7 @@ def check_examples(work):
         def id(self): return "dev.bygram.example"
         def version(self): return "1.0.0"
         def menu(self, location, id, title, callback):
-            assert location == "dialogs.toolbar"; self.callback = callback; return Handle()
+            assert location == "chat.actions"; self.callback = callback; return Handle()
         def settingsGet(self, key, account): return json.dumps(self.values.get(key))
         def settingsHas(self, key, account): return key in self.values
         def bulletin(self, text): self.last = text

@@ -155,9 +155,12 @@ public final class PluginPackage {
     private static long u32(RandomAccessFile in) throws IOException { return (long) u16(in) | (long) u16(in) << 16; }
     static void check(boolean value, String reason) throws IOException { if (!value) throw new IOException(reason); }
     static byte[] read(File file) throws IOException {
+        return read(file, MAX_FILE);
+    }
+    static byte[] read(File file, int limit) throws IOException {
         try (InputStream in = new FileInputStream(file); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192]; int count;
-            while ((count = in.read(buffer)) != -1) { check(out.size() + count <= MAX_FILE, "PackageLimitExceeded"); out.write(buffer, 0, count); }
+            while ((count = in.read(buffer)) != -1) { check(out.size() + count <= limit, "PackageLimitExceeded"); out.write(buffer, 0, count); }
             return out.toByteArray();
         }
     }

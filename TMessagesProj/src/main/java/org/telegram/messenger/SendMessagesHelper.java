@@ -4557,7 +4557,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         });
     }
 
-    public void sendMessage(SendMessageParams sendMessageParams) {
+    public void sendMessage(SendMessageParams original) {
+        java.util.function.LongPredicate pluginGuard = original == null || original.sendMessageChatArguments == null
+                ? null : original.sendMessageChatArguments.bygramPluginSendAllowed;
+        SendMessageParams sendMessageParams = PluginEntry.hasInterceptor("send")
+                ? PluginEntry.intercept("send", currentAccount, SendMessageParams.class, SendMessageParams.class, original, null)
+                : original;
+        if (sendMessageParams == null) return;
+        if (pluginGuard != null && !pluginGuard.test(sendMessageParams.peer)) return;
         final SendMessageChatArguments sendMessageChatArguments = sendMessageParams.sendMessageChatArguments != null ?
                 sendMessageParams.sendMessageChatArguments : SendMessageChatArguments.EMPTY;
         String message = sendMessageParams.message;

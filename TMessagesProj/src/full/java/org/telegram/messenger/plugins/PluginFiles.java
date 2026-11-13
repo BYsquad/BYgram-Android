@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Provider I/O is bounded independently of plugin management and catalogue downloads. */
 final class PluginFiles {
     interface Opener { InputStream open() throws Exception; }
+    interface OutputOpener { OutputStream open() throws Exception; }
+    private interface Transfer { byte[] run(Request request) throws Exception; }
     interface Result { void done(Request request, byte[] bytes, String error); }
     private static final ThreadPoolExecutor readers = pool("BYgramPluginFiles");
     private static final ThreadPoolExecutor closers = pool("BYgramPluginFileCancel");
@@ -20,7 +22,7 @@ final class PluginFiles {
         private final AtomicBoolean finished = new AtomicBoolean();
         private final Result result;
         private final Runnable cancelOpen;
-        private volatile InputStream input;
+        private volatile Closeable stream;
         private volatile Future<?> task;
         private volatile ScheduledFuture<?> deadline;
         private volatile String cancelled;
@@ -38,7 +40,7 @@ final class PluginFiles {
             Future<?> running = task; if (running != null) running.cancel(true);
             // A broken provider may also block cancellation/close; never do either on UI/deadline threads.
             try { closers.execute(() -> {
-                try { cancelOpen.run(); } finally { InputStream stream = input; if (stream != null) try { stream.close(); } catch (IOException ignored) { } }
+                try { cancelOpen.run(); } finally { Closeable stream = this.stream; if (stream != null) try { stream.close(); } catch (IOException ignored) { } }
             }); } catch (RejectedExecutionException ignored) { }
             result.done(this, null, error);
         }
@@ -48,24 +50,50 @@ final class PluginFiles {
         return read(opener, cancelOpen, limit, result, 30000);
     }
     static Request read(Opener opener, Runnable cancelOpen, int limit, Result result, long timeout) {
+        return transfer(request -> {
+            try (InputStream input = opener.open(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                request.stream = input; request.check();
+                if (input == null) throw new IOException("FileUnavailable");
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    request.check();
+                    if (out.size() + count > limit) throw new IOException("FileLimitExceeded");
+                    out.write(buffer, 0, count);
+                }
+                return out.toByteArray();
+            }
+        }, cancelOpen, result, timeout);
+    }
+
+    static Request write(OutputOpener opener, Callable<byte[]> content, Runnable cancelOpen, Result result, long timeout) {
+        return transfer(request -> {
+            byte[] bytes = content.call();
+            request.check();
+            try (OutputStream output = opener.open()) {
+                request.stream = output; request.check();
+                if (output == null) throw new IOException("FileUnavailable");
+                output.write(bytes);
+            }
+            return null;
+        }, cancelOpen, result, timeout);
+    }
+
+    private static Request transfer(Transfer transfer, Runnable cancelOpen, Result result, long timeout) {
         Request request = new Request(result, cancelOpen);
         request.deadline = deadlines.schedule(() -> request.cancel("FileTimeout"), timeout, TimeUnit.MILLISECONDS);
         try {
             request.task = readers.submit(() -> {
-                try (InputStream input = opener.open(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                    request.input = input; request.check();
-                    if (input == null) throw new IOException("FileUnavailable");
-                    byte[] buffer = new byte[8192]; int count;
-                    while ((count = input.read(buffer)) != -1) {
-                        request.check();
-                        if (out.size() + count > limit) throw new IOException("FileLimitExceeded");
-                        out.write(buffer, 0, count);
-                    }
-                    request.check(); request.finish(out.toByteArray(), null);
+                try {
+                    byte[] bytes = transfer.run(request);
+                    request.check();
+                    request.finish(bytes, null);
                 } catch (Exception error) {
+                    if (error instanceof ExecutionException && error.getCause() instanceof Exception)
+                        error = (Exception) error.getCause();
                     String code = error instanceof IOException ? error.getMessage() : "FileUnavailable";
-                    request.finish(null, code != null && code.matches("File[A-Za-z]+") ? code : "FileUnavailable");
-                } finally { request.input = null; }
+                    request.finish(null, code != null && code.matches("[A-Za-z]+") ? code : "FileUnavailable");
+                } finally { request.stream = null; }
             });
             if (request.cancelled != null) request.task.cancel(true);
         } catch (RejectedExecutionException busy) { request.finish(null, "FileBusy"); }

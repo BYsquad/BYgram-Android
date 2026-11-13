@@ -2,7 +2,9 @@
 
 `BygramConfig` хранит видимые параметры в `MessagesController.getGlobalMainSettings()`. Настройки активности имеют account suffix; access/refresh tokens и license cache находятся отдельно в SharedPreferences `bygram_licenses`.
 
-## Действующие ключи
+## Основные ключи
+
+Полный набор и значения по умолчанию определены в `BygramConfig`.
 
 | Ключ | Тип | Default | Область |
 |---|---|---:|---|
@@ -13,15 +15,17 @@
 | `bygram_ghost_no_typing` | boolean | true | global |
 | `bygram_ghost_read_on_actions` | boolean | false | global |
 | `bygram_spy_save_deleted` | boolean | false | global |
+| `bygram_spy_save_own_deleted` | boolean | false | global |
+| `bygram_spy_notify_deleted` | boolean | false | global |
+| `bygram_qr_glass_style` | boolean | false | global |
 | `bygram_spy_save_edits` | boolean | false | global |
 | `bygram_spy_save_read_date` | boolean | false | global |
 | `bygram_spy_save_last_online` | boolean | false | global |
 | `bygram_activity_enabled_<account>` | boolean | false | account |
-| `bygram_activity_viewers_<account>` | JSON array | `[]` | account |
+| `bygram_activity_viewers_<account>` | JSON object | `{}` | account |
 | `bygram_custom_profile_music` | boolean | false | global |
 | `bygram_filter_zalgo` | boolean | false | global |
 | `bygram_profile_id` | int 0…2 | 0 | global |
-| `bygram_liquid_glass_placements` | bit mask | 63 | global |
 | `bygram_md3_loading` | boolean | false | global |
 | `bygram_md3_sliders` | boolean | false | global |
 | `bygram_md3_switches` | boolean | false | global |
@@ -39,17 +43,6 @@
 - `bygram_licenses`: challenge, tokens, сроки и license cache по Telegram user ID.
 - Признак сохранённого удалённого сообщения сериализуется в SQLite message data.
 
-## Liquid Glass mask
-
-| Бит | Константа | Область |
-|---:|---|---|
-| 1 | `GLASS_MEDIA` | viewer фото/видео |
-| 2 | `GLASS_CONTEXT_PANELS` | контекстные панели |
-| 4 | `GLASS_FLOATING_BUTTONS` | FAB |
-| 8 | `GLASS_SEARCH` | поиск |
-| 16 | `GLASS_SELECTION` | панель выделения |
-| 32 | `GLASS_POPUPS` | popup/compact selector |
-
 ## Экспорт
 
 Экран использует `ACTION_CREATE_DOCUMENT`, MIME `application/json`, имя `BYgram-settings.json`.
@@ -64,7 +57,7 @@
 }
 ```
 
-В экспорт попадает только allowlist из `isActiveSetting()`. Spy history, viewers, tokens, credentials и badges не экспортируются. Импорта нет.
+В экспорт попадает только allowlist из `isActiveSetting()`. История «Шпиона», разрешения на просмотр активности, пароли чатов, токены, значки и данные плагинов не экспортируются. Импорта нет.
 
 ## Сброс
 
@@ -73,8 +66,8 @@
 1. удаляет активные UI-ключи и legacy Microsoft Translator key;
 2. удаляет account-specific activity master/viewers;
 3. запрашивает очистку текущей server activity и server viewers;
-4. повторно применяет default телеметрии к Firebase SDK;
-5. UI возвращает launcher icon к `DEFAULT`.
+4. сбрасывает локальную защиту чатов, восстанавливает форматтеры времени и применяет настройки телеметрии по умолчанию;
+5. запрашивает очистку опубликованных статусов набора и отключение просмотров профиля; UI возвращает иконку приложения к `DEFAULT`.
 
 Telegram-аккаунты, access/refresh tokens и Spy message history сохраняются. Server cleanup является best effort: при отсутствии сети текущая activity исчезнет по TTL, а viewers будут перезаписаны при следующем включении функции.
 

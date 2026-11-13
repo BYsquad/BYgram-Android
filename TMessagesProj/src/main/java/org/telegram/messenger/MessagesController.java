@@ -18068,7 +18068,15 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     // must be run from Utilities.stageQueue
-    public void processUpdates(final TLRPC.Updates updates, boolean fromQueue) {
+    public void processUpdates(TLRPC.Updates updates, boolean fromQueue) {
+        if (!fromQueue && PluginEntry.hasInterceptor("updates")) {
+            updates = PluginEntry.intercept("updates", currentAccount, updates.getClass(), TLRPC.Updates.class, updates, null);
+            if (updates == null) return;
+        }
+        processUpdatesInternal(updates, fromQueue);
+    }
+
+    private void processUpdatesInternal(TLRPC.Updates updates, boolean fromQueue) {
         if (updates instanceof TLRPC.TL_updates || updates instanceof TLRPC.TL_updatesCombined) {
             boolean hasMessageIdUpdates = false;
             for (int i = 0; i < updates.updates.size(); i++) {
@@ -18084,7 +18092,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 // Otherwise pts sorting delivers updateNewMessage first, and the later ID
                 // notification removes the local row instead of updating it in place.
                 getMessagesStorage().getStorageQueue().postRunnable(() ->
-                        Utilities.stageQueue.postRunnable(() -> processUpdates(updates, fromQueue)));
+                        Utilities.stageQueue.postRunnable(() -> processUpdatesInternal(updates, fromQueue)));
                 return;
             }
         }
@@ -18626,7 +18634,17 @@ public class MessagesController extends BaseController implements NotificationCe
         return updated;
     }
 
-    public boolean processUpdateArray(ArrayList<TLRPC.Update> updates, ArrayList<TLRPC.User> usersArr, ArrayList<TLRPC.Chat> chatsArr, boolean fromGetDifference, int date) {
+    public boolean processUpdateArray(ArrayList<TLRPC.Update> receivedUpdates, ArrayList<TLRPC.User> usersArr, ArrayList<TLRPC.Chat> chatsArr, boolean fromGetDifference, int date) {
+        final ArrayList<TLRPC.Update> updates;
+        if (!receivedUpdates.isEmpty() && PluginEntry.hasInterceptor("update")) {
+            updates = new ArrayList<>(receivedUpdates.size());
+            for (TLRPC.Update original : receivedUpdates) {
+                TLRPC.Update update = PluginEntry.intercept("update", currentAccount, original.getClass(), TLRPC.Update.class, original, null);
+                if (update != null) updates.add(update);
+            }
+        } else {
+            updates = receivedUpdates;
+        }
         if (updates.isEmpty()) {
             if (usersArr != null || chatsArr != null) {
                 AndroidUtilities.runOnUIThread(() -> {

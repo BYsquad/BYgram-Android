@@ -36,6 +36,27 @@ public final class PluginFilesCheck {
             try { cancelled.check(); throw new AssertionError("queued mutation survived cancellation"); }
             catch (IOException expected) { assert expected.getMessage().equals("FileCancelled"); }
         } finally { release.countDown(); hung.close(); }
+        CountDownLatch writing = new CountDownLatch(1), unblockWrite = new CountDownLatch(1), writeTimeout = new CountDownLatch(1);
+        PluginFiles.Request export = PluginFiles.write(() -> new OutputStream() {
+            @Override public void write(int value) {
+                writing.countDown();
+                while (unblockWrite.getCount() != 0) try { unblockWrite.await(); } catch (InterruptedException ignored) { }
+            }
+        }, () -> new byte[]{1}, () -> { }, (request, bytes, error) -> {
+            assert "FileTimeout".equals(error);
+            writeTimeout.countDown();
+        }, 500);
+        try {
+            assert writing.await(2, TimeUnit.SECONDS);
+            assert writeTimeout.await(2, TimeUnit.SECONDS) : "hung export provider did not time out";
+            CountDownLatch completed = new CountDownLatch(1);
+            ByteArrayOutputStream healthy = new ByteArrayOutputStream();
+            PluginFiles.write(() -> healthy, () -> new byte[]{7}, () -> { }, (request, bytes, error) -> {
+                assert error == null && healthy.toByteArray()[0] == 7;
+                completed.countDown();
+            }, 2000);
+            assert completed.await(2, TimeUnit.SECONDS) : "hung export blocked another write";
+        } finally { unblockWrite.countDown(); export.close(); }
         System.out.println("PASS: hung provider deadline, independent import, byte limit, single completion and cancel before mutation");
     }
 }

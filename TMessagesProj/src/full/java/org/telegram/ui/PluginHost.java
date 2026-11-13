@@ -40,26 +40,252 @@ public final class PluginHost {
 
     private static final class Contribution {
         PluginContext context; String id, location, title; PyObject callback;
+        String subtext;
+        int icon, priority;
+        boolean compatibility;
+        PyObject condition;
     }
     private static final class Subscription { PluginContext context; String name; PyObject callback; }
-    public static void bulletin(PluginContext context, String text) {
+    private static final class IntentHandler {
+        final PluginContext owner;
+        final boolean before;
+        final int priority;
+        final PyObject callback;
+        IntentHandler(PluginContext owner, boolean before, int priority, PyObject callback) {
+            this.owner = owner; this.before = before; this.priority = priority; this.callback = callback;
+        }
+    }
+    private static final java.util.concurrent.CopyOnWriteArrayList<IntentHandler> intentHandlers = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public static AutoCloseable intentHandler(PluginContext owner, boolean before, int priority, PyObject callback) {
+        IntentHandler handler = new IntentHandler(owner, before, priority, callback);
+        intentHandlers.add(handler);
+        intentHandlers.sort(Comparator.comparingInt(entry -> entry.priority));
+        return () -> intentHandlers.remove(handler);
+    }
+    public static void dispatchIntent(android.content.Intent intent, int account, boolean before) {
+        if (intentHandlers.isEmpty() || !android.content.Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return;
+        String identity;
+        try { identity = PluginContext.currentIdentity(account); }
+        catch (IllegalStateException | IllegalArgumentException unavailable) { return; }
+        for (IntentHandler handler : intentHandlers) {
+            if (handler.before != before || !handler.owner.accountAvailable(account, identity)) continue;
+            PluginContext owner = handler.owner;
+            if (!owner.scope.beginCallback()) continue;
+            try { handler.callback.call(new android.content.Intent(intent), account); }
+            catch (Exception error) { owner.failed(error); }
+            finally { owner.scope.endCallback(); }
+        }
+    }
+    public static BaseFragment currentFragment() {
+        return current.get();
+    }
+    public static void bulletin(PluginContext context, String text, String type) {
         AndroidUtilities.runOnUIThread(() -> {
             BaseFragment fragment = current.get();
-            if (context.active() && fragment != null && fragment.getParentActivity() != null)
-                BulletinFactory.of(fragment).createSimpleBulletin(R.raw.info, text).show();
+            if (!context.active() || fragment == null || fragment.getParentActivity() == null) return;
+            BulletinFactory factory = BulletinFactory.of(fragment);
+            if ("error".equals(type)) factory.createErrorBulletin(text).show();
+            else if ("success".equals(type)) factory.createSuccessBulletin(text).show();
+            else factory.createSimpleBulletin(R.raw.info, text).show();
         });
+    }
+    public static final class PluginAlert implements AutoCloseable {
+        private final AutoCloseable registration;
+        private volatile boolean closed;
+        private AlertDialog dialog;
+        private int progress;
+
+        PluginAlert(PluginContext owner) throws Exception {
+            registration = owner.scope.own(() -> {
+                closed = true;
+                AndroidUtilities.runOnUIThread(() -> { if (dialog != null) dialog.dismiss(); dialog = null; });
+            });
+        }
+        @Override public void close() throws Exception { registration.close(); }
+        public void setCancellation(boolean cancelable, boolean outside) {
+            AndroidUtilities.runOnUIThread(() -> {
+                if (dialog == null) return;
+                dialog.setCanceledOnTouchOutside(cancelable && outside);
+                dialog.setCancelable(cancelable);
+            });
+        }
+
+        public void setProgress(int value) {
+            int bounded = Math.max(0, Math.min(100, value));
+            AndroidUtilities.runOnUIThread(() -> {
+                progress = bounded;
+                if (dialog != null) dialog.setProgress(progress);
+            });
+        }
+    }
+    public static PluginAlert alert(PluginContext context, JsonObject spec, android.view.View view, PyObject callback) throws Exception {
+        int style = spec.get("style").getAsInt();
+        if (style != AlertDialog.ALERT_TYPE_MESSAGE && style != AlertDialog.ALERT_TYPE_LOADING && style != AlertDialog.ALERT_TYPE_SPINNER)
+            throw new IllegalArgumentException("InvalidDialogStyle");
+        if (spec.has("items") && spec.getAsJsonArray("items").size() > 100) throw new IllegalArgumentException("PageLimitExceeded");
+        PluginAlert handle = new PluginAlert(context);
+        AndroidUtilities.runOnUIThread(() -> {
+            BaseFragment fragment = current.get();
+            try {
+                if (handle.closed || !context.active() || fragment == null || fragment.getParentActivity() == null) {
+                    handle.close();
+                    return;
+                }
+                AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getContext(), style, fragment.getResourceProvider());
+                AlertDialog.OnButtonClickListener click = callback == null ? null
+                        : (dialog, which) -> context.call(callback, which);
+                if (spec.has("title")) builder.setTitle(spec.get("title").getAsString());
+                if (spec.has("message")) builder.setMessage(spec.get("message").getAsString());
+                if (spec.has("messageClickable")) builder.setMessageTextViewClickable(spec.get("messageClickable").getAsBoolean());
+                if (spec.has("dim")) builder.setDimEnabled(spec.get("dim").getAsBoolean());
+                if (spec.has("buttonColorKey")) builder.setDialogButtonColorKey(spec.get("buttonColorKey").getAsInt());
+                if (spec.has("positive")) builder.setPositiveButton(spec.get("positive").getAsString(), click);
+                if (spec.has("negative")) builder.setNegativeButton(spec.get("negative").getAsString(), click);
+                if (spec.has("neutral")) builder.setNeutralButton(spec.get("neutral").getAsString(), click);
+                if (spec.has("items")) {
+                    JsonArray entries = spec.getAsJsonArray("items");
+                    CharSequence[] items = new CharSequence[entries.size()];
+                    for (int i = 0; i < items.length; i++) items[i] = entries.get(i).getAsString();
+                    int[] icons = null;
+                    if (spec.has("icons")) {
+                        JsonArray resources = spec.getAsJsonArray("icons");
+                        if (resources.size() != items.length) throw new IllegalArgumentException("InvalidDialogIcons");
+                        icons = new int[items.length];
+                        for (int i = 0; i < icons.length; i++) icons[i] = resources.get(i).getAsInt();
+                    }
+                    builder.setItems(items, icons, callback == null ? null : (dialog, which) -> context.call(callback, which));
+                }
+                if (view != null) builder.setView(view, spec.has("viewHeight") ? spec.get("viewHeight").getAsInt() : -2);
+                if (callback != null) {
+                    builder.setOnBackButtonListener((dialog, which) -> context.call(callback, -4));
+                    builder.setOnCancelListener(dialog -> context.call(callback, -5));
+                }
+                AlertDialog dialog = builder.create();
+                handle.dialog = dialog;
+                if (style == AlertDialog.ALERT_TYPE_LOADING) dialog.setProgress(handle.progress);
+                if (fragment.showDialog(dialog, dismissed -> {
+                    try { handle.close(); } catch (Exception ignored) { }
+                    if (callback != null) context.call(callback, -6);
+                }) == null) handle.close();
+                else handle.setCancellation(!spec.has("cancelable") || spec.get("cancelable").getAsBoolean(),
+                        !spec.has("outside") || spec.get("outside").getAsBoolean());
+            } catch (Exception error) {
+                try { handle.close(); } catch (Exception ignored) { }
+                context.failed(error);
+            }
+        });
+        return handle;
     }
     public static synchronized AutoCloseable menu(PluginContext context, String location, String id,
                                                    String title, PyObject callback) {
-        if (!Arrays.asList("dialogs.toolbar", "profile.actions", "chat.actions").contains(location)
+        return registerMenu(context, location, id, title, null, null, 0, false, callback, null);
+    }
+    public static synchronized AutoCloseable menu(PluginContext context, String location, String id, String title,
+                                                   String icon, String subtext, int priority, PyObject callback, PyObject condition) {
+        return registerMenu(context, location, id, title, icon, subtext, priority, true, callback, condition);
+    }
+    private static AutoCloseable registerMenu(PluginContext context, String location, String id, String title,
+                                              String icon, String subtext, int priority, boolean compatibility, PyObject callback, PyObject condition) {
+        if (!Arrays.asList("dialogs.toolbar", "profile.actions", "chat.actions", "message.context", "drawer.menu").contains(location)
                 || !id.matches("[A-Za-z_][A-Za-z0-9_.-]{0,119}") || title.isEmpty() || title.length() > 120)
             throw new IllegalArgumentException("InvalidContribution");
         for (Contribution item : menus) if (item.context.id().equals(context.id()) && item.id.equals(id))
             throw new IllegalStateException("ContributionConflict");
         Contribution item = new Contribution(); item.context = context; item.id = id;
-        item.location = location; item.title = title; item.callback = callback; menus.add(item);
+        item.location = location; item.title = title; item.callback = callback;
+        item.compatibility = compatibility; item.priority = priority;
+        item.condition = condition;
+        item.subtext = subtext == null || subtext.isEmpty() ? null : subtext;
+        if (icon != null && icon.matches("[a-z0-9_]{1,100}")) {
+            android.content.Context app = ApplicationLoader.applicationContext;
+            item.icon = app.getResources().getIdentifier(icon, "drawable", app.getPackageName());
+        }
+        menus.add(item);
         AndroidUtilities.runOnUIThread(PluginHost::refreshMenu);
         return () -> { menus.remove(item); AndroidUtilities.runOnUIThread(PluginHost::refreshMenu); };
+    }
+    public static void addDrawerItems(BaseFragment fragment, org.telegram.ui.Components.ItemOptions options) {
+        List<Contribution> available = new ArrayList<>();
+        for (Contribution item : menus)
+            if (item.location.equals("drawer.menu") && item.context.menuVisible(item.condition,
+                    actionContext(item, fragment).toString(), fragment, null, null)) available.add(item);
+        available.sort(Comparator.comparingInt((Contribution item) -> item.priority).reversed());
+        for (Contribution item : available) {
+            options.add(item.icon, item.title, item.subtext, () -> {
+                if (!menus.contains(item) || !item.context.active()) return;
+                JsonObject event = new JsonObject();
+                event.addProperty("account", fragment.getCurrentAccount());
+                item.context.call(item.callback, event.toString(), fragment, null, null);
+            });
+        }
+    }
+    private static JsonObject actionContext(Contribution item, BaseFragment fragment) {
+        JsonObject event = new JsonObject();
+        event.addProperty("account", fragment.getCurrentAccount());
+        long peer = fragment instanceof ChatActivity ? ((ChatActivity) fragment).getDialogId()
+                : fragment instanceof ProfileActivity ? ((ProfileActivity) fragment).getDialogId() : 0;
+        if (peer != 0 && item.context.dialogAvailable(fragment.getCurrentAccount(), peer)) {
+            event.addProperty("dialog_id", peer);
+            event.addProperty("topic_id", fragment instanceof ChatActivity ? ((ChatActivity) fragment).getTopicId()
+                    : ((ProfileActivity) fragment).getTopicId());
+        }
+        return event;
+    }
+    private static boolean messageMenuAvailable(Contribution item, ChatActivity chat, MessageObject message) {
+        long peer = message.getDialogId();
+        if (!item.location.equals("message.context") || DialogObject.isEncryptedDialog(peer)
+                || !item.context.dialogAvailable(chat.getCurrentAccount(), peer)) return false;
+        if (item.condition == null) return true;
+        JsonObject event = actionContext(item, chat);
+        event.addProperty("message_id", message.getId());
+        return item.context.menuVisible(item.condition, event.toString(), chat, message, chat.getValidGroupedMessage(message));
+    }
+    public static boolean hasMessageMenu(ChatActivity chat, MessageObject message) {
+        if (message == null) return false;
+        for (Contribution item : menus) if (messageMenuAvailable(item, chat, message)) return true;
+        return false;
+    }
+    public static void showMessageMenu(ChatActivity chat, MessageObject message) {
+        if (message == null || chat.getParentActivity() == null) return;
+        int account = chat.getCurrentAccount(), messageId = message.getId();
+        long peer = message.getDialogId(), topic = chat.getTopicId();
+        ArrayList<Contribution> available = new ArrayList<>();
+        for (Contribution item : menus) if (messageMenuAvailable(item, chat, message)) available.add(item);
+        if (available.isEmpty()) return;
+        String identity;
+        try { identity = PluginContext.currentIdentity(account); }
+        catch (IllegalStateException unavailable) { return; }
+        showContributions(chat, available, (dialog, index) -> {
+                    Contribution item = available.get(index);
+                    if (chat.getCurrentAccount() != account || chat.getTopicId() != topic
+                            || !menus.contains(item) || !messageMenuAvailable(item, chat, message)
+                            || !item.context.accountAvailable(account, identity)) return;
+                    JsonObject event = new JsonObject();
+                    event.addProperty("account", account);
+                    event.addProperty("dialog_id", peer);
+                    event.addProperty("message_id", messageId);
+                    event.addProperty("topic_id", topic);
+                    if (item.compatibility) {
+                        item.context.callMessageMenu(item.callback, account, identity, peer, event.toString(), chat,
+                                message, chat.getValidGroupedMessage(message));
+                    } else {
+                        item.context.callMessageMenu(item.callback, account, identity, peer, event.toString());
+                    }
+                });
+    }
+    private static void showContributions(BaseFragment fragment, List<Contribution> items, android.content.DialogInterface.OnClickListener click) {
+        if (items.isEmpty()) return;
+        items.sort(Comparator.comparingInt((Contribution item) -> item.priority).reversed());
+        CharSequence[] titles = new CharSequence[items.size()];
+        int[] icons = new int[items.size()];
+        for (int i = 0; i < titles.length; i++) {
+            Contribution item = items.get(i);
+            titles[i] = item.subtext == null ? item.title : item.title + "\n" + item.subtext;
+            icons[i] = item.icon;
+        }
+        fragment.showDialog(new AlertDialog.Builder(fragment.getContext())
+                .setTitle(LocaleController.getString(R.string.BygramPlugins)).setItems(titles, icons, click).create());
     }
     public static void pageEvent(BaseFragment page, boolean opened) {
         if (opened) { themedPages.putIfAbsent(page, colors.isEmpty() ? themeRevision : -1); current = new WeakReference<>(page); refreshPageTheme(page); refreshMenu(); }
@@ -133,22 +359,15 @@ public final class PluginHost {
         button.setOnClickListener(view -> {
             if (fragment.getParentActivity() == null) return;
             List<Contribution> clicked = new ArrayList<>();
-            for (Contribution item : menus) if (item.context.active() && item.location.equals(location(fragment))) clicked.add(item);
-            CharSequence[] titles = new CharSequence[clicked.size()];
-            for (int i = 0; i < titles.length; i++) titles[i] = clicked.get(i).title;
-            fragment.showDialog(new AlertDialog.Builder(fragment.getContext())
-                    .setTitle(LocaleController.getString(R.string.BygramPlugins)).setItems(titles, (dialog, index) -> {
+            for (Contribution item : menus) if (item.location.equals(location(fragment))
+                    && item.context.menuVisible(item.condition, actionContext(item, fragment).toString(), fragment, null, null)) clicked.add(item);
+            showContributions(fragment, clicked, (dialog, index) -> {
                         Contribution item = clicked.get(index);
-                        JsonObject event = new JsonObject(); event.addProperty("account", fragment.getCurrentAccount());
-                        long peer = fragment instanceof ChatActivity ? ((ChatActivity) fragment).getDialogId()
-                                : fragment instanceof ProfileActivity ? ((ProfileActivity) fragment).getDialogId() : 0;
-                        if (peer != 0 && item.context.dialogAvailable(fragment.getCurrentAccount(), peer)) {
-                            event.addProperty("dialog_id", peer);
-                            event.addProperty("topic_id", fragment instanceof ChatActivity ? ((ChatActivity) fragment).getTopicId()
-                                    : ((ProfileActivity) fragment).getTopicId());
-                        }
-                        item.context.call(item.callback, event.toString());
-                    }).create());
+                        if (!menus.contains(item) || !item.context.active()) return;
+                        JsonObject event = actionContext(item, fragment);
+                        if (item.compatibility) item.context.call(item.callback, event.toString(), fragment, null, null);
+                        else item.context.call(item.callback, event.toString());
+                    });
         });
     }
     public static void openPage(PluginContext context, String json) {
@@ -156,6 +375,7 @@ public final class PluginHost {
         JsonObject specification = JsonParser.parseString(json).getAsJsonObject();
         AndroidUtilities.runOnUIThread(() -> {
             BaseFragment fragment = current.get();
+            if (fragment == null && specification.has("focus_alias")) fragment = LaunchActivity.getLastFragment();
             if (!context.active() || fragment == null || fragment.getParentLayout() == null) {
                 context.releasePage(specification); return;
             }
@@ -205,7 +425,7 @@ public final class PluginHost {
                             throw new IllegalStateException("DraftChanged");
                         chat.getChatActivityEnterView().setFieldText(text);
                     } catch (IllegalStateException unavailable) {
-                        bulletin(context, LocaleController.getString(R.string.BygramPluginDraftChanged));
+                        bulletin(context, LocaleController.getString(R.string.BygramPluginDraftChanged), "info");
                     }
                 }).create();
         AutoCloseable handle = context.scope.own(() -> AndroidUtilities.runOnUIThread(dialog::dismiss));

@@ -10,6 +10,7 @@ final class PluginStore {
     final File root, packages, staging, data;
     private final AtomicFile registry;
     private final AtomicFile registryBackup;
+    final boolean recoveredFromBackup;
     private JsonObject saved;
     JsonObject state;
 
@@ -31,6 +32,7 @@ final class PluginStore {
             PluginPackage.check(state.size() > 0, "RegistryCorrupt");
             recovered = true;
         }
+        recoveredFromBackup = recovered;
         if (recovered) {
             state.addProperty("engine", false); state.addProperty("recovered", true);
             for (JsonElement record : state.getAsJsonObject("plugins").asMap().values()) revokeApproval(record.getAsJsonObject());
@@ -41,9 +43,39 @@ final class PluginStore {
             state.addProperty("schema", 1); state.addProperty("engine", false); state.add("plugins", new JsonObject());
             save();
         }
+        JsonObject revocations = read(new AtomicFile(new File(root, "revoked.json")));
+        if (!revocations.isEmpty()) revoked.addAll(parseRevocations(revocations));
         // Staging is never referenced by a committed registry entry.
         File[] abandoned = staging.listFiles();
         if (abandoned != null) for (File file : abandoned) PluginPackage.delete(file);
+    }
+
+    private final java.util.Set<String> revoked = new java.util.HashSet<>();
+
+    boolean isRevoked(String hash) { return revoked.contains(hash); }
+
+    void checkNotRevoked(String hash) throws IOException {
+        PluginPackage.check(!isRevoked(hash), "PluginRevoked");
+    }
+
+    static java.util.Set<String> parseRevocations(JsonObject list) throws IOException {
+        PluginPackage.check(list.size() == 1 && list.has("sha256") && list.get("sha256").isJsonArray(), "InvalidCatalog");
+        java.util.Set<String> result = new java.util.HashSet<>();
+        for (JsonElement value : list.getAsJsonArray("sha256")) {
+            PluginPackage.check(value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()
+                    && value.getAsString().matches("[a-f0-9]{64}") && result.add(value.getAsString()), "InvalidCatalog");
+        }
+        return result;
+    }
+
+    void rememberRevoked(java.util.Set<String> hashes) throws IOException {
+        java.util.Set<String> combined = new java.util.TreeSet<>(revoked);
+        if (!combined.addAll(hashes)) return;
+        JsonArray entries = new JsonArray();
+        for (String hash : combined) entries.add(hash);
+        JsonObject list = new JsonObject(); list.add("sha256", entries);
+        write(new AtomicFile(new File(root, "revoked.json")), list);
+        revoked.addAll(hashes);
     }
 
     JsonObject plugins() { return state.getAsJsonObject("plugins"); }
@@ -76,6 +108,8 @@ final class PluginStore {
     private static void validateRecord(String id, JsonObject record, int depth) throws IOException {
         if (record.has("author_key")) PluginPackage.check(record.get("author_key").isJsonPrimitive()
                 && record.getAsJsonPrimitive("author_key").isString() && record.get("author_key").getAsString().matches("[0-9a-f]{64}"), "RegistryCorrupt");
+        if (record.has("pinned")) PluginPackage.check(record.get("pinned").isJsonPrimitive()
+                && record.getAsJsonPrimitive("pinned").isBoolean(), "RegistryCorrupt");
         PluginPackage.check(depth <= 3 && record.get("hash").getAsString().matches("[a-f0-9]{64}")
                 && record.get("desired").isJsonPrimitive() && record.getAsJsonPrimitive("desired").isBoolean()
                 && record.getAsJsonObject("manifest").get("id").getAsString().equals(id), "RegistryCorrupt");
@@ -104,16 +138,37 @@ final class PluginStore {
     }
 
     void install(PluginPackage pkg) throws Exception {
+        install(pkg, false);
+    }
+
+    static boolean isDeveloper(JsonObject record) {
+        return record != null && record.has("source") && record.get("source").getAsString().equals("developer");
+    }
+
+    void install(PluginPackage pkg, boolean developer) throws Exception {
         JsonObject oldState = state.deepCopy();
         JsonObject existing = plugins().getAsJsonObject(pkg.manifest.id());
+        if (developer) {
+            PluginPackage.check(existing == null || isDeveloper(existing) && !existing.has("pending"), "DeveloperPackageConflict");
+            pkg.source = "developer";
+        }
         if (existing != null && existing.has("author_key"))
             PluginPackage.check(existing.get("author_key").getAsString().equals(pkg.signer), "AuthorKeyChanged");
         if (existing != null && (pkg.sha256.equals(existing.get("hash").getAsString())
                 || existing.has("pending") && pkg.sha256.equals(existing.getAsJsonObject("pending").get("hash").getAsString()))) {
             throw new IOException("AlreadyInstalled");
         }
+        checkNotRevoked(pkg.sha256);
+        if (existing != null && !developer) {
+            requireNewVersion(pkg.manifest.version(), existing);
+            if (existing.has("pending")) requireNewVersion(pkg.manifest.version(), existing.getAsJsonObject("pending"));
+        }
         File destination = new File(packages, pkg.sha256);
         if (!destination.exists()) PluginPackage.check(pkg.directory.renameTo(destination), "InstallCommitFailed");
+        File archive = new File(packages, pkg.sha256 + ".byplugin");
+        if (!archive.exists()) {
+            PluginPackage.check(new File(pkg.directory.getParentFile(), "package.byplugin").renameTo(archive), "InstallCommitFailed");
+        }
         JsonObject record = new JsonObject();
         record.add("manifest", pkg.manifest.metadata()); record.addProperty("hash", pkg.sha256);
         record.addProperty("desired", false); record.addProperty("installed", System.currentTimeMillis());
@@ -121,25 +176,59 @@ final class PluginStore {
         if (pkg.signer != null) record.addProperty("author_key", pkg.signer);
         if (pkg.catalogRelease != null) record.add("catalog_release", pkg.catalogRelease.deepCopy());
         if (existing == null) plugins().add(pkg.manifest.id(), record);
-        else existing.add("pending", record);
+        else {
+            existing.remove("update_error");
+            existing.add("pending", record);
+        }
         try { save(); } catch (Exception e) { state = oldState; throw e; }
     }
 
-    void applyPending() throws Exception {
+    private static void requireNewVersion(String incoming, JsonObject record) throws IOException {
+        if (compareVersions(incoming, record.getAsJsonObject("manifest").get("version").getAsString()) <= 0)
+            throw new IOException("PluginVersionNotNewer");
+    }
+    static int compareVersions(String incoming, String installed) {
+        String[] current = installed.split("\\.");
+        String[] next = incoming.split("\\.");
+        for (int i = 0; i < next.length; i++) {
+            int order = new java.math.BigInteger(next[i]).compareTo(new java.math.BigInteger(current[i]));
+            if (order != 0) return order;
+        }
+        return 0;
+    }
+
+    void applyPending(int host, int base) throws Exception {
+        applyPending(host, base, null);
+    }
+
+    void applyPending(int host, int base, String only) throws Exception {
         JsonObject old = state.deepCopy();
         try {
         for (String id : new java.util.ArrayList<>(plugins().keySet())) {
+            if (only != null && !only.equals(id)) continue;
             JsonObject record = plugins().getAsJsonObject(id);
             if (!record.has("pending")) continue;
             JsonObject next = record.getAsJsonObject("pending").deepCopy();
+            try {
+                checkNotRevoked(next.get("hash").getAsString());
+                File manifestFile = new File(packageDir(next), "manifest.json");
+                PluginManifest manifest = PluginManifest.parse(PluginPackage.read(manifestFile), 1, host, base);
+                PluginPackage.check(manifest.metadata().equals(next.getAsJsonObject("manifest")), "PackageMissing");
+                if (!isDeveloper(record) || !isDeveloper(next)) requireNewVersion(manifest.version(), record);
+            } catch (PluginManifest.ValidationException | IOException invalid) {
+                record.remove("pending");
+                record.addProperty("update_error", invalid.getMessage());
+                continue;
+            }
             JsonObject previous = record.deepCopy();
-            previous.remove("pending"); previous.remove("rollback");
+            previous.remove("pending"); previous.remove("rollback"); previous.remove("update_error");
             String snapshot = java.util.UUID.randomUUID().toString();
             write(new AtomicFile(snapshotFile(snapshot)), settingsSnapshot(id), PluginPackage.MAX_TOTAL);
             previous.addProperty("settings_snapshot", snapshot);
             next.add("rollback", previous);
             // Updating never transfers approval to a different executable hash.
             next.addProperty("desired", false);
+            if (record.has("pinned")) next.add("pinned", record.get("pinned"));
             plugins().add(id, next);
         }
         save();
@@ -176,6 +265,8 @@ final class PluginStore {
             JsonObject record = plugins().getAsJsonObject(id);
             if (!record.has("rollback_pending")) continue;
             JsonObject previous = record.getAsJsonObject("rollback_pending").deepCopy();
+            previous.remove("pinned");
+            if (record.has("pinned")) previous.add("pinned", record.get("pinned"));
             if (previous.has("settings_snapshot")) {
                 restoreSettings(id, readSnapshot(previous.get("settings_snapshot")));
                 previous.remove("settings_snapshot");
@@ -255,8 +346,10 @@ final class PluginStore {
         catch (IOException corrupt) { return; }
         if (backup.has("plugins")) collectReferences(backup.getAsJsonObject("plugins"), retained, "hash");
         File[] directories = packages.listFiles();
-        if (directories != null) for (File directory : directories)
-            if (directory.getName().matches("[a-f0-9]{64}") && !retained.contains(directory.getName())) PluginPackage.delete(directory);
+        if (directories != null) for (File directory : directories) {
+            String name = directory.getName();
+            if (name.matches("[a-f0-9]{64}(\\.byplugin)?") && !retained.contains(name.substring(0, 64))) PluginPackage.delete(directory);
+        }
         java.util.Set<String> snapshots = new java.util.HashSet<>();
         collectReferences(plugins(), snapshots, "settings_snapshot");
         if (backup.has("plugins")) collectReferences(backup.getAsJsonObject("plugins"), snapshots, "settings_snapshot");

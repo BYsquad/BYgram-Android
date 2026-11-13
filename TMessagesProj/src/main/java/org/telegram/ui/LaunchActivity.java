@@ -1583,6 +1583,18 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 return false;
             }
         }
+        org.telegram.messenger.PluginEntry.dispatchIntent(intent, intentAccount[0], true);
+        try {
+            return handleUnlockedIntent(intent, isNew, restore, progress, rebuildFragments, openedTelegram,
+                    flags, action, intentAccount, isVoipIntent, isVoipAnswerIntent);
+        } finally {
+            org.telegram.messenger.PluginEntry.dispatchIntent(intent, intentAccount[0], false);
+        }
+    }
+
+    private boolean handleUnlockedIntent(Intent intent, boolean isNew, boolean restore, Browser.Progress progress,
+                                         boolean rebuildFragments, boolean openedTelegram, int flags, String action,
+                                         int[] intentAccount, boolean isVoipIntent, boolean isVoipAnswerIntent) {
         boolean pushOpened = false;
         long push_user_id = 0;
         long push_chat_id = 0;
@@ -6895,6 +6907,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onPause() {
         super.onPause();
+        org.telegram.messenger.PluginEntry.appEvent("PAUSE");
         AndroidUtilities.cancelRunOnUIThread(profileViewsPoll);
         isResumed = false;
         WidgetMedia.onAppPaused(true);
@@ -6971,6 +6984,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onStop() {
         super.onStop();
+        org.telegram.messenger.PluginEntry.appEvent("STOP");
         GramWalletStorageAuth.onActivityStopped(this);
         isStarted = false;
         PipCoordinator.getInstance().onActivityStop(this);
