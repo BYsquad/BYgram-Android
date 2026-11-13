@@ -15,9 +15,21 @@ if (bygramEdition == 'full') {
             version = '3.11'
             buildPython (findProperty('BYGRAM_BUILD_PYTHON') ?: 'python3.11').toString()
             pip {
+                def wheelhouse = rootProject.file('third_party/python-android-wheels')
+                wheelhouse.toPath().resolve('SHA256SUMS').toFile().eachLine { line ->
+                    def (digest, name) = line.split('  ', 2)
+                    def wheel = new File(wheelhouse, name)
+                    def actual = java.security.MessageDigest.getInstance('SHA-256').digest(wheel.bytes).encodeHex().toString()
+                    if (actual != digest) throw new GradleException("Python wheel checksum mismatch: " + name)
+                }
+                options '--find-links', wheelhouse.absolutePath
                 install 'packaging==24.2'
                 install 'PyYAML==6.0.3'
                 install 'certifi==2026.10.23'
+                install 'beautifulsoup4==4.15.0'
+                install 'requests==2.34.2'
+                install 'lxml==5.3.0'
+                install 'Pillow==11.0.0'
             }
         }
     }

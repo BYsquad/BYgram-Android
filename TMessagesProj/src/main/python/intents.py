@@ -1,4 +1,4 @@
-"""Observers for unlocked Telegram links."""
+"""Handlers for unlocked Telegram links."""
 import inspect
 import re
 from urllib.parse import parse_qsl
@@ -21,6 +21,9 @@ def _register(callback, before, *, scheme=None, host=None, path=None, required_p
               action=None, whitelist_flags=0, blacklist_flags=0, type=None, categories=(), priority=0):
     context = _context()
     parameters = inspect.signature(callback).parameters
+    all_arguments = any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values())
+    whitelist_flags = _flag_mask(whitelist_flags)
+    blacklist_flags = _flag_mask(blacklist_flags)
     pattern = None
     if path is not None:
         parts = re.split(r"(\{[A-Za-z_]\w*\})", "/" + path.lstrip("/"))
@@ -45,6 +48,16 @@ def _register(callback, before, *, scheme=None, host=None, path=None, required_p
         if pattern and match is None:
             return
         arguments = {**query, **(match.groupdict() if match else {}), **values, "query_args": query}
-        _invoke(context, account, lambda: callback(**{name: arguments[name] for name in parameters if name in arguments}))
+        selected = arguments if all_arguments else {name: arguments[name] for name in parameters if name in arguments}
+        return _invoke(context, account, lambda: callback(**selected)) is True
 
     return Handle(context._bridge.intentHandler(before, priority, receive))
+
+
+def _flag_mask(flags):
+    if isinstance(flags, int):
+        return flags
+    mask = 0
+    for flag in flags:
+        mask |= flag
+    return mask

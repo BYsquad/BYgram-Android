@@ -54,6 +54,8 @@ def load(root, plugin_id, entrypoint, bridge):
         def load_package(name, path):
             if name in sys.modules: return sys.modules[name]
             initializer = os.path.join(path, "__init__.py")
+            if not os.path.isfile(initializer) and _elyx.has_environment(namespace):
+                initializer += "c"
             if os.path.isfile(initializer):
                 spec = _elyx.source_spec(name, initializer, locations=[path])
                 module = importlib.util.module_from_spec(spec)
@@ -77,14 +79,19 @@ def load(root, plugin_id, entrypoint, bridge):
             package += "." + _module_part(part)
             module = load_package(package, directory)
         filename = relative.split("/")[-1]
-        name = package if filename == "__init__.py" else package + "." + _module_part(filename[:-3])
+        name = package if filename in {"__init__.py", "__init__.pyc"} else package + "." + _module_part(filename.rsplit(".", 1)[0])
         module = sys.modules.get(name)
         if module is None:
             spec = _elyx.source_spec(name, os.path.join(root, relative))
             module = importlib.util.module_from_spec(spec)
             _register(name, module)
             spec.loader.exec_module(module)
-        cls = getattr(module, class_name)
+        if filename.endswith(".pyc") and class_name == "_ElyxEntry":
+            from base_plugin import BasePlugin
+            cls = next((value for value in vars(module).values() if isinstance(value, type)
+                        and issubclass(value, BasePlugin) and value.__module__ == module.__name__), None)
+        else:
+            cls = getattr(module, class_name)
         if not isinstance(cls, type) or not issubclass(cls, Plugin):
             raise TypeError("InvalidPluginClass")
         plugin = cls()

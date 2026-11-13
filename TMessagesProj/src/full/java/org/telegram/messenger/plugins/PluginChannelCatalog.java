@@ -20,7 +20,8 @@ import java.util.concurrent.TimeoutException;
 final class PluginChannelCatalog {
     private PluginChannelCatalog() {}
 
-    static JsonArray list(String channel, int account, PluginCatalog.Request request) throws Exception {
+    static JsonArray list(String channel, int account, PluginCatalog.Request request, PluginRuntime runtime,
+                          int host, int base) throws Exception {
         String identity = PluginContext.currentIdentity(account);
         TLRPC.Chat chat = resolve(channel, account, request);
         TLRPC.TL_inputPeerChannel peer = new TLRPC.TL_inputPeerChannel();
@@ -31,28 +32,78 @@ final class PluginChannelCatalog {
         search.q = "";
         search.filter = new TLRPC.TL_inputMessagesFilterDocument();
         search.limit = 100;
-        TLRPC.messages_Messages messages = rpc(account, search, TLRPC.messages_Messages.class, request);
-        checkIdentity(account, identity);
-        JsonArray entries = new JsonArray();
-        for (TLRPC.Message message : messages.messages) {
-            TLRPC.Document document = document(message);
-            if (document == null) continue;
-            String name = FileLoader.getDocumentFileName(document);
-            String format = format(name);
-            if (format == null || document.size <= 0 || document.size > limit(format)) continue;
-            JsonObject entry = new JsonObject(), manifest = new JsonObject();
-            manifest.addProperty("name", name);
-            manifest.addProperty("version", "");
-            entry.add("manifest", manifest);
-            entry.addProperty("channel", chat.id);
-            entry.addProperty("message", message.id);
-            entry.addProperty("document", document.id);
-            entry.addProperty("size", document.size);
-            entry.addProperty("format", format);
-            entry.addProperty("identity", identity);
-            entries.add(entry);
+        java.util.ArrayList<JsonObject> entries = new java.util.ArrayList<>();
+        java.util.Map<Integer, TLRPC.Message> attachments = new java.util.HashMap<>();
+        java.util.HashSet<Integer> seen = new java.util.HashSet<>();
+        for (int page = 0; page < 20; page++) {
+            TLRPC.messages_Messages messages = rpc(account, search, TLRPC.messages_Messages.class, request);
+            checkIdentity(account, identity);
+            int offset = search.offset_id;
+            for (TLRPC.Message message : messages.messages) {
+                if (message.id <= 0) continue;
+                if (offset == 0 || message.id < offset) offset = message.id;
+                if (!seen.add(message.id)) continue;
+                JsonObject entry = entry(chat.id, identity, message);
+                if (entry != null) {
+                    entries.add(entry);
+                    attachments.put(message.id, message);
+                }
+            }
+            if (messages.messages.size() < search.limit || offset == search.offset_id) break;
+            search.offset_id = offset;
         }
-        return entries;
+        entries.sort(java.util.Comparator.comparingInt((JsonObject item) -> item.get("published").getAsInt())
+                .thenComparingInt(item -> item.get("message").getAsInt()).reversed());
+        JsonArray result = new JsonArray();
+        java.util.Set<String> pluginIds = new java.util.HashSet<>();
+        // shortcut: bound automatic metadata reads, use an incremental cache for very large channels.
+        long budget = 32L * 1024 * 1024;
+        long deadline = android.os.SystemClock.elapsedRealtime() + 12000;
+        for (JsonObject item : entries) {
+            request.check();
+            TLRPC.Message message = attachments.get(item.get("message").getAsInt());
+            TLRPC.Document document = document(message);
+            File cached = FileLoader.getInstance(account).getPathToAttach(document, true);
+            if (cached.isFile() && cached.length() == document.size
+                    || budget >= document.size && android.os.SystemClock.elapsedRealtime() < deadline) {
+                try {
+                    if (!cached.isFile() || cached.length() != document.size) {
+                        budget -= document.size;
+                        cached = downloadFile(account, message, document, request, deadline);
+                    }
+                    checkIdentity(account, identity);
+                    PluginPackage.check(cached.length() == document.size, "CatalogPackageMismatch");
+                    JsonObject manifest = runtime.catalogMetadata(cached, item.get("format").getAsString(), host, base);
+                    if (!pluginIds.add(manifest.get("id").getAsString())) continue;
+                    item.add("manifest", manifest);
+                } catch (Exception ignored) {
+                    request.check();
+                    checkIdentity(account, identity);
+                }
+            }
+            result.add(item);
+        }
+        return result;
+    }
+
+    private static JsonObject entry(long channel, String identity, TLRPC.Message message) {
+        TLRPC.Document document = document(message);
+        if (document == null) return null;
+        String name = FileLoader.getDocumentFileName(document);
+        String format = format(name);
+        if (format == null || document.size <= 0 || document.size > limit(format)) return null;
+        JsonObject entry = new JsonObject(), manifest = new JsonObject();
+        manifest.addProperty("name", name);
+        manifest.addProperty("version", "");
+        entry.add("manifest", manifest);
+        entry.addProperty("channel", channel);
+        entry.addProperty("message", message.id);
+        entry.addProperty("document", document.id);
+        entry.addProperty("size", document.size);
+        entry.addProperty("format", format);
+        entry.addProperty("identity", identity);
+        entry.addProperty("published", Math.max(message.date, message.edit_date));
+        return entry;
     }
 
     static byte[] download(String channel, int account, JsonObject entry, PluginCatalog.Request request) throws Exception {
@@ -75,7 +126,7 @@ final class PluginChannelCatalog {
         String format = entry.get("format").getAsString();
         PluginPackage.check(document != null && document.id == entry.get("document").getAsLong()
                 && document.size == entry.get("size").getAsLong() && format.equals(format(FileLoader.getDocumentFileName(document))), "CatalogPackageMismatch");
-        File file = downloadFile(account, message, document, request);
+        File file = downloadFile(account, message, document, request, android.os.SystemClock.elapsedRealtime() + 30000);
         checkIdentity(account, identity);
         byte[] bytes = PluginPackage.read(file, limit(format));
         PluginPackage.check(bytes.length == document.size, "CatalogPackageMismatch");
@@ -129,7 +180,8 @@ final class PluginChannelCatalog {
         finally { if (!result.isDone()) manager.cancelRequest(token, true); }
     }
 
-    private static File downloadFile(int account, TLRPC.Message message, TLRPC.Document document, PluginCatalog.Request request) throws Exception {
+    private static File downloadFile(int account, TLRPC.Message message, TLRPC.Document document,
+                                     PluginCatalog.Request request, long deadline) throws Exception {
         FileLoader loader = FileLoader.getInstance(account);
         File cached = loader.getPathToAttach(document, true);
         if (cached.isFile() && cached.length() == document.size) return cached;
@@ -149,7 +201,7 @@ final class PluginChannelCatalog {
             if (cached.isFile() && cached.length() == document.size) result.complete(cached);
             else loader.loadFile(document, new MessageObject(account, message, false, false), FileLoader.PRIORITY_NORMAL, 1);
         });
-        try { return await(result, request); }
+        try { return await(result, request, deadline); }
         finally { AndroidUtilities.runOnUIThread(() -> {
             notifications.removeObserver(observer, NotificationCenter.fileLoaded);
             notifications.removeObserver(observer, NotificationCenter.fileLoadFailed);
@@ -157,7 +209,10 @@ final class PluginChannelCatalog {
     }
 
     private static <T> T await(CompletableFuture<T> result, PluginCatalog.Request request) throws Exception {
-        for (int attempt = 0; attempt < 60; attempt++) {
+        return await(result, request, android.os.SystemClock.elapsedRealtime() + 30000);
+    }
+    private static <T> T await(CompletableFuture<T> result, PluginCatalog.Request request, long deadline) throws Exception {
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
             request.check();
             try { return result.get(500, TimeUnit.MILLISECONDS); }
             catch (TimeoutException ignored) { }

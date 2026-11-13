@@ -113,6 +113,10 @@ public final class PluginContext {
         check();
         return settings("").toString();
     }
+    public void reloadSettings() {
+        check();
+        PluginHost.reloadSettings(this);
+    }
     public synchronized void settingsImport(String json) throws IOException {
         check();
         PluginPackage.check(json.length() <= 64 * 1024, "SettingsLimitExceeded");
@@ -266,19 +270,31 @@ public final class PluginContext {
         bulletin(text, "info");
     }
     public void bulletin(String text, String type) {
+        pluginBulletin(text, type, null, 0, null, 0, null, null);
+    }
+    public void pluginBulletin(String text, String type, org.telegram.ui.ActionBar.BaseFragment fragment,
+                               int icon, String detail, int duration, PyObject action, PyObject commit) {
         capability("ui");
-        if (text.length() > 1000 || !Arrays.asList("info", "error", "success").contains(type))
+        if (text.length() > 1000 || detail != null && detail.length() > 1000 || duration < 0 || duration > 60000
+                || !Arrays.asList("info", "error", "success", "simple", "two_line", "button", "undo",
+                        "copied", "link_copied", "gallery", "downloads").contains(type))
             throw new IllegalArgumentException("InvalidBulletin");
-        PluginHost.bulletin(this, text, type);
+        PluginHost.bulletin(this, text, type, fragment, icon, detail, duration, action, commit);
     }
     public org.telegram.ui.ActionBar.BaseFragment currentFragment() {
         capability("ui");
         return PluginHost.currentFragment();
     }
     public PluginHost.PluginAlert alert(String json, android.view.View view, PyObject callback) throws Exception {
+        return pluginAlert(json, view, callback, null, null, null, true);
+    }
+    public PluginHost.PluginAlert pluginAlert(String json, android.view.View view, PyObject callback,
+            android.content.Context androidContext, org.telegram.ui.ActionBar.Theme.ResourcesProvider resources,
+            android.graphics.drawable.Drawable topDrawable, boolean show) throws Exception {
         capability("ui");
         if (json.length() > 64 * 1024) throw new IllegalArgumentException("PageLimitExceeded");
-        return PluginHost.alert(this, JsonParser.parseString(json).getAsJsonObject(), view, callback);
+        return PluginHost.alert(this, JsonParser.parseString(json).getAsJsonObject(), view, callback,
+                androidContext, resources, topDrawable, show);
     }
     public AutoCloseable menu(String location, String localId, String title, PyObject callback) throws Exception {
         capability("ui"); return scope.own(PluginHost.menu(this, location, localId, title, callback));
@@ -335,10 +351,13 @@ public final class PluginContext {
         try { validatePage(page); } finally { releasePage(page); }
     }
     void openSettings(String json) {
+        PluginHost.openPage(this, prepareSettings(json).toString());
+    }
+    JsonObject prepareSettings(String json) {
         check();
         if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 64 * 1024) throw new IllegalArgumentException("PageLimitExceeded");
         JsonObject page = JsonParser.parseString(json).getAsJsonObject();
-        try { validatePage(page); PluginHost.openPage(this, page.toString()); }
+        try { validatePage(page); return page; }
         catch (RuntimeException error) { releasePage(page); throw error; }
     }
     private synchronized void validatePage(JsonObject page) {
@@ -399,6 +418,10 @@ public final class PluginContext {
             return result == null ? null : result.toJava(Object.class);
         } catch (Exception error) { failed(error); return null; }
         finally { scope.endCallback(); }
+    }
+    public AutoCloseable ownSettingsFactory(org.telegram.ui.Components.UItem.UItemFactory<?> factory) throws Exception {
+        capability("ui");
+        return scope.own(() -> AndroidUtilities.runOnUIThread(factory::releaseScopedItems));
     }
     public void sendText(int slot, String identity, long peer, String text) {
         capability("messages.send"); account(slot, identity);

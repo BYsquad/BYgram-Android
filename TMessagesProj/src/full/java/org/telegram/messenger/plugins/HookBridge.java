@@ -71,11 +71,7 @@ public final class HookBridge {
                     && args.equals(Arrays.asList(argumentNames))) declared = true;
         }
         if (!declared) throw new IllegalArgumentException("HookTargetMissing");
-        Class<?> clazz = Class.forName(className, false, HookBridge.class.getClassLoader());
-        Class<?>[] arguments = new Class<?>[argumentNames.length];
-        for (int i = 0; i < arguments.length; i++) arguments[i] = type(argumentNames[i]);
-        Member member = methodName.equals("<init>") ? clazz.getDeclaredConstructor(arguments) : clazz.getDeclaredMethod(methodName, arguments);
-        if (Modifier.isAbstract(member.getModifiers()) || Modifier.isNative(member.getModifiers())) throw new IllegalArgumentException("UnsupportedHookTarget");
+        Member member = resolve(className, methodName, argumentNames);
         if (member instanceof Constructor && replacement != null) throw new IllegalArgumentException("UnsupportedHookTarget");
         ((AccessibleObject) member).setAccessible(true);
         synchronized (HookBridge.class) {
@@ -98,6 +94,53 @@ public final class HookBridge {
                     owner.retire();
                 }
             });
+        }
+    }
+    static void verifyTargets(PluginManifest manifest) throws ReflectiveOperationException {
+        for (com.google.gson.JsonElement target : manifest.metadata().getAsJsonArray("hook_targets")) {
+            com.google.gson.JsonObject entry = target.getAsJsonObject();
+            com.google.gson.JsonArray args = entry.getAsJsonArray("args");
+            String[] names = new String[args.size()];
+            for (int i = 0; i < names.length; i++) names[i] = args.get(i).getAsString();
+            String name = entry.has("constructor") ? "<init>" : entry.get("method").getAsString();
+            resolve(entry.get("class").getAsString(), name, names);
+        }
+    }
+    public static String describeTargets(String className, String methodName) throws ClassNotFoundException {
+        Class<?> clazz = Class.forName(className, false, HookBridge.class.getClassLoader());
+        com.google.gson.JsonArray targets = new com.google.gson.JsonArray();
+        Member[] members = "<init>".equals(methodName) ? clazz.getDeclaredConstructors() : clazz.getDeclaredMethods();
+        Arrays.sort(members, Comparator.comparing(Object::toString));
+        for (Member member : members) {
+            if (!(member instanceof Constructor) && !member.getName().equals(methodName)) continue;
+            if (member.isSynthetic() || Modifier.isNative(member.getModifiers()) || Modifier.isAbstract(member.getModifiers())) continue;
+            com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+            target.addProperty("class", className);
+            if (member instanceof Constructor) target.addProperty("constructor", true);
+            else target.addProperty("method", methodName);
+            com.google.gson.JsonArray args = new com.google.gson.JsonArray();
+            Class<?>[] parameters = member instanceof Constructor
+                    ? ((Constructor<?>) member).getParameterTypes() : ((Method) member).getParameterTypes();
+            for (Class<?> argument : parameters) args.add(typeName(argument));
+            target.add("args", args);
+            targets.add(target);
+        }
+        return targets.toString();
+    }
+    private static String typeName(Class<?> type) {
+        return type.isArray() ? typeName(type.getComponentType()) + "[]" : type.getName();
+    }
+    private static Member resolve(String className, String methodName, String[] argumentNames) throws ReflectiveOperationException {
+        try {
+            Class<?> clazz = Class.forName(className, false, HookBridge.class.getClassLoader());
+            Class<?>[] arguments = new Class<?>[argumentNames.length];
+            for (int i = 0; i < arguments.length; i++) arguments[i] = type(argumentNames[i]);
+            Member member = methodName.equals("<init>") ? clazz.getDeclaredConstructor(arguments) : clazz.getDeclaredMethod(methodName, arguments);
+            if (Modifier.isAbstract(member.getModifiers()) || Modifier.isNative(member.getModifiers()))
+                throw new IllegalArgumentException("UnsupportedHookTarget: " + member);
+            return member;
+        } catch (ClassNotFoundException | NoSuchMethodException | LinkageError missing) {
+            throw new NoSuchMethodException("HookTargetUnavailable: " + className + "." + methodName + Arrays.toString(argumentNames));
         }
     }
     static synchronized int dispatcherCount() { return dispatchers.size(); }

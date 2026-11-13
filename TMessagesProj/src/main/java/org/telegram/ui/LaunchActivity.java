@@ -1583,7 +1583,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 return false;
             }
         }
-        org.telegram.messenger.PluginEntry.dispatchIntent(intent, intentAccount[0], true);
+        if (org.telegram.messenger.PluginEntry.dispatchIntent(intent, intentAccount[0], true)) {
+            return true;
+        }
         try {
             return handleUnlockedIntent(intent, isNew, restore, progress, rebuildFragments, openedTelegram,
                     flags, action, intentAccount, isVoipIntent, isVoipAnswerIntent);

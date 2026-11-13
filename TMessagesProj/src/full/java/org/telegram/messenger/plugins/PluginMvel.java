@@ -25,6 +25,11 @@ public final class PluginMvel {
         return Boolean.TRUE.equals(MVEL.executeExpression(expression, variables, Boolean.class));
     }
 
+    public static Object execute(Serializable expression, Map<String, Object> variables, Class<?> type, Object instance) {
+        Object result = MVEL.executeExpression(expression, instance, variables);
+        return type == null ? result : DataConversion.convert(result, type);
+    }
+
     public static final class Body {
         final Serializable expression;
         final String[] names;

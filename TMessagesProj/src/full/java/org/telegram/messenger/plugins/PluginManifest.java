@@ -84,7 +84,7 @@ public final class PluginManifest {
         int colon = entry.indexOf(':');
         require(colon > 0 && colon == entry.lastIndexOf(':'), "InvalidManifest", "entrypoint");
         path(entry.substring(0, colon), "entrypoint");
-        require(entry.substring(0, colon).endsWith(".py") &&
+        require((entry.substring(0, colon).endsWith(".py") || entry.endsWith(".pyc:_ElyxEntry")) &&
                 entry.substring(colon + 1).matches("[a-zA-Z_][a-zA-Z0-9_]*") &&
                 !PYTHON_KEYWORDS.contains(entry.substring(colon + 1)), "InvalidManifest", "entrypoint");
         range(object(root, "sdk"), "min", "max", sdk, "IncompatibleSdk");
@@ -121,7 +121,8 @@ public final class PluginManifest {
         }
         if (root.has("hook_targets")) {
             JsonArray targets = array(root, "hook_targets");
-            require(capabilities.contains("hooks.raw") && targets.size() > 0, "InvalidManifest", "hook_targets");
+            require(capabilities.contains("hooks.raw") && targets.size() > 0 && targets.size() <= 256, "InvalidManifest", "hook_targets");
+            Set<String> seenTargets = new HashSet<>();
             for (JsonElement target : targets) {
                 require(target.isJsonObject(), "InvalidManifest", "hook_targets");
                 JsonObject t = target.getAsJsonObject();
@@ -131,13 +132,18 @@ public final class PluginManifest {
                 if (t.has("method")) require(string(t, "method", 256, true).matches("[A-Za-z_$][A-Za-z0-9_$]*"), "InvalidManifest", "method");
                 else require(t.get("constructor").isJsonPrimitive() && t.getAsJsonPrimitive("constructor").isBoolean()
                         && t.get("constructor").getAsBoolean(), "InvalidManifest", "constructor");
-                for (JsonElement arg : array(t, "args")) {
+                JsonArray args = array(t, "args");
+                require(args.size() <= 64, "InvalidManifest", "args");
+                for (JsonElement arg : args) {
                     require(arg.isJsonPrimitive() && arg.getAsJsonPrimitive().isString()
                             && arg.getAsString().length() <= 512
                             && arg.getAsString().matches("(" + JAVA_CLASS + "|boolean|byte|char|short|int|long|float|double)(\\[\\])*"),
                             "InvalidManifest", "args");
                     require(!arg.getAsString().replace("[]", "").equals("void"), "InvalidManifest", "args");
                 }
+                require(seenTargets.add(t.get("class").getAsString() + "#"
+                                + (t.has("method") ? t.get("method").getAsString() : "<init>") + args),
+                        "InvalidManifest", "hook_targets");
             }
         }
         return new PluginManifest(root);

@@ -26,6 +26,24 @@ def joverload(name, arg_types):
     return joverride(name, arg_types)
 
 
+def jpreconstructor(arg_types):
+    def decorate(callback):
+        callback = callback if isinstance(callback, (classmethod, staticmethod)) else classmethod(callback)
+        return _constructor_hook("_java_preconstructor", arg_types)(callback)
+    return decorate
+
+
+def jconstructor(arg_types):
+    return _constructor_hook("_java_constructor", arg_types)
+
+
+def _constructor_hook(attribute, arg_types):
+    def decorate(callback):
+        setattr(getattr(callback, "__func__", callback), attribute, tuple(arg_types))
+        return callback
+    return decorate
+
+
 def jclassbuilder():
     def decorate(callback):
         getattr(callback, "__func__", callback)._java_classbuilder = True
@@ -119,7 +137,7 @@ def _arguments(array, values, types):
 
 class Base:
     @classmethod
-    def new_instance(cls, *args, arg_types=()):
+    def new_instance(cls, *args, arg_types=(), init_args=None):
         from java import jarray, jclass, jint
         bridge = jclass("org.telegram.messenger.plugins.PluginClassProxy")
         classes = jarray(jclass("java.lang.Class"))
@@ -138,6 +156,19 @@ class Base:
         constructor = classes([java_type(value) for value in arg_types])
         owner = _owner()
         members = {name: value for parent in reversed(cls.__mro__) for name, value in vars(parent).items()}
+        def constructor_hook(attribute):
+            for name, value in members.items():
+                types = getattr(getattr(value, "__func__", value), attribute, None)
+                if types is not None and [java_type(kind) for kind in types] == list(constructor):
+                    return name
+            return None
+
+        parent_args = args
+        pre = constructor_hook("_java_preconstructor")
+        if pre is not None:
+            result = getattr(cls, pre)(*args)
+            if result is not None:
+                parent_args = result if isinstance(result, (list, tuple)) else (result,)
         fields = {name: value for name, value in members.items() if isinstance(value, jfield)}
         scripts = {name: value for name, value in members.items() if isinstance(value, _Mvel)}
         builders = [name for name, value in members.items()
@@ -196,7 +227,7 @@ class Base:
                 name, types = spec
                 method = bridge.method(base, interfaces, name, None if types is None else classes([java_type(value) for value in types]))
                 overrides[str(method.toGenericString())] = method, attr
-        instance = cls()
+        instance = cls.__new__(cls)
 
         def dispatch(proxy, method, values):
             key = str(method.toGenericString())
@@ -214,12 +245,39 @@ class Base:
             script = scripts.get(attr)
             compiled.append(None if script is None else body(script.code, strings(script.names)))
         instance.java = bridge.create(base, interfaces, methods([method for method, _ in overrides.values()]),
-                                      constructor, _arguments(objects, args, constructor), owner, dispatch,
+                                      constructor, _arguments(objects, parent_args, constructor), owner, dispatch,
                                       instance, jarray(body)(compiled))
         for name, field in fields.items():
             if field.default is not _unset:
                 setattr(instance, name, field.default)
+        if cls.__init__ is not object.__init__:
+            initializer = instance.__init__
+            values = args if init_args is None else init_args
+            if init_args is None and values and not signature(initializer).parameters:
+                values = ()
+            initializer(*values)
+        post = constructor_hook("_java_constructor")
+        if post is not None:
+            getattr(instance, post)(*args)
+        if getattr(cls, "on_post_init", None) is not None:
+            instance.on_post_init(*args)
         return instance
+
+    @classmethod
+    def new_java_instance(cls, *args, **options):
+        return cls.new_instance(*args, **options).java
+
+    @classmethod
+    def from_java(cls, instance):
+        from java import jclass
+        peer = jclass("org.telegram.messenger.plugins.PluginClassProxy").peer(instance)
+        if not isinstance(peer, cls):
+            raise ValueError("Object is not an active proxy of this class")
+        return peer
+
+    @property
+    def this(self):
+        return self.java
 
     def call_super(self, *args):
         current = _invocation.get()

@@ -311,7 +311,7 @@ public final class PluginManager {
             try {
                 String channel = PluginCatalog.channelName(repository);
                 if (channel != null) {
-                    JsonArray entries = PluginChannelCatalog.list(channel, account, request);
+                    JsonArray entries = PluginChannelCatalog.list(channel, account, request, runtime, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
                     AndroidUtilities.runOnUIThread(() -> callback.done(entries, null));
                     return;
                 }
@@ -400,6 +400,35 @@ public final class PluginManager {
     Future<JsonObject> deployDeveloper(byte[] bytes) {
         return queue.submit(() -> deployDeveloperInternal(bytes));
     }
+    Future<JsonObject> deployDeveloperSource(String id, byte[] bytes, boolean archive) {
+        return queue.submit(() -> {
+            requireDeveloperMode();
+            PluginPackage.check(id != null && id.matches("[A-Za-z0-9_-]{2,32}"), "InvalidPluginId");
+            return deployDeveloperInternal(runtime.convertExtera(bytes, archive, id, null, true));
+        });
+    }
+    Future<JsonObject> elyxDeveloper(String command, JsonObject payload) {
+        return queue.submit(() -> {
+            requireDeveloperMode();
+            init();
+            String id = resolveDeveloperId(payload.get("plugin_id").getAsString());
+            JsonObject record = developerRecord(id);
+            File root = store.packageDir(record);
+            PluginPackage.check(new File(root, "_bygram_elyx.json").isFile(), "InvalidElyxProject");
+            if ("elyx_compare_folder".equals(command)) {
+                JsonObject result = runtime.compareElyx(root, payload);
+                result.add("base_hash", record.get("hash"));
+                return result;
+            }
+            if (payload.has("base_hash"))
+                PluginPackage.check(payload.get("base_hash").equals(record.get("hash")), "DeveloperBaseChanged");
+            byte[] archive = runtime.patchElyx(root, payload);
+            JsonObject result = deployDeveloperInternal(runtime.convertExtera(archive, true, null, null, true), id);
+            result.addProperty("success", true);
+            result.add("errors", new JsonArray());
+            return result;
+        });
+    }
     Future<JsonObject> patchDeveloper(String id, String baseHash, JsonObject changes, JsonArray removed) {
         return queue.submit(() -> {
             requireDeveloperMode();
@@ -471,11 +500,12 @@ public final class PluginManager {
             requireDeveloperMode();
             init();
             JsonObject result = new JsonObject();
-            if (command.equals("get_plugins")) {
+            if (command.equals("get_plugins") || command.equals("get_elyx_plugins")) {
                 JsonArray entries = new JsonArray();
                 for (Map.Entry<String, JsonElement> entry : store.plugins().entrySet()) {
                     JsonObject value = entry.getValue().getAsJsonObject();
                     if (!PluginStore.isDeveloper(value)) continue;
+                    if (command.equals("get_elyx_plugins") && !new File(store.packageDir(value), "_bygram_elyx.json").isFile()) continue;
                     JsonObject status = new JsonObject();
                     status.addProperty("plugin_id", entry.getKey());
                     status.add("manifest", value.get("manifest").deepCopy());
@@ -485,19 +515,24 @@ public final class PluginManager {
                 result.add("plugins", entries);
                 return result;
             }
-            JsonObject installed = developerRecord(id);
+            String resolved = resolveDeveloperId(id);
+            JsonObject installed = developerRecord(resolved);
             try {
                 switch (command) {
-                    case "enable_plugin": activateDeveloper(id, installed); break;
-                    case "disable_plugin": stopForMutation(id); break;
-                    case "reload_plugin": stopForMutation(id); activateDeveloper(id, installed); break;
-                    case "remove_plugin": stopForMutation(id); store.remove(id, false); break;
+                    case "enable_plugin": activateDeveloper(resolved, installed); break;
+                    case "disable_plugin": stopForMutation(resolved); break;
+                    case "reload_plugin": stopForMutation(resolved); activateDeveloper(resolved, installed); break;
+                    case "remove_plugin": stopForMutation(resolved); store.remove(resolved, false); break;
                     default: throw new IOException("UnknownDeveloperCommand");
                 }
-                result.addProperty("plugin_id", id);
+                result.addProperty("plugin_id", resolved);
                 return result;
             } finally { publish(); }
         });
+    }
+    private String resolveDeveloperId(String id) {
+        if (id == null || !id.matches("[A-Za-z0-9_-]{2,32}")) return id;
+        return runtime.exteraId(id);
     }
     private JsonObject developerRecord(String id) throws IOException {
         JsonObject record = record(id);
@@ -517,12 +552,23 @@ public final class PluginManager {
     private static void requireDeveloperMode() throws IOException {
         PluginPackage.check(BuildConfig.DEBUG_VERSION && BuildConfig.BYGRAM_FULL, "DeveloperModeUnavailable");
     }
+    void ideSession(String platform, int port, boolean start) throws Exception {
+        requireDeveloperMode();
+        String adapter;
+        switch (platform) {
+            case "vscode": adapter = "debugpy"; break;
+            case "pycharm": adapter = "pycharm"; break;
+            default: throw new IOException("InvalidIdeDebugRequest");
+        }
+        runtime.ideSession(adapter, port, start);
+    }
     void debugDeveloper(String id, String method, PluginDevServer.Terminal terminal, String adapter, int port) throws Exception {
         requireDeveloperMode();
         Running target = queue.submit(() -> {
             init();
-            developerRecord(id);
-            Running instance = running.get(id);
+            String resolved = resolveDeveloperId(id);
+            developerRecord(resolved);
+            Running instance = running.get(resolved);
             if (instance == null || !instance.context.interceptorsReady) throw new IOException("PluginDisabled");
             return instance;
         }).get(15, TimeUnit.SECONDS);
@@ -562,12 +608,13 @@ public final class PluginManager {
                 1, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
         JsonObject dependencies = runtime.dependencies(directory);
         for (String dependency : dependencies.keySet()) {
+            JsonObject requirement = dependencies.getAsJsonObject(dependency);
             JsonObject required = store.plugins().getAsJsonObject(dependency);
             if (required == null || !running.containsKey(dependency) && !required.get("desired").getAsBoolean())
-                throw new IOException("PluginDependencyUnavailable: " + dependency);
+                throw dependencyError("PluginDependencyUnavailable", dependency, requirement);
             String version = required.getAsJsonObject("manifest").get("version").getAsString();
-            if (PluginStore.compareVersions(version, dependencies.get(dependency).getAsString()) < 0)
-                throw new IOException("PluginDependencyOutdated: " + dependency);
+            if (PluginStore.compareVersions(version, requirement.get("version").getAsString()) < 0)
+                throw dependencyError("PluginDependencyOutdated", dependency, requirement);
             enable(dependency, stack);
             if (!running.get(dependency).scope.isActive()) throw new IOException("PluginDependencyUnavailable: " + dependency);
         }
@@ -580,6 +627,7 @@ public final class PluginManager {
         running.put(id, instance);
         try {
             if (manifest.metadata().has("requires_hook_backend") && manifest.metadata().get("requires_hook_backend").getAsBoolean()) {
+                if (manifest.metadata().has("hook_targets")) HookBridge.verifyTargets(manifest);
                 activation(id, "backend"); PluginBackendProbe.ensure(ApplicationLoader.applicationContext);
                 PluginTasks.call(instance.scope, () -> { HookBridge.verify(); return null; });
             }
@@ -602,6 +650,15 @@ public final class PluginManager {
             if ("PluginRestartRequired".equals(e.getMessage())) restartRequired.add(id);
             stop(id); marker("activation", false); throw e;
         }
+    }
+    private static IOException dependencyError(String code, String id, JsonObject requirement) {
+        String url = requirement.get("url").getAsString();
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            if (url.length() <= 1024 && "https".equals(uri.getScheme()) && uri.getHost() != null && uri.getUserInfo() == null)
+                return new IOException(code + ": " + id + "\n" + uri.toASCIIString());
+        } catch (java.net.URISyntaxException ignored) { }
+        return new IOException(code + ": " + id);
     }
     private void stop(String id) {
         for (Map.Entry<String, Running> entry : new ArrayList<>(running.entrySet())) {
@@ -705,6 +762,19 @@ public final class PluginManager {
             String page = PluginTasks.call(instance.scope, () -> instance.plugin.callAttr("_settings_link_json", path).toString());
             instance.context.openSettings(page);
         }, callback);
+    }
+    public void reloadSettings(PluginContext owner, String path, Result<JsonObject> callback) {
+        queue.execute(() -> {
+            try {
+                Running instance = running.get(owner.id());
+                if (instance == null || instance.context != owner || !owner.active()) return;
+                JsonObject page = PluginTasks.call(instance.scope, () -> owner.prepareSettings(
+                        instance.plugin.callAttr("_reload_settings_json", path).toString()));
+                AndroidUtilities.runOnUIThread(() -> callback.done(page, null));
+            } catch (Exception failure) {
+                owner.failed(failure);
+            }
+        });
     }
     public void pin(String id, Result<Void> callback) {
         submit(() -> {
@@ -876,6 +946,8 @@ public final class PluginManager {
     private static String error(Exception e) {
         if (e instanceof PluginManifest.ValidationException) return e.getMessage();
         String message = e.getMessage();
+        if (message != null && message.matches("(?s)(?:PluginDependency(?:Unavailable|Outdated|Cycle)|HookTargetUnavailable|UnsupportedHookTarget): .*"))
+            return message;
         if (message != null) for (String code : new String[]{"ContributionConflict", "HookConflict", "HookBackendUnavailable",
                 "CapabilityDenied", "AccountRequired", "AccountUnavailable", "InvalidSetting", "SettingsMigrationFailed", "HookProbeFailed", "HookLimitExceeded"})
             if (message.contains(code)) return code;

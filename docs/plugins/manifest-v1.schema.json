@@ -11,7 +11,7 @@
     "description": {"allOf": [{"$ref": "#/$defs/text"}, {"maxLength": 1000}]},
     "author": {"allOf": [{"$ref": "#/$defs/text"}, {"maxLength": 120}]},
     "version": {"type": "string", "maxLength": 80, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
-    "entrypoint": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.py:[A-Za-z_][A-Za-z0-9_]*$"}]},
+    "entrypoint": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.(?:py:[A-Za-z_][A-Za-z0-9_]*|pyc:_ElyxEntry)$"}]},
     "sdk": {"type": "object", "additionalProperties": false, "required": ["min", "max"], "properties": {"min": {"$ref": "#/$defs/positiveInt"}, "max": {"$ref": "#/$defs/positiveInt"}}},
     "python": {"const": "3.11"},
     "capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["ui", "theme", "messages.observe", "messages.send", "messages.media", "network", "hooks.raw", "hooks.telegram", "telegram.requests"]}},
@@ -22,14 +22,14 @@
     "telegram": {"$ref": "#/$defs/buildRange"},
     "requires_hook_backend": {"type": "boolean", "default": false},
     "hook_targets": {
-      "type": "array", "minItems": 1,
+      "type": "array", "minItems": 1, "maxItems": 256, "uniqueItems": true,
       "items": {
         "type": "object", "additionalProperties": false, "required": ["class", "args"],
         "properties": {
           "class": {"type": "string", "maxLength": 512, "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$"},
           "method": {"type": "string", "maxLength": 256, "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"},
           "constructor": {"const": true},
-          "args": {"type": "array", "items": {"type": "string", "maxLength": 512, "pattern": "^(?!void(?:\\[\\])*$)([A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*|boolean|byte|char|short|int|long|float|double)(\\[\\])*$"}}
+          "args": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 512, "pattern": "^(?!void(?:\\[\\])*$)([A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*|boolean|byte|char|short|int|long|float|double)(\\[\\])*$"}}
         },
         "oneOf": [{"required": ["method"], "not": {"required": ["constructor"]}}, {"required": ["constructor"], "not": {"required": ["method"]}}]
       }

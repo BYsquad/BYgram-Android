@@ -86,7 +86,7 @@ def resolve(requirements, destination, *, fetch=None):
     projects, versions = {}, {}
     attempts = 0
     bundled = {}
-    for name in ("packaging", "pyyaml", "certifi"):
+    for name in ("packaging", "pyyaml", "certifi", "beautifulsoup4", "requests", "lxml", "pillow"):
         try:
             bundled[name] = Version(installed_metadata.version(name))
         except installed_metadata.PackageNotFoundError:

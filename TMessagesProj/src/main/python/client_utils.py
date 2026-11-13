@@ -1,6 +1,6 @@
 """Account-scoped client helpers for plugins ported from exteraGram."""
 from contextvars import ContextVar
-from bygram import Client as AccountClient
+from bygram import Client
 
 _current = ContextVar("bygram_compat_client", default=(None, None))
 
@@ -38,7 +38,7 @@ def get_client(account=None):
     callback_account = get_hook_account()
     if account is None:
         account = callback_account if callback_account is not None else get_selected_account()
-    return _context().client(account)
+    return AccountClient(_context()._bridge, account)
 
 
 def send_request(request, fn, account=None):
@@ -71,9 +71,9 @@ def _reply(value, peer, client):
     raise ValueError("Reply message is not loaded in the active chat")
 
 
-def send_message(params, parse_mode=None, account=None):
+def send_message(params, parse_mode=None, account=None, *, _client=None):
     from java import jclass
-    client = get_client(account)
+    client = get_client(account) if _client is None else _client
     bridge = client._bridge
     params = {"notify": True, **params}
     if parse_mode is not None:
@@ -103,8 +103,8 @@ def send_text(peer, text, account=None, *, parse_mode=None, **options):
 
 
 def _send_media(kind, peer, path, caption, account, *, parse_mode=None, entities=None, replyToMsg=None,
-                notify=True, scheduleDate=0, ttl=0, hasMediaSpoilers=False, high_quality=False, edit=None):
-    client = get_client(account)
+                notify=True, scheduleDate=0, ttl=0, hasMediaSpoilers=False, high_quality=False, edit=None, _client=None):
+    client = get_client(account) if _client is None else _client
     if parse_mode is not None:
         from extera_utils.text_formatting import parse_text
         formatted = parse_text(caption, parse_mode, True)
@@ -130,7 +130,9 @@ def send_audio(peer, path, caption="", account=None, **options):
     return _send_media("audio", peer, path, caption, account, **options)
 
 
-def edit_message(message, text=None, account=None, *, parse_mode=None, file_path=None, spoiler=False):
+def edit_message(message, text=None, account=None, *, parse_mode=None, file_path=None, spoiler=False, with_spoiler=None):
+    if with_spoiler is not None:
+        spoiler = with_spoiler
     if account is None:
         account = int(message.currentAccount)
     client = get_client(account)
@@ -174,8 +176,7 @@ def run_on_queue(func, queue_name=PLUGINS_QUEUE, delay=0):
 
 
 def get_account_instance(account=None):
-    from java import jclass
-    return jclass("org.telegram.messenger.AccountInstance").getInstance(get_client(account).account)
+    return get_client(account).get_account_instance()
 
 
 def get_media_controller():
@@ -184,8 +185,9 @@ def get_media_controller():
 
 
 def _controller(name):
-    def get(account=None):
-        return getattr(get_account_instance(account), name)()
+    def get(account=None, *, client=None):
+        client = get_client(account) if client is None else client
+        return getattr(client.get_account_instance(), name)()
     return get
 
 
@@ -203,6 +205,42 @@ get_download_controller = _controller("getDownloadController")
 get_notifications_settings = _controller("getNotificationsSettings")
 get_notification_center = _controller("getNotificationCenter")
 get_user_config = _controller("getUserConfig")
+
+
+class AccountClient(Client):
+    def send_text(self, peer, text, *, parse_mode=None, **options):
+        if parse_mode is None and not options:
+            return super().send_text(peer, text)
+        return self.send_message(dict(options, peer=peer, message=text), parse_mode)
+
+    def send_message(self, params, parse_mode=None):
+        return send_message(params, parse_mode, _client=self)
+
+    def send_media(self, peer, kind, path, caption="", **options):
+        return _send_media(kind, peer, path, caption, self.account, _client=self, **options)
+
+    def send_photo(self, peer, path, caption="", **options):
+        return self.send_media(peer, "photo", path, caption, **options)
+
+    def send_document(self, peer, path, caption="", **options):
+        return self.send_media(peer, "document", path, caption, **options)
+
+    def send_video(self, peer, path, caption="", **options):
+        return self.send_media(peer, "video", path, caption, **options)
+
+    def send_audio(self, peer, path, caption="", **options):
+        return self.send_media(peer, "audio", path, caption, **options)
+
+    def get_account_instance(self):
+        from java import jclass
+        self._bridge.account(self.account, self._identity)
+        return jclass("org.telegram.messenger.AccountInstance").getInstance(self.account)
+
+    def __getattr__(self, name):
+        helper = globals().get(name)
+        if name.startswith("get_") and getattr(helper, "__name__", None) == "get":
+            return lambda: helper(self.account, client=self)
+        raise AttributeError(name)
 
 
 def __getattr__(name):

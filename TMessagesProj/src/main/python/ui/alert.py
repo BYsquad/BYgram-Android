@@ -1,5 +1,6 @@
 """Telegram-style alert dialogs backed by the BYgram plugin host."""
 from client_utils import _context, _invoke, get_hook_account
+import json
 
 
 class AlertDialogBuilder:
@@ -15,10 +16,13 @@ class AlertDialogBuilder:
 
     def __init__(self, context=None, progress_style=0, resources_provider=None):
         self._context, self._account = _context(), get_hook_account()
+        self._android_context = context
+        self._resources = resources_provider
         self._spec = {"style": progress_style}
         self._buttons = {}
         self._events = {}
         self._view = None
+        self._top_drawable = None
         self._handle = None
         self._progress = 0
 
@@ -70,6 +74,33 @@ class AlertDialogBuilder:
         self._spec["dim"] = bool(enabled)
         return self
 
+    def set_blurred_background(self, blur, blur_behind_if_possible=True):
+        self._spec.update(blur=bool(blur), blurBehind=bool(blur and blur_behind_if_possible))
+        return self
+
+    def set_top_image(self, res_id, background_color):
+        self._top_drawable = None
+        self._spec.pop("topAnimation", None)
+        self._spec.update(topImage=res_id, topColor=background_color)
+        return self
+
+    def set_top_drawable(self, drawable, background_color):
+        self._top_drawable = drawable
+        self._spec.pop("topAnimation", None)
+        self._spec.pop("topImage", None)
+        self._spec["topColor"] = background_color
+        return self
+
+    def set_top_animation(self, res_id, size, auto_repeat, background_color, layer_colors=None):
+        self._top_drawable = None
+        self._spec.update(topAnimation=res_id, topSize=size, topRepeat=auto_repeat,
+                          topColor=background_color, layerColors=layer_colors or {})
+        return self
+
+    def make_button_red(self, button_type):
+        self._spec.setdefault("redButtons", []).append(button_type)
+        return self
+
     def set_dialog_button_color_key(self, theme_key):
         self._spec["buttonColorKey"] = theme_key
         return self
@@ -101,12 +132,22 @@ class AlertDialogBuilder:
         return self._set_button(self.BUTTON_NEUTRAL, "neutral", text, listener)
 
     def create(self):
+        if self._handle is None:
+            self._create(False)
         return self
 
     def show(self):
-        self.dismiss()
+        if self._handle is None:
+            self._create(True)
+        else:
+            self._handle.show()
+        return self
+
+    def _create(self, show):
 
         def click(which):
+            if which == self._DISMISS:
+                self._handle = None
             if which in self._events:
                 callback = self._events[which]
                 if callback is not None:
@@ -117,10 +158,17 @@ class AlertDialogBuilder:
             if callback is not None:
                 _invoke(self._context, self._account, callback, self, which)
 
-        self._handle = self._context.ui.alert(self._spec, click, self._view)
+        self._handle = self._context._bridge.pluginAlert(json.dumps(self._spec, ensure_ascii=False), self._view, click,
+                                                        self._android_context, self._resources, self._top_drawable, show)
         if self._progress:
             self._handle.setProgress(self._progress)
-        return self
+
+    def get_dialog(self):
+        return None if self._handle is None else self._handle.getDialog()
+
+    def get_button(self, button_type):
+        dialog = self.get_dialog()
+        return None if dialog is None else dialog.getButton(button_type)
 
     def set_progress(self, value):
         self._progress = value

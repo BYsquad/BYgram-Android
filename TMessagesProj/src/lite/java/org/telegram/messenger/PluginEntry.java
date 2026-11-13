@@ -8,7 +8,7 @@ public final class PluginEntry {
     public static boolean openSettingsLink(android.net.Uri uri) { return false; }
     public static void appEvent(String event) { }
     public static void addDrawerItems(BaseFragment fragment, org.telegram.ui.Components.ItemOptions options) { }
-    public static void dispatchIntent(android.content.Intent intent, int account, boolean before) { }
+    public static boolean dispatchIntent(android.content.Intent intent, int account, boolean before) { return false; }
     public static boolean hasInterceptor(String kind) { return false; }
     public static boolean hasMessageMenu(ChatActivity chat, MessageObject message) { return false; }
     public static void showMessageMenu(ChatActivity chat, MessageObject message) { }

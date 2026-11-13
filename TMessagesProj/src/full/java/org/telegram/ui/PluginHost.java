@@ -30,6 +30,14 @@ public final class PluginHost {
         AndroidUtilities.cancelRunOnUIThread(refreshSettings);
         AndroidUtilities.runOnUIThread(refreshSettings);
     }
+    public static void reloadSettings(PluginContext owner) {
+        AndroidUtilities.runOnUIThread(() -> {
+            BaseFragment page = current.get();
+            if (page instanceof BygramPluginsActivity.PluginPage) {
+                ((BygramPluginsActivity.PluginPage) page).reloadSettings(owner);
+            }
+        });
+    }
     private static final Runnable refreshTheme = () -> {
         Theme.applyCommonTheme(); Theme.applyDialogsTheme(); Theme.applyProfileTheme(); Theme.applyChatTheme(false, false);
         themeRevision++;
@@ -63,46 +71,90 @@ public final class PluginHost {
         intentHandlers.sort(Comparator.comparingInt(entry -> entry.priority));
         return () -> intentHandlers.remove(handler);
     }
-    public static void dispatchIntent(android.content.Intent intent, int account, boolean before) {
-        if (intentHandlers.isEmpty() || !android.content.Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return;
+    public static boolean dispatchIntent(android.content.Intent intent, int account, boolean before) {
+        if (intentHandlers.isEmpty() || !android.content.Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return false;
         String identity;
         try { identity = PluginContext.currentIdentity(account); }
-        catch (IllegalStateException | IllegalArgumentException unavailable) { return; }
+        catch (IllegalStateException | IllegalArgumentException unavailable) { return false; }
         for (IntentHandler handler : intentHandlers) {
             if (handler.before != before || !handler.owner.accountAvailable(account, identity)) continue;
             PluginContext owner = handler.owner;
             if (!owner.scope.beginCallback()) continue;
-            try { handler.callback.call(new android.content.Intent(intent), account); }
+            try {
+                PyObject result = handler.callback.call(new android.content.Intent(intent), account);
+                if (before && result != null && result.toBoolean() && owner.active()
+                        && owner.accountAvailable(account, identity)) return true;
+            }
             catch (Exception error) { owner.failed(error); }
             finally { owner.scope.endCallback(); }
         }
+        return false;
     }
     public static BaseFragment currentFragment() {
         return current.get();
     }
     public static void bulletin(PluginContext context, String text, String type) {
+        bulletin(context, text, type, null, 0, null, 0, null, null);
+    }
+    public static void bulletin(PluginContext context, String text, String type, BaseFragment target, int icon,
+                                String detail, int duration, PyObject action, PyObject commit) {
         AndroidUtilities.runOnUIThread(() -> {
-            BaseFragment fragment = current.get();
+            BaseFragment fragment = target == null ? current.get() : target;
             if (!context.active() || fragment == null || fragment.getParentActivity() == null) return;
-            BulletinFactory factory = BulletinFactory.of(fragment);
-            if ("error".equals(type)) factory.createErrorBulletin(text).show();
-            else if ("success".equals(type)) factory.createSuccessBulletin(text).show();
-            else factory.createSimpleBulletin(R.raw.info, text).show();
+            try {
+                BulletinFactory factory = BulletinFactory.of(fragment);
+                Runnable run = action == null ? null : () -> context.call(action);
+                switch (type) {
+                    case "error": factory.createErrorBulletin(text).show(); break;
+                    case "success": factory.createSuccessBulletin(text).show(); break;
+                    case "simple": factory.createSimpleBulletin(icon, text).show(); break;
+                    case "two_line": factory.createSimpleBulletin(icon, text, detail).show(); break;
+                    case "button": factory.createSimpleBulletin(icon, text, detail, duration, run).show(); break;
+                    case "undo": factory.createUndoBulletin(text, detail, run,
+                            commit == null ? null : () -> context.call(commit)).show(); break;
+                    case "copied": factory.createCopyBulletin(text.isEmpty() ? LocaleController.getString(R.string.TextCopied) : text).show(); break;
+                    case "link_copied":
+                        if (icon == 0) factory.createCopyLinkBulletin().show();
+                        else factory.createCopyLinkBulletin(true).show();
+                        break;
+                    case "gallery": factory.createDownloadBulletin(icon == 0
+                                    ? duration > 1 ? BulletinFactory.FileType.PHOTOS : BulletinFactory.FileType.PHOTO
+                                    : duration > 1 ? BulletinFactory.FileType.VIDEOS : BulletinFactory.FileType.VIDEO,
+                            duration, fragment.getResourceProvider()).show(); break;
+                    case "downloads": factory.createDownloadBulletin(BulletinFactory.FileType.valueOf(
+                                    "MUSIC".equals(detail) ? duration > 1 ? "AUDIOS" : "AUDIO"
+                                            : "UNKNOWN".equals(detail) && duration > 1 ? "UNKNOWNS" : detail),
+                            duration, fragment.getResourceProvider()).show(); break;
+                    default: factory.createSimpleBulletin(R.raw.info, text).show();
+                }
+            } catch (Exception failure) {
+                context.failed(failure);
+            }
         });
     }
     public static final class PluginAlert implements AutoCloseable {
         private final AutoCloseable registration;
         private volatile boolean closed;
-        private AlertDialog dialog;
+        private volatile AlertDialog dialog;
+        private Runnable presenter;
         private int progress;
 
         PluginAlert(PluginContext owner) throws Exception {
             registration = owner.scope.own(() -> {
                 closed = true;
-                AndroidUtilities.runOnUIThread(() -> { if (dialog != null) dialog.dismiss(); dialog = null; });
+                AndroidUtilities.runOnUIThread(() -> { if (dialog != null) dialog.dismiss(); dialog = null; presenter = null; });
             });
         }
         @Override public void close() throws Exception { registration.close(); }
+        public AlertDialog getDialog() { return closed ? null : dialog; }
+        public void show() {
+            AndroidUtilities.runOnUIThread(() -> {
+                if (closed || presenter == null) return;
+                Runnable run = presenter;
+                presenter = null;
+                run.run();
+            });
+        }
         public void setCancellation(boolean cancelable, boolean outside) {
             AndroidUtilities.runOnUIThread(() -> {
                 if (dialog == null) return;
@@ -119,7 +171,9 @@ public final class PluginHost {
             });
         }
     }
-    public static PluginAlert alert(PluginContext context, JsonObject spec, android.view.View view, PyObject callback) throws Exception {
+    public static PluginAlert alert(PluginContext context, JsonObject spec, android.view.View view, PyObject callback,
+            android.content.Context androidContext, Theme.ResourcesProvider resources,
+            android.graphics.drawable.Drawable topDrawable, boolean show) throws Exception {
         int style = spec.get("style").getAsInt();
         if (style != AlertDialog.ALERT_TYPE_MESSAGE && style != AlertDialog.ALERT_TYPE_LOADING && style != AlertDialog.ALERT_TYPE_SPINNER)
             throw new IllegalArgumentException("InvalidDialogStyle");
@@ -132,7 +186,8 @@ public final class PluginHost {
                     handle.close();
                     return;
                 }
-                AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getContext(), style, fragment.getResourceProvider());
+                AlertDialog.Builder builder = new AlertDialog.Builder(androidContext == null ? fragment.getContext() : androidContext,
+                        style, resources == null ? fragment.getResourceProvider() : resources);
                 AlertDialog.OnButtonClickListener click = callback == null ? null
                         : (dialog, which) -> context.call(callback, which);
                 if (spec.has("title")) builder.setTitle(spec.get("title").getAsString());
@@ -140,6 +195,18 @@ public final class PluginHost {
                 if (spec.has("messageClickable")) builder.setMessageTextViewClickable(spec.get("messageClickable").getAsBoolean());
                 if (spec.has("dim")) builder.setDimEnabled(spec.get("dim").getAsBoolean());
                 if (spec.has("buttonColorKey")) builder.setDialogButtonColorKey(spec.get("buttonColorKey").getAsInt());
+                if (spec.has("blur")) builder.setBlurredBackground(spec.get("blur").getAsBoolean());
+                if (spec.has("topColor")) {
+                    int color = spec.get("topColor").getAsInt();
+                    if (topDrawable != null) builder.setTopImage(topDrawable, color);
+                    else if (spec.has("topAnimation")) {
+                        Map<String, Integer> layerColors = new HashMap<>();
+                        if (spec.has("layerColors")) for (Map.Entry<String, JsonElement> entry : spec.getAsJsonObject("layerColors").entrySet())
+                            layerColors.put(entry.getKey(), entry.getValue().getAsInt());
+                        builder.setTopAnimation(spec.get("topAnimation").getAsInt(), spec.get("topSize").getAsInt(),
+                                spec.get("topRepeat").getAsBoolean(), color, layerColors);
+                    } else if (spec.has("topImage")) builder.setTopImage(spec.get("topImage").getAsInt(), color);
+                }
                 if (spec.has("positive")) builder.setPositiveButton(spec.get("positive").getAsString(), click);
                 if (spec.has("negative")) builder.setNegativeButton(spec.get("negative").getAsString(), click);
                 if (spec.has("neutral")) builder.setNeutralButton(spec.get("neutral").getAsString(), click);
@@ -149,10 +216,10 @@ public final class PluginHost {
                     for (int i = 0; i < items.length; i++) items[i] = entries.get(i).getAsString();
                     int[] icons = null;
                     if (spec.has("icons")) {
-                        JsonArray resources = spec.getAsJsonArray("icons");
-                        if (resources.size() != items.length) throw new IllegalArgumentException("InvalidDialogIcons");
+                        JsonArray itemIcons = spec.getAsJsonArray("icons");
+                        if (itemIcons.size() != items.length) throw new IllegalArgumentException("InvalidDialogIcons");
                         icons = new int[items.length];
-                        for (int i = 0; i < icons.length; i++) icons[i] = resources.get(i).getAsInt();
+                        for (int i = 0; i < icons.length; i++) icons[i] = itemIcons.get(i).getAsInt();
                     }
                     builder.setItems(items, icons, callback == null ? null : (dialog, which) -> context.call(callback, which));
                 }
@@ -163,13 +230,31 @@ public final class PluginHost {
                 }
                 AlertDialog dialog = builder.create();
                 handle.dialog = dialog;
+                if (spec.has("blurBehind")) dialog.setBlurParams(0.8f, spec.get("blurBehind").getAsBoolean(),
+                        spec.get("blur").getAsBoolean());
                 if (style == AlertDialog.ALERT_TYPE_LOADING) dialog.setProgress(handle.progress);
-                if (fragment.showDialog(dialog, dismissed -> {
-                    try { handle.close(); } catch (Exception ignored) { }
-                    if (callback != null) context.call(callback, -6);
-                }) == null) handle.close();
-                else handle.setCancellation(!spec.has("cancelable") || spec.get("cancelable").getAsBoolean(),
+                handle.presenter = () -> {
+                    try {
+                        if (!context.active() || fragment.getParentActivity() == null || fragment.showDialog(dialog, dismissed -> {
+                            try { handle.close(); } catch (Exception ignored) { }
+                            if (callback != null) context.call(callback, -6);
+                        }) == null) {
+                            handle.close();
+                            return;
+                        }
+                        if (spec.has("redButtons")) for (JsonElement button : spec.getAsJsonArray("redButtons")) {
+                            android.view.View item = dialog.getButton(button.getAsInt());
+                            if (item instanceof android.widget.TextView) ((android.widget.TextView) item).setTextColor(
+                                    Theme.getColor(Theme.key_text_RedBold, resources));
+                        }
+                    } catch (Exception error) {
+                        try { handle.close(); } catch (Exception ignored) { }
+                        context.failed(error);
+                    }
+                };
+                handle.setCancellation(!spec.has("cancelable") || spec.get("cancelable").getAsBoolean(),
                         !spec.has("outside") || spec.get("outside").getAsBoolean());
+                if (show) handle.show();
             } catch (Exception error) {
                 try { handle.close(); } catch (Exception ignored) { }
                 context.failed(error);

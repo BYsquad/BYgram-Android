@@ -8,7 +8,7 @@ import tempfile
 from package_plugin import package
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "TMessagesProj/src/main/python"))
-from bygram._port_extera import bygram_id, normalize_version, port_options, prepare_source
+from bygram._port_extera import bygram_id, configure_hooks, normalize_version, port_options, prepare_source
 
 
 def port(source, output, *, signing_key=None, resolve_pypi=False, hook_manifest=None, **capabilities):
@@ -19,10 +19,7 @@ def port(source, output, *, signing_key=None, resolve_pypi=False, hook_manifest=
         manifest = prepare_source(source, root, resolve_pypi=resolve_pypi, **capabilities)
         if hook_manifest is not None:
             configuration = json.loads(hook_manifest.read_text(encoding="utf-8"))
-            for field in ("bygram", "telegram", "hook_targets"):
-                manifest[field] = configuration[field]
-            manifest["requires_hook_backend"] = True
-            manifest["capabilities"].append("hooks.raw")
+            configure_hooks(manifest, configuration)
             (root / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
         package(root, output, signing_key)
 

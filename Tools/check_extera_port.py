@@ -37,7 +37,8 @@ class Example(BasePlugin):
 
 
 def check_elyx(root, loader, bridge):
-    from bygram._port_extera import convert_mobile
+    from bygram._port_extera import catalog_metadata, convert_mobile
+    from bygram._dev_elyx import compare, patch
     installed = []
     path_before = tuple(sys.path)
     try:
@@ -55,18 +56,25 @@ def check_elyx(root, loader, bridge):
                 archive.writestr("locales/strings_en.json", json.dumps(dict(title=value, hello="Hello {name}")))
                 archive.writestr("assets/nested/config.json", json.dumps(dict(value=value)))
                 archive.writestr("src/helpers.py", "from vendorlib import VALUE\n")
+                archive.writestr("src/config.json", json.dumps({"nested": {"value": value}}))
+                archive.writestr("src/notice.txt", value)
                 archive.writestr("wheels/" + wheel.name, wheel.read_bytes())
                 archive.writestr("src/main.py", """from base_plugin import BasePlugin
 from helpers import VALUE
 from . import helpers
+import config, notice
 from elyx import assets, metainfo, strings, get_environment, import_module
 class Example(BasePlugin):
     def value(self):
         assert helpers is import_module("helpers")
         assert metainfo is get_environment()["metainfo"]
+        assert config["nested"].value == notice.content == VALUE
         return (VALUE, metainfo["id"], strings("hello", name="BYgram"), assets.nested.config.content_json()["value"])
 """)
             target = source.with_suffix(".byplugin")
+            cached = root / (value + ".bin")
+            cached.write_bytes(source.read_bytes())
+            assert json.loads(catalog_metadata(cached, True))["name"] == value
             port(source, target)
             converted = root / "mobile.byplugin"
             mobile = convert_mobile(source, converted, value, "1.0")
@@ -80,6 +88,17 @@ class Example(BasePlugin):
                 archive.extractall(install)
             assert manifest["name"] == value
             assert manifest["entrypoint"] == "src/main.py:Example"
+            compared = json.loads(compare(install, json.dumps({"files": {"src/main.py": "wrong"}})))
+            assert compared["changed"] == ["src/main.py"] and "src/notice.txt" in compared["removed"]
+            from io import BytesIO
+            changed = patch(install, json.dumps({"changes": [
+                {"#": "moved", "path": "src/notice.txt", "dest_path": "docs/notice.txt"},
+                {"#": "created", "path": "assets/other.txt", "content": "b2s="},
+            ]}))
+            with ZipFile(BytesIO(changed)) as archive:
+                assert archive.read("docs/notice.txt").decode() == value
+                assert archive.read("assets/other.txt") == b"ok"
+                assert "manifest.json" not in archive.namelist()
             plugin = loader.load(str(install), manifest["id"], manifest["entrypoint"], bridge)
             installed.append((plugin, manifest["id"], value))
         for plugin, plugin_id, value in installed:
@@ -90,6 +109,27 @@ class Example(BasePlugin):
         for plugin, plugin_id, value in installed:
             loader.unload(plugin, plugin_id)
     assert not any(name.startswith("_bygram_") for name in sys.modules)
+    if sys.version_info[:2] == (3, 11):
+        import py_compile
+        module = root / "compiled.py"
+        module.write_text("from base_plugin import BasePlugin\nclass Compiled(BasePlugin): pass\n")
+        compiled = Path(py_compile.compile(str(module), str(module.with_suffix(".pyc")), doraise=True))
+        source = root / "compiled.elyx"
+        with ZipFile(source, "w") as archive:
+            archive.writestr("refmap.json", '{"main":"main.pyc"}')
+            archive.writestr("metainfo.json", '{"id":"compiled","name":"Compiled"}')
+            archive.write(compiled, "main.pyc")
+        package = source.with_suffix(".byplugin")
+        port(source, package)
+        with ZipFile(package) as archive:
+            install = root / "compiled"
+            archive.extractall(install)
+        manifest = json.loads((install / "manifest.json").read_text())
+        plugin = loader.load(str(install), manifest["id"], manifest["entrypoint"], bridge)
+        try:
+            assert type(plugin).__name__ == "Compiled"
+        finally:
+            loader.unload(plugin, manifest["id"])
     bad = root / "invalid.elyx"
     with ZipFile(bad, "w") as archive:
         archive.writestr("../escaped.py", "raise RuntimeError")
@@ -198,19 +238,25 @@ def check_alert_options():
     events = []
     cancellation = []
 
-    def alert(spec, callback, view):
+    def alert(payload, view, callback, android_context, resources, drawable, show):
+        spec = json.loads(payload)
         assert spec["icons"] == [17] and spec["viewHeight"] == 48 and view == "view"
         assert spec["messageClickable"] is True and spec["dim"] is False
+        assert spec["topAnimation"] == 21 and spec["blur"] is True and not show
         return SimpleNamespace(setCancellation=lambda *args: cancellation.append(args),
+                               show=lambda: None, getDialog=lambda: "dialog",
                                close=lambda: callback(AlertDialogBuilder._DISMISS), click=callback)
 
-    scope = _current.set((SimpleNamespace(ui=SimpleNamespace(alert=alert)), 2))
+    scope = _current.set((SimpleNamespace(_bridge=SimpleNamespace(pluginAlert=alert)), 2))
     try:
         dialog = (AlertDialogBuilder().set_view("view", 48).set_items(["item"], icons=[17])
                   .set_message_text_view_clickable(True).set_dim_enabled(False)
+                  .set_top_animation(21, 48, False, 0).set_blurred_background(True)
                   .set_on_back_button_listener(lambda _, which: events.append(which))
                   .set_on_cancel_listener(lambda _: events.append("cancel"))
-                  .set_on_dismiss_listener(lambda _: events.append("dismiss")).show())
+                  .set_on_dismiss_listener(lambda _: events.append("dismiss")).create())
+        assert dialog.get_dialog() == "dialog"
+        dialog.show()
         dialog.set_canceled_on_touch_outside(False).set_cancelable(False)
         dialog._handle.click(dialog._BACK)
         dialog._handle.click(dialog._CANCEL)
@@ -229,6 +275,32 @@ def check_compat_helpers(root):
     from file_utils import list_dir, read_file, write_file
     from ui.settings import Custom, Switch
     from base_plugin import HookFilter
+    from client_utils import _current, get_hook_account
+    from intents import IntentsManager
+    from ui.bulletin import BulletinHelper
+
+    hooks, bulletins = [], []
+    bridge = SimpleNamespace(
+        intentHandler=lambda before, priority, callback: hooks.append(callback) or SimpleNamespace(close=lambda: None),
+        pluginBulletin=lambda *args: bulletins.append(args),
+    )
+    scope = _current.set((SimpleNamespace(_bridge=bridge), 2))
+    try:
+        context = []
+        IntentsManager.new_global_before_handler(lambda **values: context.append(values) or True,
+                                                 path="/{name}", whitelist_flags=[1, 4], blacklist_flags=[2])
+        uri = SimpleNamespace(getScheme=lambda: "tg", getHost=lambda: "test", getPath=lambda: "/demo",
+                              getEncodedQuery=lambda: "id=1")
+        intent = SimpleNamespace(getData=lambda: uri, getFlags=lambda: 5, getCategories=lambda: (),
+                                 getAction=lambda: "ACTION_VIEW", getType=lambda: None)
+        assert hooks[0](intent, 2) is True and context[0]["name"] == "demo" and context[0]["id"] == "1"
+        intent.getFlags = lambda: 7
+        assert hooks[0](intent, 2) is None
+        BulletinHelper.show_with_button("Test", 7, "Open", lambda: get_hook_account(), fragment="fragment")
+        assert bulletins[0][:6] == ("Test", "button", "fragment", 7, "Open", 5000)
+        assert bulletins[0][6]() == 2
+    finally:
+        _current.reset(scope)
 
     java = SimpleNamespace(jclass=lambda name: lambda: SimpleNamespace(kind=name.rsplit("Entity", 1)[1]))
     with patch.dict(sys.modules, java=java):

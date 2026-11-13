@@ -8,6 +8,7 @@ import sys
 import zipfile
 
 _loaded_adapter = None
+_listen_port = None
 
 
 class _Terminal:
@@ -70,6 +71,35 @@ def _ide_debug(target, adapter, port, directory):
                                    patch_multiprocessing=False, trace_only_current_thread=True)
             return target()
         finally:
+            pydevd_pycharm.stoptrace()
+
+
+def ide_session(adapter, port, start, directory):
+    global _listen_port
+    if not start and _loaded_adapter != adapter:
+        return
+    _load_helpers(adapter, directory)
+    if adapter == "debugpy":
+        import debugpy
+        import pydevd
+        if start:
+            if _listen_port is not None and _listen_port != port:
+                raise RuntimeError("Restart BYgram before changing the VS Code debug port")
+            if _listen_port is None:
+                debugpy.configure(subProcess=False)
+                debugpy.listen(("127.0.0.1", port), in_process_debug_adapter=True)
+                _listen_port = port
+            debugpy.trace_this_thread(True)
+        else:
+            debugpy.trace_this_thread(False)
+            pydevd.stoptrace()
+            # debugpy.listen is a one-shot API in this process.
+    else:
+        import pydevd_pycharm
+        if start:
+            pydevd_pycharm.settrace("127.0.0.1", port=port, suspend=False,
+                                   patch_multiprocessing=False, trace_only_current_thread=False)
+        else:
             pydevd_pycharm.stoptrace()
 
 

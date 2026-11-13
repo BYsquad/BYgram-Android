@@ -14,6 +14,7 @@ ENVIRONMENT = "_bygram_elyx.json"
 VENDOR = "_bygram_elyx_vendor"
 MAX_TOTAL = 30 * 1024 * 1024
 MAX_FILE = 5 * 1024 * 1024
+PYTHON_311_MAGIC = bytes.fromhex("a70d0d0a")
 FORMATS = (".yaml", ".yml", ".json", ".py")
 
 
@@ -56,7 +57,7 @@ def unpack(archive, root, limit=MAX_TOTAL, *, wheel=False):
             mode = stat.S_IFMT(info.external_attr >> 16)
             if mode not in {0, stat.S_IFREG, stat.S_IFDIR} or info.flag_bits & 1:
                 raise ValueError(f"Unsupported archive entry: {name}")
-            if path.suffix.lower() in {".pyc", ".pyo", ".so", ".pyd", ".dll", ".dex", ".class", ".jar", ".apk", ".aar", ".exe", ".pth"}:
+            if path.suffix.lower() in {".pyo", ".so", ".pyd", ".dll", ".dex", ".class", ".jar", ".apk", ".aar", ".exe", ".pth"}:
                 raise ValueError(f"Unsupported source or wheel file: {name}")
             if wheel and path.parts[0].endswith(".data"):
                 raise ValueError("Wheels with a .data installation layout are unsupported")
@@ -72,6 +73,8 @@ def unpack(archive, root, limit=MAX_TOTAL, *, wheel=False):
                     data = stream.read(MAX_FILE + 1)
                 if len(data) != info.file_size:
                     raise ValueError(f"Invalid archive entry size: {name}")
+                if path.suffix.lower() == ".pyc" and (len(data) < 16 or data[:4] != PYTHON_311_MAGIC):
+                    raise ValueError(f"Expected Python 3.11 bytecode: {name}")
                 with target.open("xb") as output:
                     output.write(data)
     return total
@@ -118,7 +121,7 @@ def requirement_fields(requirements):
     raise ValueError("Invalid PyPI requirements")
 
 
-def prepare_dependencies(root, requirements, *, resolve_pypi, wheels=None, resolver=None):
+def prepare_dependencies(root, requirements, *, resolve_pypi, wheels=None, resolver=None, keep_wheels=False):
     if requirements and not resolve_pypi:
         raise ValueError("Use --resolve-pypi to bundle dependencies")
     with tempfile.TemporaryDirectory(prefix="bygram-wheels-") as directory:
@@ -154,7 +157,7 @@ def prepare_dependencies(root, requirements, *, resolve_pypi, wheels=None, resol
                 if not re.search(r"^Root-Is-Purelib:\s*true\s*$", wheel_file.read(metadata[0]).decode("utf-8"), re.I | re.M):
                     raise ValueError(f"Expected a pure-Python wheel: {archive.name}")
             budget -= unpack(archive, vendor, budget, wheel=True)
-            if wheels is not None and archive.parent == wheels:
+            if not keep_wheels and wheels is not None and archive.parent == wheels:
                 archive.unlink()
 
 
@@ -170,19 +173,19 @@ def write_environment(root, refmap, metadata, locales):
             output.write(raw)
 
 
-def prepare_elyx(source, root, *, resolve_pypi, read_source, resolver=None):
-    if not source.name.lower().endswith((".elyx", ".eaf", ".elyx.zip", ".eaf.zip")):
+def prepare_elyx(source, root, *, resolve_pypi, read_source, resolver=None, metadata_only=False, keep_wheels=False):
+    if not metadata_only and not source.name.lower().endswith((".elyx", ".eaf", ".elyx.zip", ".eaf.zip")):
         raise ValueError("Expected .plugin, .elyx or .eaf")
     unpack(source, root)
     if any((root / name).exists() for name in (ENVIRONMENT, VENDOR, "manifest.json", "signature.json")):
         raise ValueError("Reserved BYgram archive entry")
     refmap_name = discovery(root, "refmap", FORMATS[:-1])
     refmap = read_mapping(root / refmap_name) if refmap_name else {}
-    main = refmap.get("main", "main.py")
+    main = refmap.get("main", "main.py" if (root / "main.py").is_file() else "main.pyc")
     entry = root / relative_path(main)
-    if entry.suffix != ".py" or not entry.is_file():
-        raise ValueError("Elyx entrypoint must be a Python source file")
-    metadata, class_name = read_source(entry.read_bytes(), entry)
+    if entry.suffix not in {".py", ".pyc"} or not entry.is_file() or "__pycache__" in Path(main).parts:
+        raise ValueError("Elyx entrypoint must be a Python 3.11 module")
+    metadata, class_name = ({}, "_ElyxEntry") if entry.suffix == ".pyc" else read_source(entry.read_bytes(), entry)
     meta = refmap.get("metainfo", discovery(root, "metainfo", FORMATS[:-1]))
     if meta is not None:
         metadata.update({key.removeprefix("__").removesuffix("__"): value
@@ -221,6 +224,8 @@ def prepare_elyx(source, root, *, resolve_pypi, read_source, resolver=None):
                 raise ValueError(f"Missing localized metadata value: {token}")
             manifest_metadata[key] = translated
     wheels = root / relative_path(refmap["wheels"]) if "wheels" in refmap else None
-    prepare_dependencies(root, metadata.get("requirements"), resolve_pypi=resolve_pypi, wheels=wheels, resolver=resolver)
-    write_environment(root, refmap, metadata, locales)
+    if not metadata_only:
+        prepare_dependencies(root, metadata.get("requirements"), resolve_pypi=resolve_pypi, wheels=wheels, resolver=resolver,
+                             keep_wheels=keep_wheels)
+        write_environment(root, refmap, metadata, locales)
     return manifest_metadata, f"{main}:{class_name}"

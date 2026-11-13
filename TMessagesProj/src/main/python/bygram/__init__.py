@@ -20,15 +20,22 @@ class Plugin:
 
     def _settings_link_json(self, target):
         *ancestors, alias = target.split("/")
+        page = self._settings_page(ancestors)
+        if not any(item.get("link_alias") == alias for item in page["items"]):
+            raise ValueError("PluginSettingsLinkUnavailable")
+        return self.context.ui._page_json(dict(page, focus_alias=alias))
+
+    def _settings_page(self, ancestors):
         page = {"title": self.context.plugin_id, "items": self.create_settings()}
         for parent in ancestors:
             item = next((row for row in page["items"] if row.get("link_alias") == parent), None)
             if item is None or "_subpage" not in item:
                 raise ValueError("PluginSettingsLinkUnavailable")
             page = item["_subpage"]()
-        if not any(item.get("link_alias") == alias for item in page["items"]):
-            raise ValueError("PluginSettingsLinkUnavailable")
-        return self.context.ui._page_json(dict(page, link_path=ancestors, focus_alias=alias))
+        return dict(page, link_path=ancestors)
+
+    def _reload_settings_json(self, path):
+        return self.context.ui._page_json(self._settings_page(json.loads(path)))
 
     def _migrate_json(self, old_version, new_version, values):
         migrated = self.migrate_settings(old_version, new_version, json.loads(values))

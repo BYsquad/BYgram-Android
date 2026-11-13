@@ -1,12 +1,16 @@
 import builtins
 from importlib import import_module as _import_module
-from importlib.machinery import PathFinder, SourceFileLoader
+from importlib.machinery import PathFinder, SourceFileLoader, SourcelessFileLoader
 from importlib.util import spec_from_file_location
 import json
 from pathlib import Path
 import sys
+from types import ModuleType
 
 _plugins = {}
+_data_suffixes = (".json", ".yaml", ".yml", ".txt")
+_runtime_roots = frozenset(("android", "androidx", "base_plugin", "bygram", "client_utils", "com", "de",
+                            "elyx", "hook_utils", "importlib", "java", "org", "ui"))
 
 
 def current():
@@ -49,13 +53,19 @@ def detach(namespace):
     _plugins.pop(namespace, None)
 
 
+def has_environment(namespace):
+    return namespace in _plugins
+
+
 def local_name(name, namespace, package):
     first = name.partition(".")[0]
+    if first in _runtime_roots:
+        return None
     for candidate in dict.fromkeys((package, namespace)):
         parent = sys.modules.get(candidate)
         path = getattr(parent, "__path__", None)
         qualified = f"{candidate}.{first}"
-        if path is not None and (qualified in sys.modules or PathFinder.find_spec(qualified, path) is not None):
+        if path is not None and (qualified in sys.modules or ElyxFinder.find_spec(qualified, path) is not None):
             return f"{candidate}.{name}"
     return None
 
@@ -80,13 +90,45 @@ def _local_import(name, globals=None, locals=None, fromlist=(), level=0):
     return builtins.__import__(name, globals, locals, fromlist, level)
 
 
-class ElyxLoader(SourceFileLoader):
+class _LocalImports:
     def exec_module(self, module):
         module.__dict__["__builtins__"] = dict(vars(builtins), __import__=_local_import)
         super().exec_module(module)
 
+
+class ElyxLoader(_LocalImports, SourceFileLoader):
     def set_data(self, path, data, **kwargs):
         pass
+
+
+class ElyxBytecodeLoader(_LocalImports, SourcelessFileLoader):
+    pass
+
+
+class _DataModule:
+    def create_module(self, spec):
+        return None
+
+    def exec_module(self, module):
+        from elyx import Asset, LazyDict
+        value = Asset.from_path(module.__spec__.origin).content()
+        module.content = value
+        if isinstance(value, dict):
+            def field(name):
+                if name.startswith("__") or name not in value:
+                    raise AttributeError(name)
+                item = value[name]
+                return LazyDict(item) if isinstance(item, dict) else item
+            module.__getattr__ = field
+            module.get = value.get
+            module.__class__ = _MappingModule
+
+
+class _MappingModule(ModuleType):
+    def __getitem__(self, key):
+        from elyx import LazyDict
+        value = self.content[key]
+        return LazyDict(value) if isinstance(value, dict) else value
 
 
 class ElyxFinder:
@@ -97,6 +139,15 @@ class ElyxFinder:
         spec = PathFinder.find_spec(fullname, path, target)
         if spec is not None and isinstance(spec.loader, SourceFileLoader):
             spec.loader = ElyxLoader(fullname, spec.origin)
+        elif spec is not None and isinstance(spec.loader, SourcelessFileLoader):
+            spec.loader = ElyxBytecodeLoader(fullname, spec.origin)
+        if spec is None:
+            stem = fullname.rpartition(".")[2]
+            for directory in path:
+                for suffix in _data_suffixes:
+                    file = Path(directory, stem + suffix)
+                    if file.is_file():
+                        return spec_from_file_location(fullname, file, loader=_DataModule())
         return spec
 
 
@@ -104,8 +155,8 @@ sys.meta_path.insert(sys.meta_path.index(PathFinder) if PathFinder in sys.meta_p
 
 
 def source_spec(name, path, *, locations=None):
-    if name.partition(".")[0] in _plugins:
-        loader = ElyxLoader(name, path)
+    if has_environment(name.partition(".")[0]):
+        loader = ElyxBytecodeLoader(name, path) if str(path).endswith(".pyc") else ElyxLoader(name, path)
     else:
         loader = None
     return spec_from_file_location(name, path, loader=loader, submodule_search_locations=locations)

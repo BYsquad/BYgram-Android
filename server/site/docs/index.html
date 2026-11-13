@@ -150,6 +150,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <p class="lead">Нативные строки, страницы и настройки по аккаунтам.</p>
         <h3 id="settings-controls">Строки и страницы</h3>
         <p>Верните из <code>create_settings()</code> список до 100 элементов из <code>bygram.settings</code>. Доступны <code>Header</code>, <code>Text</code>, <code>Switch</code>, <code>TextInput</code>, <code>Select</code>, <code>Slider</code> и <code>Action</code>. Для полей конкретного аккаунта укажите <code>scope="account"</code>.</p>
+        <p>В <code>ui.settings</code> используйте <code>SimpleSettingFactory(create_view, bind_view)</code> для переиспользуемых строк. <code>reload_settings=True</code> перестраивает открытую корневую страницу или подстраницу, у которой задана цепочка <code>link_alias</code>.</p>
         <dl class="reference">
           <dt><code>context.ui.add_menu(location, id, title, on_click)</code></dt><dd>Действие в меню чата, профиля, списка чатов или сообщения. Обработчик получает событие с <code>event.account</code>.</dd>
           <dt><code>context.ui.bulletin(text)</code> / <code>context.ui.open_page({title, items})</code></dt><dd>Короткое уведомление или нативная страница. SDK передаёт UI-операции основному потоку.</dd>
@@ -178,6 +179,9 @@ python Tools/check_plugins.py</code></pre></figure>
         <p><code>context.hooks.method</code>, <code>.constructor</code> и <code>.replace</code> — экспериментальный API. Укажите в manifest <code>hooks.raw</code>, <code>requires_hook_backend: true</code>, точные <code>hook_targets</code> и диапазоны сборок <code>bygram</code> и <code>telegram</code>.</p>
         <p><code>context.telegram.intercept</code> перехватывает TL-запросы, ответы, обновления и исходящую отправку. <code>context.client(slot).send_request</code> отправляет TL-запрос. Для этих возможностей владелец выбирает аккаунты в карточке плагина.</p>
         <p>Для текущего backend нужны 64-битный процесс, <code>arm64-v8a</code> или <code>x86_64</code>, Android API 24–37 и успешная проверка на устройстве. Основной SDK работает без этого backend.</p>
+        <p>BYgram проверяет наличие всех объявленных целей до импорта Python, затем выполняет пробу ART. Несовпадающая сигнатура сообщает <code>HookTargetUnavailable</code>.</p>
+        <figure><figcaption>Получение сигнатур и диапазонов для подключённого устройства</figcaption><pre><code>python Tools/plugin_dev.py art-targets org.telegram.ui.ActionBar.ActionBar setTitle &gt; bygram-hooks.json</code></pre></figure>
+        <p>Для конструкторов передайте <code>'&lt;init&gt;'</code>. Оставьте в списке только используемые сигнатуры. Положите <code>bygram-hooks.json</code> в корень Elyx или передайте его конвертеру через <code>--hook-manifest</code>. В однофайловом исходнике объявите тот же словарь в <code>__bygram_hooks__</code>.</p>
         <h3 id="hook-callbacks">Обработчики</h3>
         <p>Хуки выполняются синхронно на потоке Java-вызова. Меняйте значения через <code>HookCall.set_arg()</code> и <code>set_result()</code>. <code>call_original()</code> доступен внутри replacement. На одну Java-цель возможен один replacement.</p>
         <p>В <code>BasePlugin</code> доступны <code>hook_method</code>, <code>hook_all_methods</code> и <code>hook_all_constructors</code>. Для порта с Xposed передайте <code>--hook-manifest</code> конвертеру. Для каждой перегрузки объявите точную сигнатуру.</p>
@@ -256,6 +260,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <p>Загрузчик выделяет пространство имён для каждого поколения плагина. Используйте обычные импорты локальных модулей в Elyx, а для динамических импортов — <code>elyx.import_module(name)</code>.</p>
         <h3 id="elyx-imports-details">Встроенные библиотеки проекта</h3>
         <p>Упакованные wheels доступны в том же пространстве имён.</p>
+        <p>Elyx загружает исходники <code>.py</code> и байткод <code>.pyc</code> от Python 3.11. Для скомпилированной точки входа храните метаданные в отдельном файле. JSON, YAML и TXT можно импортировать как локальные модули.</p>
       </section>
       <section id="elyx-assets">
         <h2>Ресурсы</h2>
@@ -280,7 +285,7 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <h2>Хранение настроек</h2>
         <p class="lead">Данные, которые остаются после обновления пакета.</p>
         <h3 id="elyx-settings-overview">Как это работает</h3>
-        <p><code>elyx.settings.get_setting(key, default)</code> и <code>set_setting(key, value)</code> обращаются к глобальным настройкам плагина.</p>
+        <p><code>elyx.settings.get_setting(key, default)</code> и <code>set_setting(key, value)</code> обращаются к глобальным настройкам плагина. <code>get_settings()</code> читает весь словарь, <code>clear_settings()</code> очищает его.</p>
         <h3 id="elyx-settings-details">Настройки аккаунта</h3>
         <p>Для отдельных аккаунтов используйте <code>context.account_settings(slot)</code> после разрешения владельца.</p>
       </section>
@@ -290,7 +295,7 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <h3 id="elyx-dependencies-overview">Как это работает</h3>
         <p><code>requirements</code> объявляет зависимости PyPI, <code>wheels</code> указывает каталог универсальных pure-Python wheels. При импорте они входят в итоговый пакет.</p>
         <h3 id="elyx-dependencies-details">Другие плагины</h3>
-        <p><code>requires</code> проверяет доступность и версию обязательного плагина. Установите и включите зависимость отдельно. При отключении обязательного плагина зависимые плагины выгружаются.</p>
+        <p><code>requires</code> проверяет доступность и версию обязательного плагина. Если он отсутствует или устарел, менеджер может предложить открыть указанную HTTPS-ссылку. Установка и включение подтверждаются отдельно. При отключении обязательного плагина зависимые плагины выгружаются.</p>
       </section>
       <section id="elyx-development">
         <h2>Разработка и сборка</h2>
@@ -298,13 +303,14 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <h3 id="elyx-development-overview">Как это работает</h3>
         <p>Для Elyx используйте <code>Tools/port_extera_plugin.py</code>. Для нативного проекта BYgram с <code>manifest.json</code> используйте <code>Tools/package_plugin.py</code>.</p>
         <h3 id="elyx-development-details">Обновление на устройстве</h3>
-        <p><a href="#dev-server">Dev Server</a> принимает готовый <code>.byplugin</code>. <code>watch</code> передаёт изменения файлов после первого развёртывания.</p>
+        <p><a href="#dev-server">Dev Server</a> принимает готовый <code>.byplugin</code> и исходный Elyx через <code>elyx_write</code>. После первого развёртывания можно передавать изменения файлов.</p>
       </section>
       <section id="elyx-api">
         <h2>Публичный API</h2>
         <p class="lead">Что доступно после импорта Elyx.</p>
         <h3 id="elyx-api-overview">Как это работает</h3>
         <p><code>get_environment()</code> возвращает метаданные и настроенные части окружения. <code>assets</code>, <code>strings</code>, <code>settings</code>, <code>metainfo</code>, <code>refmap</code> и <code>import_module()</code> доступны из модуля <code>elyx</code>.</p>
+        <p><code>mvel_execute(script, data, to_type=None, java_instance=None)</code> выполняет выражение с переданными переменными и может преобразовать результат в заданный Java-тип.</p>
         <h3 id="elyx-api-details">Java-интерфейсы</h3>
         <p><code>gen</code> и <code>gen2</code> создают Python-адаптеры для Java-интерфейсов. Встроены обёртки <code>Runnable</code>, <code>OnClickListener</code> и <code>Callback</code>.</p>
       </section>
@@ -329,6 +335,7 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <p class="lead">Создание Java-подклассов из Python.</p>
         <h3 id="class-proxy-overview">Как это работает</h3>
         <p><code>@java_subclass</code> объявляет базовый класс и интерфейсы. <code>@joverride</code> и <code>@joverload</code> переопределяют Java-методы, <code>jfield</code> добавляет поле, <code>jmethod</code> — метод.</p>
+        <p><code>jpreconstructor</code>, <code>jconstructor</code> и <code>on_post_init</code> задают обработчики создания объекта. <code>new_instance(..., init_args=…)</code> разделяет аргументы Java и Python, <code>from_java</code> возвращает активный Python-прокси, а <code>new_java_instance</code> возвращает Java-объект.</p>
         <h3 id="class-proxy-details">MVEL и DexMaker</h3>
         <p><code>jMVELmethod</code> и <code>jMVELoverride</code> выполняют MVEL на стороне Java. <code>SUPER_&lt;имя&gt;</code> вызывает родительский метод. <code>@jclassbuilder()</code> получает DexMaker, TypeId нового класса и TypeId родителя перед загрузкой.</p>
       </section>
@@ -347,6 +354,7 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <p><code>client_utils.send_request(request, fn, account=…)</code> отправляет TL-запрос. <code>get_client(account)</code> использует аккаунт события по умолчанию. <code>get_messages_controller</code>, <code>get_notification_center</code> и другие getters возвращают Java-контроллеры.</p>
         <h3 id="client-utils-details">Сообщения и медиа</h3>
         <p>Доступны <code>send_text</code>, <code>send_message</code>, <code>send_photo</code>, <code>send_video</code>, <code>send_document</code>, <code>send_audio</code> и <code>edit_message</code>. Для файла используйте путь внутри пакета или данных плагина. Укажите нужные возможности в манифесте.</p>
+        <p><code>AccountClient</code> предоставляет привязанные к аккаунту контроллеры и расширенные параметры отправки. <code>edit_message</code> принимает <code>with_spoiler</code> и <code>spoiler</code>.</p>
       </section>
       <section id="text-formatting">
         <h2>Форматирование текста</h2>
@@ -380,7 +388,7 @@ send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HT
         <h3 id="intents-overview">Как это работает</h3>
         <p><code>IntentsManager.new_global_before_handler</code> и <code>new_global_after_handler</code> подписываются на <code>ACTION_VIEW</code>. Они получают копию Intent и работают для разрешённых аккаунтов.</p>
         <h3 id="intents-details">Фильтры</h3>
-        <p>Фильтруйте по <code>scheme</code>, <code>host</code>, шаблону <code>path</code> и обязательным query-параметрам. Для снятия подписки вызовите <code>close()</code>.</p>
+        <p>Фильтруйте по <code>scheme</code>, <code>host</code>, шаблону <code>path</code>, флагам и обязательным query-параметрам. <code>**kwargs</code> получает полный контекст. Если <code>before</code> возвращает <code>True</code>, цепочка и стандартная обработка ссылки останавливаются. Для снятия подписки вызовите <code>close()</code>.</p>
       </section>
       <section id="dialogs">
         <h2>Диалоги</h2>
@@ -388,13 +396,13 @@ send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HT
         <h3 id="dialogs-overview">Как это работает</h3>
         <p><code>ui.alert.AlertDialogBuilder</code> задаёт заголовок, сообщение, кнопки, элементы списка и пользовательский View.</p>
         <h3 id="dialogs-details">События</h3>
-        <p>Доступны обработчики закрытия, отмены и Back. В диалоге загрузки можно обновлять прогресс.</p>
+        <p>Доступны обработчики закрытия, отмены и Back, прогресс, верхнее изображение или анимация и настройка размытия. Вызовите <code>create()</code> на UI-потоке для подготовки диалога, затем <code>get_dialog()</code> для доступа к Java-объекту и <code>show()</code> для показа.</p>
       </section>
       <section id="bulletins">
         <h2>Уведомления Bulletin</h2>
         <p class="lead">Короткие уведомления в текущем фрагменте.</p>
         <h3 id="bulletins-overview">Как это работает</h3>
-        <p><code>ui.bulletin.BulletinHelper</code> предоставляет <code>show_info</code>, <code>show_error</code> и <code>show_success</code>. Нативный вариант — <code>context.ui.bulletin(text)</code>.</p>
+        <p><code>ui.bulletin.BulletinHelper</code> предоставляет <code>show_info</code>, <code>show_error</code>, <code>show_success</code>, уведомления со своей анимацией, кнопкой и отменой действия. Для показа в заданном фрагменте передайте <code>fragment</code>.</p>
         <h3 id="bulletins-details">Возможность UI</h3>
         <p>Объявите <code>ui</code> в манифесте. Уведомление отображается, когда активен подходящий фрагмент.</p>
       </section>
@@ -402,7 +410,8 @@ send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HT
         <h2>Репозитории плагинов</h2>
         <p class="lead">Подключаемые источники плагинов.</p>
         <h3 id="repositories-overview">Как это работает</h3>
-        <p>В каталоге добавьте HTTPS-индекс BYgram, индекс exteraGram <code>extera-plugins.json</code> или публичный Telegram-канал. Для индекса сверяются размер и SHA‑256 файла, а при преобразовании — ID и версия.</p>
+        <p>В каталоге добавьте HTTPS-индекс BYgram, индекс exteraGram <code>extera-plugins.json</code>, ссылку на GitHub-репозиторий или ветку либо публичный Telegram-канал. Для индекса сверяются размер и SHA‑256 файла, а при преобразовании — ID и версия.</p>
+        <p>Поиск по каналу охватывает до 2000 документов. Для прочитанных метаданных остаётся один пакет на ID, с учётом времени публикации или правки. Фоновая загрузка метаданных ограничена 32 МиБ и 12 секундами ожидания. Остальные вложения доступны по имени файла.</p>
         <h3 id="repositories-details">Официальный каталог</h3>
         <p>Откройте <a href="#catalog">каталог</a> или прочитайте <a href="#publish">как отправить релиз на модерацию</a>.</p>
       </section>
@@ -412,7 +421,9 @@ send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HT
         <h3 id="dev-server-overview">Как это работает</h3>
         <p>Сервер слушает loopback и требует токен. Подключите ADB, задайте <code>BYGRAM_DEV_TOKEN</code> и выполните <code>python Tools/plugin_dev.py start</code>. Затем используйте <code>deploy</code> или <code>watch</code> с пакетом.</p>
         <h3 id="dev-server-details">Отладка</h3>
-        <p><code>debug</code> открывает Pdb, <code>debug-ide</code> подключает debugpy или PyCharm. Для Elyx сначала подготовьте <code>.byplugin</code>.</p>
+        <p><code>debug</code> открывает Pdb, <code>debug-ide</code> подключает debugpy или PyCharm. Протокол также поддерживает команды <code>start_debugger</code> и <code>stop_debugger</code> с параметром <code>platform</code>. Для полного закрытия listener debugpy перезапустите приложение.</p>
+        <h3 id="dev-server-protocol">Протокол и Elyx</h3>
+        <p>Сервер принимает последовательные UTF-8 JSON-объекты и повторяет идентификатор <code>#</code> в ответе. Добавляйте <code>token</code> в каждый запрос. <code>write_plugin</code> принимает Python в <code>content</code>, <code>elyx_write</code> принимает архив Elyx в Base64. <code>elyx_compare_folder</code> сравнивает SHA-256, а <code>elyx_changes</code> применяет создание, изменение, перемещение и удаление файлов. Эти две команды принимают Base64 от zlib JSON в поле <code>data</code>. Передавайте <code>base_hash</code> при изменении для защиты от перезаписи параллельных правок.</p>
         <figure><figcaption>Терминал</figcaption><pre><code>python Tools/plugin_dev.py start
 python Tools/plugin_dev.py deploy output/sample.byplugin
 python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></section>
@@ -428,7 +439,8 @@ python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></s
         <h2>Доступные библиотеки</h2>
         <p class="lead">Модули, которые входят в Full и доступны плагинам.</p>
         <h3 id="libraries-runtime">Python и Java</h3>
-        <p>Доступны стандартная библиотека Python 3.11 и мост Chaquopy <code>java</code>. Full также включает <code>packaging</code>, <code>PyYAML</code> и <code>certifi</code>.</p>
+        <p>Доступны Python 3.11, мост Chaquopy <code>java</code>, <code>packaging</code>, <code>PyYAML</code>, <code>certifi</code>, <code>requests</code>, <code>bs4</code>, <code>PIL</code> (Pillow 11.0.0) и <code>lxml</code> (5.3.0).</p>
+        <p>Нативные зависимости Pillow и lxml для arm64 и x86_64 пересобраны с выравниванием 16 КиБ. Загрузка библиотек, JPEG, FreeType и XML проверены на Android API 37 x86_64 с размером страницы 4 и 16 КиБ. <a href="https://github.com/BYxarek/chaquopy/releases/tag/bygram-python311-16k-v1">Wheels и контрольные суммы</a>.</p>
         <h3 id="libraries-external">Внешние библиотеки</h3>
         <p>Объявите <code>requirements</code> или добавьте совместимый wheel в Elyx. Правила описаны в статье <a href="#pip">PyPI и зависимости</a>.</p>
       </section>

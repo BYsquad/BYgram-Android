@@ -4,7 +4,7 @@ from enum import Enum
 
 from bygram import Plugin
 from bygram.telegram import HookResult as _TelegramResult, HookStrategy
-from client_utils import _invoke, get_hook_account, get_selected_account
+from client_utils import AccountClient, _invoke, get_hook_account, get_selected_account
 
 
 @dataclass
@@ -65,7 +65,7 @@ class BasePlugin(Plugin):
     def client(self, account=None):
         if account is None:
             account = get_hook_account()
-        return self.context.client(get_selected_account() if account is None else account)
+        return AccountClient(self.context._bridge, get_selected_account() if account is None else account)
 
     def on_plugin_load(self):
         pass
@@ -84,6 +84,8 @@ class BasePlugin(Plugin):
 
     def set_setting(self, key, value, reload_settings=False):
         self.context.settings.set(key, value)
+        if reload_settings:
+            self.context._bridge.reloadSettings()
 
     def export_settings(self):
         import json
@@ -94,6 +96,8 @@ class BasePlugin(Plugin):
         if not isinstance(values, dict):
             raise TypeError("Expected a settings dictionary")
         self.context._bridge.settingsImport(json.dumps(values, ensure_ascii=False, allow_nan=False))
+        if reload_settings:
+            self.context._bridge.reloadSettings()
 
     def log(self, message):
         if self.context._bridge.active():

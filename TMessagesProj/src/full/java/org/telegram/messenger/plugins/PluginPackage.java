@@ -63,7 +63,7 @@ public final class PluginPackage {
                 }
                 check(entries.add(relative.toLowerCase(Locale.ROOT)), "DuplicateEntry");
                 String lower = relative.toLowerCase(Locale.ROOT);
-                check(!lower.matches(".*\\.(pyc|pyo|dex|jar|class|so|pyd|dll|exe|apk|aar)$"), "UnsupportedPackageFile");
+                check(!lower.matches(".*\\.(pyo|dex|jar|class|so|pyd|dll|exe|apk|aar)$"), "UnsupportedPackageFile");
                 File target = new File(content, relative);
                 check(target.getCanonicalPath().startsWith(content.getCanonicalPath() + File.separator), "InvalidPackagePath");
                 if (entry.isDirectory()) {
@@ -84,6 +84,11 @@ public final class PluginPackage {
                     out.getFD().sync();
                 }
                 check(size == entry.getSize() && crc.getValue() == entry.getCrc(), "CorruptPackage");
+                if (lower.endsWith(".pyc")) {
+                    try (DataInputStream in = new DataInputStream(new FileInputStream(target))) {
+                        check(size >= 16 && in.readInt() == 0xa70d0d0a, "InvalidPythonBytecode");
+                    }
+                }
                 if (name.endsWith(".py")) {
                     try {
                         StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
@@ -96,6 +101,8 @@ public final class PluginPackage {
         File manifestFile = new File(content, "manifest.json");
         check(manifestFile.isFile() && manifestFile.length() <= PluginManifest.MAX_BYTES, "ManifestMissing");
         PluginManifest manifest = PluginManifest.parse(read(manifestFile), sdk, host, telegram);
+        if (manifest.entrypoint().endsWith(".pyc:_ElyxEntry"))
+            check(new File(content, "_bygram_elyx.json").isFile(), "EntrypointMissing");
         check(new File(content, manifest.entrypoint().split(":")[0]).isFile(), "EntrypointMissing");
         if (manifest.metadata().has("icon")) {
             File icon = new File(content, manifest.metadata().get("icon").getAsString());

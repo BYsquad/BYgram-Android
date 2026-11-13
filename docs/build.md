@@ -80,6 +80,22 @@ Copy-Item .\TMessagesProj_App\build\outputs\apk\afat\debug\BYgram-full-afatDebug
 
 Перед передачей APK проверьте подпись, package/version и бинарную локализацию командами из раздела «Проверка APK». В сгенерированном `TMessagesProj/build/generated/source/buildConfig/debug/org/telegram/messenger/BuildConfig.java` после сборки должно быть `BYGRAM_FULL = true`.
 
+### Проверка Full Debug от 14.11.2026
+
+Использована команда `:TMessagesProj_App:assembleAfatDebug` с `-PBYGRAM_EDITION=full` и `-PBYGRAM_BUILD_PYTHON`, указывающим на Python 3.11.18. Gradle использовал JVM 21. APK `BYgram-full-afatDebug.apk` содержит `com.bygram.mobile` 13.2.1 (72919), minSdk 24 и четыре ABI. Размер 180 619 591 байт, SHA-256 `4631aef5410b30b7302cb0870154df5c5799148ac2d85e9c1069f104ece77147`.
+
+Прошли `check_plugins.py`, проверка Elyx под Python 3.11, подпись, `zipalign -c -P 16 4` и проверка 152 ELF64-библиотек. На эмуляторе Android API 37 x86_64 с размером страницы 4 КиБ прошли диагностический сценарий Full с ART-хуками и запуск основного Activity. Реальный arm64 и запуск на устройстве с размером страницы 16 КиБ в этом прогоне не проверялись.
+
+APK отправлен в «Избранное» Telegram, сообщение 202357.
+
+### Full Debug с Pillow и lxml от 14.11.2026
+
+Повторный выпуск 13.2.1 (72919) по той же команде после доработки Dev Server и ART. Размер 191 360 351 байт, SHA-256 `628452fe223f04547068f0440aa0d9ad4862dde4eb2896adad28c8310ec0cba3`. Проверены подпись, `zipalign -c -P 16 4` и выравнивание 184 ELF64-библиотек. Диагностика прошла на Android API 37 x86_64 с размером страниц 4096 и 16384 байта, включая JPEG, FreeType, lxml и ART. Для 16 КиБ использован образ `emu64xa16k:CANARY/ZP11.260918.008/16518831`. На 4-КиБ эмуляторе пройдены проверка токена, несколько запросов по одному сокету, выдача сигнатуры ART, загрузка Python и изменение Elyx с проверкой хеша.
+
+Физический arm64 и подключения из VS Code или PyCharm в этом прогоне не проверялись. [Релиз нативных wheels](https://github.com/BYxarek/chaquopy/releases/tag/bygram-python311-16k-v1)
+
+APK отправлен в «Избранное» Telegram, сообщение 202358.
+
 ## Release APK Lite и Full
 
 ```powershell

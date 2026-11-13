@@ -239,6 +239,9 @@ def main():
         commands.add_parser(command).add_argument("source", type=Path)
     for command in ("enable", "disable", "reload", "remove"):
         commands.add_parser(command).add_argument("plugin_id")
+    art = commands.add_parser("art-targets")
+    art.add_argument("class_name")
+    art.add_argument("method")
     debugger = commands.add_parser("debug")
     debugger.add_argument("plugin_id")
     debugger.add_argument("method")
@@ -273,6 +276,9 @@ def main():
         watch(token, args.source)
     elif args.command == "debug":
         debug(token, args.plugin_id, args.method)
+    elif args.command == "art-targets":
+        result = request(token, "art_targets", **{"class": args.class_name, "method": args.method})
+        print(json.dumps({key: result[key] for key in ("bygram", "telegram", "hook_targets")}, indent=2))
     elif args.command == "debug-ide":
         if not 1024 <= args.port <= 65535 or args.port == PORT:
             parser.error("Use a debugger port in 1024–65535 other than the Dev Server port")

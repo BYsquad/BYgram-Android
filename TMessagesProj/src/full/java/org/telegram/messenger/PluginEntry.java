@@ -28,8 +28,8 @@ public final class PluginEntry {
     public static void addDrawerItems(BaseFragment fragment, org.telegram.ui.Components.ItemOptions options) {
         PluginHost.addDrawerItems(fragment, options);
     }
-    public static void dispatchIntent(android.content.Intent intent, int account, boolean before) {
-        PluginHost.dispatchIntent(intent, account, before);
+    public static boolean dispatchIntent(android.content.Intent intent, int account, boolean before) {
+        return PluginHost.dispatchIntent(intent, account, before);
     }
     public static boolean hasInterceptor(String kind) { return PluginInterceptors.has(kind); }
     public static boolean hasMessageMenu(ChatActivity chat, MessageObject message) {

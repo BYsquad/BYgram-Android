@@ -16,6 +16,11 @@ import java.util.List;
 import java.util.Map;
 
 public final class PluginClassProxy {
+    private static final Map<Object, PyObject> peers = new java.util.IdentityHashMap<>();
+
+    public static synchronized PyObject peer(Object instance) {
+        return peers.get(instance);
+    }
     private static final Map<List<?>, Class<?>> shapes = new LinkedHashMap<>();
 
     private PluginClassProxy() {}
@@ -162,11 +167,18 @@ public final class PluginClassProxy {
         owner.check();
         java.util.concurrent.atomic.AtomicReference<PyObject> active = new java.util.concurrent.atomic.AtomicReference<>(callback);
         java.util.concurrent.atomic.AtomicReference<PyObject> activePeer = new java.util.concurrent.atomic.AtomicReference<>(peer);
+        java.util.concurrent.atomic.AtomicReference<Object> activeInstance = new java.util.concurrent.atomic.AtomicReference<>();
         Map<Method, PluginMvel.Body> scripts = new LinkedHashMap<>();
         for (int i = 0; i < methods.length; i++) if (bodies[i] != null) scripts.put(methods[i], bodies[i]);
-        AutoCloseable registration = owner.scope.own(() -> { active.set(null); activePeer.set(null); });
+        AutoCloseable registration = owner.scope.own(() -> {
+            active.set(null);
+            activePeer.set(null);
+            synchronized (PluginClassProxy.class) {
+                peers.remove(activeInstance.getAndSet(null));
+            }
+        });
         try {
-            return ProxyBuilder.forClass(base)
+            Object instance = ProxyBuilder.forClass(base)
                 .parentClassLoader(loader(base))
                 .dexCache(ApplicationLoader.applicationContext.getCodeCacheDir())
                 .implementing(interfaces)
@@ -187,6 +199,13 @@ public final class PluginClassProxy {
                         owner.scope.endCallback();
                     }
                 }).build();
+            synchronized (PluginClassProxy.class) {
+                if (activePeer.get() != null) {
+                    activeInstance.set(instance);
+                    peers.put(instance, peer);
+                }
+            }
+            return instance;
         } catch (Exception | LinkageError failure) {
             registration.close();
             throw failure;

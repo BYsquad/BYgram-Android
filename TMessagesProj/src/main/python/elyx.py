@@ -14,6 +14,25 @@ def get_environment():
     return dict(environment)
 
 
+@lru_cache(maxsize=128)
+def _compiled_mvel(script):
+    from java import jclass
+    return jclass("org.telegram.messenger.plugins.PluginMvel").compile(script)
+
+
+def mvel_execute(script, data, to_type=None, java_instance=None):
+    from java import jclass
+    runtime = jclass("org.telegram.messenger.plugins.PluginMvel")
+    values = jclass("java.util.HashMap")()
+    for key, value in data.items():
+        values.put(key, value)
+    if isinstance(to_type, str):
+        to_type = jclass("org.telegram.messenger.plugins.PluginClassProxy").type(to_type)
+    elif isinstance(to_type, type):
+        to_type = to_type.getClass()
+    return runtime.execute(_compiled_mvel(script), values, to_type, java_instance)
+
+
 _INTERFACES = {
     "OnClickListener": ("android.view.View$OnClickListener", "onClick"),
     "Runnable": ("java.lang.Runnable", "run"),
@@ -315,6 +334,14 @@ class SettingsController:
 
     def set_setting(self, key, value, reload_settings=False):
         self._backing.set(key, value)
+        if reload_settings:
+            self._backing._bridge.reloadSettings()
+
+    def get_settings(self):
+        return json.loads(self._backing._bridge.settingsExport())
+
+    def clear_settings(self):
+        self._backing._bridge.settingsImport("{}")
 
     get = __getitem__ = __call__ = get_setting
     set = __setitem__ = set_setting
@@ -322,4 +349,10 @@ class SettingsController:
 
 class LazyDict(dict):
     def __getattr__(self, name):
+        if name.startswith("__") or name not in self:
+            raise AttributeError(name)
         return self[name]
+
+    def __getitem__(self, name):
+        value = super().__getitem__(name)
+        return LazyDict(value) if isinstance(value, dict) else value

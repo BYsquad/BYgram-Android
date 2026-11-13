@@ -861,6 +861,16 @@ public class UItem extends AdapterWithDiffUtils.Item {
 
         public final int viewType;
 
+        public UItem scopedItem() {
+            if (factories == null) factories = new LongSparseArray<>();
+            factories.put(viewType, this);
+            return new UItem(viewType, false);
+        }
+
+        public void releaseScopedItems() {
+            if (factories != null) factories.remove(viewType);
+        }
+
         private ArrayList<V> cache;
 
         public UItemFactory() {

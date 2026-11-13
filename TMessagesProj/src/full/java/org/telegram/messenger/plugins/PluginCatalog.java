@@ -168,9 +168,23 @@ public final class PluginCatalog {
             if (address == null || address.length() > 1024) throw new IOException("InvalidCatalog");
             URI uri = new URI(address);
             if (!"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getUserInfo() != null
-                    || uri.getQuery() != null || uri.getFragment() != null || !uri.getRawPath().endsWith(".json")) {
+                    || uri.getQuery() != null || uri.getFragment() != null) {
                 throw new IOException("InvalidCatalog");
             }
+            if ("github.com".equalsIgnoreCase(uri.getHost()) && uri.getPort() == -1) {
+                java.util.regex.Matcher github = java.util.regex.Pattern.compile(
+                        "/([A-Za-z0-9-]+)/([A-Za-z0-9_.-]+)(?:/tree/([A-Za-z0-9_.-]+)((?:/[A-Za-z0-9_.-]+)*))?/?").matcher(uri.getRawPath());
+                if (github.matches()) {
+                    for (String segment : uri.getRawPath().split("/")) {
+                        if (segment.equals(".") || segment.equals("..")) throw new IOException("InvalidCatalog");
+                    }
+                    String ref = github.group(3) == null ? "HEAD" : github.group(3);
+                    String directory = github.group(4) == null ? "" : github.group(4);
+                    return new URL("https://raw.githubusercontent.com/" + github.group(1) + "/" + github.group(2)
+                            + "/" + ref + directory + "/extera-plugins.json");
+                }
+            }
+            if (!uri.getRawPath().endsWith(".json")) throw new IOException("InvalidCatalog");
             return uri.toURL();
         } catch (URISyntaxException | IllegalArgumentException malformed) {
             throw new IOException("InvalidCatalog", malformed);
@@ -178,6 +192,14 @@ public final class PluginCatalog {
     }
     public static String sourceAddress(String address) throws IOException {
         String channel = channelName(address);
+        if (channel == null && address != null && address.length() <= 1024
+                && address.startsWith("https://t.me/exteraPluginRepo?git=")) {
+            try {
+                address = URLDecoder.decode(address.substring("https://t.me/exteraPluginRepo?git=".length()), "UTF-8");
+            } catch (IllegalArgumentException malformed) {
+                throw new IOException("InvalidCatalog", malformed);
+            }
+        }
         return channel == null ? repository(address).toExternalForm() : "https://t.me/" + channel;
     }
     public static String channelName(String address) {

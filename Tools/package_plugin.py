@@ -24,7 +24,8 @@ def package(source: Path, output: Path, signing_key: Path | None = None):
     for file in paths:
         if file.is_symlink(): raise ValueError("Symlink: " + str(file))
         if not file.is_file(): continue
-        if "__pycache__" in file.parts or file.suffix.lower() in {".pyc", ".pyo"}: continue
+        if "__pycache__" in file.parts or file.suffix.lower() == ".pyo": continue
+        if file.suffix.lower() == ".pyc" and not (source / "_bygram_elyx.json").is_file(): continue
         if file.suffix.lower() in {".so", ".pyd", ".dll", ".jar", ".dex", ".class", ".exe", ".apk", ".aar"}:
             raise ValueError("Unsupported file: " + str(file))
         if file.stat().st_size > 5 * 1024 * 1024: raise ValueError("File too large")

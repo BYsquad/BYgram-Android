@@ -333,7 +333,14 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
     }
     private void completed(Void value, String error) {
         busy = false; changed.run();
-        if (!destroyed && error != null) message(errorText(error));
+        if (destroyed || error == null) return;
+        String[] dependency = error.split("\n", 2);
+        if (error.startsWith("PluginDependency") && dependency.length == 2 && getParentActivity() != null) {
+            showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPlugins))
+                    .setMessage(errorText(error)).setNegativeButton(getString(R.string.Cancel), null)
+                    .setPositiveButton(getString(R.string.Open), (dialog, which) ->
+                            org.telegram.messenger.browser.Browser.openUrl(getContext(), dependency[1])).create());
+        } else message(errorText(error));
     }
     private void finishStage(String token, boolean accept) {
         if (!token.equals(stagedToken)) return;
@@ -355,13 +362,15 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             case "FileLimitExceeded": text = R.string.BygramPluginErrorStorage; break;
             case "InvalidAuthorSignature": case "AuthorKeyChanged": text = R.string.BygramPluginSignatureError; break;
             case "HookBackendUnavailable": case "HookProbeFailed": text = R.string.BygramPluginHooksUnavailable; break;
+            case "HookTargetUnavailable": case "UnsupportedHookTarget": text = R.string.BygramPluginErrorCompatibility; break;
             case "HookLimitExceeded": text = R.string.BygramPluginErrorHookLimit; break;
             case "PluginRestartRequired": text = R.string.BygramPluginErrorRestart; break;
             case "EngineDisabled": text = R.string.BygramPluginErrorEngine; break;
             case "AccountRequired": case "AccountUnavailable": text = R.string.BygramPluginErrorAccount; break;
             case "InvalidSetting": case "InvalidPage": case "InvalidPluginSettings": case "SettingsLimitExceeded":
             case "SettingSchemaConflict": case "SettingsMigrationFailed": text = R.string.BygramPluginErrorSettings; break;
-            case "IncompatibleSdk": case "IncompatibleBuild": case "IncompatiblePython": text = R.string.BygramPluginErrorCompatibility; break;
+            case "IncompatibleSdk": case "IncompatibleBuild": case "IncompatiblePython": case "InvalidPythonBytecode":
+                text = R.string.BygramPluginErrorCompatibility; break;
             case "StorageUnavailable": case "StorageLimitExceeded": case "InstallCommitFailed": case "FileUnavailable": text = R.string.BygramPluginErrorStorage; break;
             case "ContributionConflict": case "HookConflict": text = R.string.BygramPluginErrorConflict; break;
             case "AlreadyInstalled": text = R.string.BygramPluginErrorInstalled; break;
@@ -665,7 +674,7 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
     }
 
     public static final class PluginPage extends BygramSettingsPage {
-        private final PluginContext owner; private final JsonObject specification;
+        private final PluginContext owner; private JsonObject specification;
         private final Map<Integer, UItem> customRows = new HashMap<>();
         private UniversalRecyclerView list;
         private String accountKey;
@@ -674,6 +683,18 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         boolean closed;
         PluginPage(PluginContext owner, JsonObject specification) { this.owner = owner; this.specification = specification; }
         void refreshSettings() { if (!closed && list != null) list.adapter.update(true); }
+        void reloadSettings(PluginContext requested) {
+            if (owner != requested || closed) return;
+            JsonElement path = specification.get("link_path");
+            if (path != null && path.isJsonNull()) return;
+            PluginManager.get().reloadSettings(owner, path == null ? "[]" : path.toString(), (page, error) -> {
+                if (closed || !owner.active()) { owner.releasePage(page); return; }
+                owner.releasePage(specification);
+                specification = page;
+                customRows.clear();
+                refreshSettings();
+            });
+        }
         @Override public void onResume() {
             super.onResume();
             refreshSettings();

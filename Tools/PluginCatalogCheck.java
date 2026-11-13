@@ -109,6 +109,12 @@ public final class PluginCatalogCheck {
         assert "SomeChannel".equals(PluginCatalog.channelName("https://t.me/exteraPluginRepo?c=SomeChannel"));
         assert PluginCatalog.channelName("https://t.me/SomeChannel/1") == null;
         assert PluginCatalog.channelName("https://t.me/+private") == null;
+        assert PluginCatalog.repository("https://github.com/example/plugins").toString().equals(
+                "https://raw.githubusercontent.com/example/plugins/HEAD/extera-plugins.json");
+        assert PluginCatalog.repository("https://github.com/example/plugins/tree/v1/dir").toString().equals(
+                "https://raw.githubusercontent.com/example/plugins/v1/dir/extera-plugins.json");
+        assert PluginCatalog.sourceAddress("https://t.me/exteraPluginRepo?git=https%3A%2F%2Fgithub.com%2Fexample%2Fplugins")
+                .equals("https://raw.githubusercontent.com/example/plugins/HEAD/extera-plugins.json");
         System.out.println("PASS: native extera index, package integrity and Telegram channel URLs");
     }
 }
