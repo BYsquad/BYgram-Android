@@ -19,6 +19,7 @@
     "settings_schema": {"$ref": "#/$defs/positiveInt"},
     "icon": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}/)(?!.*//)[^\\\\:]+\\.(png|webp)$"}]},
     "bygram": {"$ref": "#/$defs/buildRange"},
+    "sticker_icon": {"type": "string", "pattern": "^[A-Za-z0-9_]{1,64}/[0-9]{1,9}$"},
     "telegram": {"$ref": "#/$defs/buildRange"},
     "requires_hook_backend": {"type": "boolean", "default": false},
     "hook_targets": {

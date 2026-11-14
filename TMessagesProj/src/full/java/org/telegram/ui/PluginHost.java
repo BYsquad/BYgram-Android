@@ -72,7 +72,7 @@ public final class PluginHost {
         return () -> intentHandlers.remove(handler);
     }
     public static boolean dispatchIntent(android.content.Intent intent, int account, boolean before) {
-        if (intentHandlers.isEmpty() || !android.content.Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return false;
+        if (intentHandlers.isEmpty() || intent.getAction() == null) return false;
         String identity;
         try { identity = PluginContext.currentIdentity(account); }
         catch (IllegalStateException | IllegalArgumentException unavailable) { return false; }
@@ -81,7 +81,14 @@ public final class PluginHost {
             PluginContext owner = handler.owner;
             if (!owner.scope.beginCallback()) continue;
             try {
-                PyObject result = handler.callback.call(new android.content.Intent(intent), account);
+                android.content.Intent snapshot = android.content.Intent.ACTION_VIEW.equals(intent.getAction())
+                        ? new android.content.Intent(intent) : intent.cloneFilter();
+                snapshot.setFlags(intent.getFlags());
+                if (android.content.Intent.ACTION_SEND.equals(intent.getAction())) {
+                    CharSequence text = intent.getCharSequenceExtra(android.content.Intent.EXTRA_TEXT);
+                    if (text != null) snapshot.putExtra(android.content.Intent.EXTRA_TEXT, text.toString());
+                }
+                PyObject result = handler.callback.call(snapshot, account);
                 if (before && result != null && result.toBoolean() && owner.active()
                         && owner.accountAvailable(account, identity)) return true;
             }
@@ -100,9 +107,10 @@ public final class PluginHost {
                                 String detail, int duration, PyObject action, PyObject commit) {
         AndroidUtilities.runOnUIThread(() -> {
             BaseFragment fragment = target == null ? current.get() : target;
-            if (!context.active() || fragment == null || fragment.getParentActivity() == null) return;
+            if (!context.active() || target != null && !BulletinFactory.canShowBulletin(target)) return;
             try {
-                BulletinFactory factory = BulletinFactory.of(fragment);
+                BulletinFactory factory = target == null ? BulletinFactory.global() : BulletinFactory.of(target);
+                Theme.ResourcesProvider resources = fragment == null ? null : fragment.getResourceProvider();
                 Runnable run = action == null ? null : () -> context.call(action);
                 switch (type) {
                     case "error": factory.createErrorBulletin(text).show(); break;
@@ -120,11 +128,11 @@ public final class PluginHost {
                     case "gallery": factory.createDownloadBulletin(icon == 0
                                     ? duration > 1 ? BulletinFactory.FileType.PHOTOS : BulletinFactory.FileType.PHOTO
                                     : duration > 1 ? BulletinFactory.FileType.VIDEOS : BulletinFactory.FileType.VIDEO,
-                            duration, fragment.getResourceProvider()).show(); break;
+                            duration, resources).show(); break;
                     case "downloads": factory.createDownloadBulletin(BulletinFactory.FileType.valueOf(
                                     "MUSIC".equals(detail) ? duration > 1 ? "AUDIOS" : "AUDIO"
                                             : "UNKNOWN".equals(detail) && duration > 1 ? "UNKNOWNS" : detail),
-                            duration, fragment.getResourceProvider()).show(); break;
+                            duration, resources).show(); break;
                     default: factory.createSimpleBulletin(R.raw.info, text).show();
                 }
             } catch (Exception failure) {

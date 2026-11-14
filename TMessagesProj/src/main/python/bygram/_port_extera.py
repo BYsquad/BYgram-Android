@@ -25,6 +25,7 @@ def catalog_metadata(source, archive):
 def read_source(contents, source):
     tree = ast.parse(contents.decode("utf-8-sig"), filename=str(source))
     keys = {"__id__", "__name__", "__description__", "__author__", "__version__", "__requirements__", "__bygram_hooks__"}
+    display_keys = {"__category__", "__icon__", "__app_version__", "__sdk_version__", "__min_version__"}
     metadata = {}
     base_names = {"BasePlugin"}
     for statement in tree.body:
@@ -33,7 +34,13 @@ def read_source(contents, source):
         if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
             targets = statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
             for target in targets:
-                if isinstance(target, ast.Name) and target.id in keys:
+                if isinstance(target, ast.Name) and target.id in keys | display_keys:
+                    if target.id in display_keys:
+                        try:
+                            metadata[target.id] = ast.literal_eval(statement.value)
+                        except (ValueError, TypeError):
+                            metadata.pop(target.id, None)
+                        continue
                     if target.id in metadata:
                         raise ValueError(f"Duplicate metadata {target.id}")
                     metadata[target.id] = ast.literal_eval(statement.value)
@@ -93,10 +100,13 @@ def dependencies(root, include_urls=False):
 
 
 def build_manifest(metadata, entrypoint, *, telegram_hooks=False, telegram_requests=False, send_text=False, media=False,
-                   ui=False, message_menu=False, structured=False):
+                   ui=False, message_menu=False, network=False, structured=False):
     plugin_id = bygram_id(metadata.get("id"), structured=structured)
     version = normalize_version(metadata.get("version", "1.0"))
     fields = {}
+    icon = metadata.get("icon")
+    if isinstance(icon, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}/[0-9]{1,9}", icon):
+        fields["sticker_icon"] = icon
     for name, limit in (("name", 80), ("description", 1000), ("author", 120)):
         value = metadata.get(name, "")
         if not isinstance(value, str):
@@ -118,6 +128,8 @@ def build_manifest(metadata, entrypoint, *, telegram_hooks=False, telegram_reque
         capabilities.append("messages.send")
     if media:
         capabilities.append("messages.media")
+    if network:
+        capabilities.append("network")
     return dict(manifest_version=1, id=plugin_id, version=version, entrypoint=entrypoint,
                     sdk={"min": 1, "max": 1}, python="3.11", settings_schema=1,
                     capabilities=capabilities,
@@ -135,6 +147,7 @@ def prepare_source(source, root, *, resolve_pypi, resolver=None, keep_wheels=Fal
         (root / "main.py").write_bytes(contents)
         if metadata.get("requirements"):
             prepare_dependencies(root, metadata["requirements"], resolve_pypi=resolve_pypi, resolver=resolver)
+        if any(key in metadata for key in ("requirements", "category", "icon", "app_version", "sdk_version", "min_version")):
             write_environment(root, {}, metadata, {})
     else:
         metadata, entrypoint = prepare_elyx(source, root, resolve_pypi=resolve_pypi, read_source=read_source,
@@ -168,7 +181,8 @@ def convert_mobile(source, output, expected_id=None, expected_version=None, deve
     with tempfile.TemporaryDirectory(prefix="bygram-convert-", dir=source.parent) as directory:
         root = Path(directory)
         manifest = prepare_source(source, root, resolve_pypi=resolver is not None, resolver=resolver, keep_wheels=developer, ui=True,
-                                  message_menu=True, telegram_hooks=True, telegram_requests=True, send_text=True, media=True)
+                                  message_menu=True, telegram_hooks=True, telegram_requests=True, send_text=True, media=True,
+                                  network=True)
         if expected_id is not None and (manifest["id"] != bygram_id(expected_id, structured=source.suffix != ".plugin")
                                         or expected_version is not None and manifest["version"] != normalize_version(expected_version)):
             raise ValueError("CatalogPackageMismatch")
@@ -192,6 +206,7 @@ def port_options(parser):
     parser.add_argument("--media", action="store_true")
     parser.add_argument("--ui", action="store_true")
     parser.add_argument("--message-menu", action="store_true")
+    parser.add_argument("--network", action="store_true")
     parser.add_argument("--resolve-pypi", action="store_true", help="Bundle resolved pure-Python PyPI wheels at build time")
     parser.add_argument("--signing-key", type=Path)
     parser.add_argument("--hook-manifest", type=Path, help="BYgram and Telegram build ranges and exact ART hook targets")

@@ -3,19 +3,19 @@
     "file": "assets/manifest-v1.schema.json",
     "src": "../../docs/plugins/manifest-v1.schema.json"
   },
-  "_jsx-runtime.js": {
-    "file": "assets/jsx-runtime.js",
+  "_jsx-runtime-CYnr37O3.js": {
+    "file": "assets/jsx-runtime-CYnr37O3.js",
     "name": "jsx-runtime"
   },
   "_main-BHsqtI7N.css": {
     "file": "assets/main-BHsqtI7N.css",
     "src": "_main-BHsqtI7N.css"
   },
-  "_main-D9hQwSzD.js": {
-    "file": "assets/main-D9hQwSzD.js",
+  "_main-De56gMaN.js": {
+    "file": "assets/main-De56gMaN.js",
     "name": "main",
     "imports": [
-      "_jsx-runtime.js"
+      "_jsx-runtime-CYnr37O3.js"
     ],
     "css": [
       "assets/main-BHsqtI7N.css"
@@ -29,8 +29,8 @@
       "assets/profile-current.png"
     ]
   },
-  "_modulepreload-polyfill.js": {
-    "file": "assets/modulepreload-polyfill.js",
+  "_modulepreload-polyfill-P2Xu9kJm.js": {
+    "file": "assets/modulepreload-polyfill-P2Xu9kJm.js",
     "name": "modulepreload-polyfill"
   },
   "assets/bygram-logo.png": {
@@ -58,12 +58,12 @@
     "src": "assets/spy-current.png"
   },
   "docs/index.html": {
-    "file": "assets/docs-BwYYVCxM.js",
+    "file": "assets/docs-BUyR19nf.js",
     "name": "docs",
     "src": "docs/index.html",
     "isEntry": true,
     "imports": [
-      "_modulepreload-polyfill.js"
+      "_modulepreload-polyfill-P2Xu9kJm.js"
     ],
     "css": [
       "assets/docs-BhNH_Qpp.css"
@@ -79,7 +79,7 @@
     "src": "src/admin.jsx",
     "isEntry": true,
     "imports": [
-      "_jsx-runtime.js"
+      "_jsx-runtime-CYnr37O3.js"
     ],
     "css": [
       "assets/admin.css"

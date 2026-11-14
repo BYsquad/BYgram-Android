@@ -24,7 +24,13 @@ public final class PluginCatalogCheck {
             manifest.add("bygram", JsonParser.parseString("{\"min_build\":1,\"max_build\":2147483647}"));
             manifest.add("telegram", JsonParser.parseString("{\"min_build\":1,\"max_build\":2147483647}"));
             JsonArray targets = new JsonArray(); manifest.add("hook_targets", targets);
-            for (int target = 0; target < 1000; target++) targets.add(JsonParser.parseString("{\"class\":\"x\",\"method\":\"m\",\"args\":[]}"));
+            for (int target = 0; target < 256; target++) {
+                JsonObject hook = new JsonObject();
+                hook.addProperty("class", "org.telegram.messenger.DenseCatalogFixture");
+                hook.addProperty("method", "method" + target);
+                hook.add("args", new JsonArray());
+                targets.add(hook);
+            }
             denseEntries.add(item);
         }
         assert PluginCatalog.parse(dense.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), 72379, 7237).size() == 4 : "valid dense index rejected";
@@ -89,10 +95,12 @@ public final class PluginCatalogCheck {
     private static void checkExtera() throws Exception {
         String hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
         String json = "{\"schema\":1,\"name\":\"Example\",\"plugins\":[{\"id\":\"example\",\"name\":\"Example\","
-                + "\"version\":\"1.2\",\"file\":\"packages/example.elyx\",\"sha256\":\"" + hash + "\",\"size\":3}]}";
+                + "\"version\":\"1.2\",\"category\":[\"tools\",\"invalid\",\"tools\",\"media\"],"
+                + "\"file\":\"packages/example.elyx\",\"sha256\":\"" + hash + "\",\"size\":3}]}";
         String url = "https://example.org/plugins/extera-plugins.json";
         JsonArray parsed = PluginCatalog.parseRepository(json.getBytes(java.nio.charset.StandardCharsets.UTF_8), url, 72379, 7237);
         JsonObject entry = parsed.get(0).getAsJsonObject();
+        assert entry.getAsJsonObject("manifest").getAsJsonArray("category").toString().equals("[\"tools\",\"media\"]");
         assert entry.get("file").getAsString().equals("https://example.org/plugins/packages/example.elyx");
         assert entry.get("archive").getAsBoolean();
         PluginCatalog.verifyExtera(entry, new byte[]{'a', 'b', 'c'});

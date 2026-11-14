@@ -148,7 +148,7 @@ function pluginJson(string $json): array {
 function pluginManifest(string $json): array {
     $manifest = pluginJson($json);
     $required = ['manifest_version','id','name','description','version','author','entrypoint','sdk','python','capabilities','account_scope','settings_schema'];
-    $allowed = array_merge($required, ['icon','bygram','telegram','requires_hook_backend','hook_targets']);
+    $allowed = array_merge($required, ['icon','sticker_icon','bygram','telegram','requires_hook_backend','hook_targets']);
     if (!is_array($manifest) || array_diff($required, array_keys($manifest)) || array_diff(array_keys($manifest), $allowed)
             || $manifest['manifest_version'] !== 1 || $manifest['python'] !== '3.11') throw new InvalidArgumentException('Неверная схема manifest');
     foreach (['id'=>120,'name'=>80,'description'=>1000,'version'=>80,'author'=>120,'entrypoint'=>512] as $key => $limit) {
@@ -192,6 +192,10 @@ function pluginManifest(string $json): array {
     if (array_key_exists('icon', $manifest)) {
         if (!is_string($manifest['icon']) || !preg_match('~\.(png|webp)$~D', $manifest['icon'])) throw new InvalidArgumentException('Неверный путь icon');
         pluginManifestPath($manifest['icon']);
+    }
+    if (array_key_exists('sticker_icon', $manifest)
+        && (!is_string($manifest['sticker_icon']) || !preg_match('~^[A-Za-z0-9_]{1,64}/[0-9]{1,9}$~D', $manifest['sticker_icon']))) {
+        throw new InvalidArgumentException('Неверная ссылка sticker_icon');
     }
     return $manifest;
 }

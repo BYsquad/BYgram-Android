@@ -123,12 +123,26 @@ class BasePlugin(Plugin):
                 data["groupedMessages"] = grouped.messages
             if "dialog_id" in data:
                 from client_utils import get_messages_controller
+                from java import jclass
                 controller = _invoke(self.context, data["account"], get_messages_controller)
                 peer = data["dialog_id"]
+                dialogs = jclass("org.telegram.messenger.DialogObject")
+                if dialogs.isEncryptedDialog(peer):
+                    encrypted = controller.getEncryptedChat(dialogs.getEncryptedChatId(peer))
+                    peer = 0
+                    if encrypted is not None:
+                        data["encryptedChat"] = encrypted
+                        peer = encrypted.user_id
                 if peer > 0:
-                    data.update(user=controller.getUser(peer), userId=peer, userFull=controller.getUserFull(peer))
+                    full = controller.getUserFull(peer)
+                    data.update(user=controller.getUser(peer), userId=peer, userFull=full)
+                    if full is not None and full.bot_info is not None:
+                        data["botInfo"] = full.bot_info
                 elif peer < 0:
-                    data.update(chat=controller.getChat(-peer), chatId=-peer, chatFull=controller.getChatFull(-peer))
+                    full = controller.getChatFull(-peer)
+                    data.update(chat=controller.getChat(-peer), chatId=-peer, chatFull=full)
+                    if full is not None and full.bot_info is not None and not full.bot_info.isEmpty():
+                        data["botInfo"] = full.bot_info
             return data
 
         def click(event, fragment, message, grouped):

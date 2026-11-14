@@ -104,6 +104,15 @@ public final class PluginContext {
         return new File(dataDirectory, "files").getAbsolutePath();
     }
 
+    public String tempAssetDirectory() throws Exception {
+        capability("network");
+        File directory = new File(ApplicationLoader.applicationContext.getCacheDir(),
+                "bygram-plugin-asset-" + java.util.UUID.randomUUID());
+        PluginPackage.check(directory.mkdir(), "StorageUnavailable");
+        scope.own(() -> PluginPackage.delete(directory));
+        return directory.getAbsolutePath();
+    }
+
     public synchronized String settingsGet(String key, String account) throws IOException {
         check(); JsonObject values = settings(account);
         return values.has(key) ? values.get(key).toString() : "null";

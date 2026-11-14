@@ -30,6 +30,13 @@ public class PluginManifestCheck {
         assert valid.id().equals("dev.bygram.hello");
         assert valid.version().equals("1.0.0");
         assert valid.entrypoint().equals("main.py:HelloPlugin");
+        JsonObject sticker = base.deepCopy();
+        sticker.addProperty("sticker_icon", "exteraPlugins/1");
+        assert parse(sticker.toString()).metadata().get("sticker_icon").getAsString().equals("exteraPlugins/1");
+        for (String invalidIcon : new String[]{"../1", "pack/-1", "pack/1000000000", "https://pack/1"}) {
+            sticker.addProperty("sticker_icon", invalidIcon);
+            reject(sticker.toString(), "InvalidManifest");
+        }
         valid.metadata().addProperty("id", "mutated");
         assert valid.id().equals("dev.bygram.hello");
         for (String field : base.keySet()) {

@@ -86,6 +86,19 @@ public final class PluginCatalog {
             JsonObject item = new JsonObject(), manifest = new JsonObject();
             manifest.addProperty("name", name);
             manifest.addProperty("version", version);
+            JsonArray categories = new JsonArray();
+            JsonElement category = entry.get("category");
+            if (category != null) {
+                JsonArray candidates = category.isJsonArray() ? category.getAsJsonArray() : new JsonArray();
+                if (!category.isJsonArray()) candidates.add(category);
+                for (JsonElement candidate : candidates) {
+                    if (categories.size() == 3) break;
+                    if (candidate.isJsonPrimitive() && candidate.getAsJsonPrimitive().isString()
+                            && candidate.getAsString().matches("appearance|chats|media|privacy|tools|integrations|fun|libraries")
+                            && !categories.contains(candidate)) categories.add(candidate);
+                }
+            }
+            if (categories.size() != 0) manifest.add("category", categories);
             item.add("manifest", manifest);
             item.addProperty("extera_id", id);
             item.addProperty("file", url.toExternalForm());

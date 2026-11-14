@@ -151,17 +151,28 @@ def edit_message(message, text=None, account=None, *, parse_mode=None, file_path
                                        formatted["message"], _entities(formatted["entities"]))
 
 
-PLUGINS_QUEUE = "plugins"
-GLOBAL_QUEUE = "global"
-STAGE_QUEUE = "stage"
-SEARCH_QUEUE = "search"
+PLUGINS_QUEUE = "pluginsQueue"
+GLOBAL_QUEUE = "globalQueue"
+STAGE_QUEUE = "stageQueue"
+SEARCH_QUEUE = "searchQueue"
+CACHE_CLEAR_QUEUE = "cacheClearQueue"
+PHONE_BOOK_QUEUE = "phoneBookQueue"
+THEME_QUEUE = "themeQueue"
+EXTERNAL_NETWORK_QUEUE = "externalNetworkQueue"
+
+_QUEUE_ALIASES = {"plugins": PLUGINS_QUEUE, "global": GLOBAL_QUEUE, "stage": STAGE_QUEUE, "search": SEARCH_QUEUE}
+_HOST_QUEUES = {GLOBAL_QUEUE, STAGE_QUEUE, SEARCH_QUEUE, CACHE_CLEAR_QUEUE, PHONE_BOOK_QUEUE, THEME_QUEUE,
+                EXTERNAL_NETWORK_QUEUE}
 
 
 def get_queue_by_name(name):
     from java import jclass
-    queues = {PLUGINS_QUEUE: "globalQueue", GLOBAL_QUEUE: "globalQueue",
-              STAGE_QUEUE: "stageQueue", SEARCH_QUEUE: "searchQueue"}
-    return getattr(jclass("org.telegram.messenger.Utilities"), queues[name])
+    name = _QUEUE_ALIASES.get(name, name)
+    if name == PLUGINS_QUEUE:
+        name = GLOBAL_QUEUE
+    if name not in _HOST_QUEUES:
+        raise KeyError(name)
+    return getattr(jclass("org.telegram.messenger.Utilities"), name)
 
 
 def run_on_queue(func, queue_name=PLUGINS_QUEUE, delay=0):
@@ -170,8 +181,15 @@ def run_on_queue(func, queue_name=PLUGINS_QUEUE, delay=0):
     def callback():
         if context._bridge.active():
             _invoke(context, account, func)
-    if queue_name == PLUGINS_QUEUE and not delay:
-        return context.work.submit(callback)
+    if _QUEUE_ALIASES.get(queue_name, queue_name) == PLUGINS_QUEUE:
+        if not delay:
+            return context.work.submit(callback)
+
+        def enqueue():
+            if context._bridge.active():
+                context.work.submit(callback)
+
+        return get_queue_by_name(GLOBAL_QUEUE).postRunnable(R(enqueue), delay)
     get_queue_by_name(queue_name).postRunnable(R(callback), delay)
 
 

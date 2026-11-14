@@ -24,7 +24,7 @@ Native backend закреплён как `1.1.4-api37.1-bygram.3`, fork `43b0d8d
 
 - [SDK v1 и примеры](sdk-v1.md)
 - [Перенос плагинов exteraGram, Elyx и индексов](exteragram-port.md)
-- [Сравнение с exteraGram по коду BYgram Full от 14.11.2026](comparison-exteragram-2026-11-14.md)
+- [Сравнение с exteraGram перед доработкой совместимости](comparison-exteragram.md)
 - [Dev Server для Full Debug](dev-server.md)
 - [Схема manifest v1](manifest-v1.schema.json)
 - [Матрица проверок и выпуск](testing-and-release.md)

@@ -1,4 +1,4 @@
-"""Handlers for unlocked Telegram links."""
+"""Handlers for incoming intents processed by the unlocked app."""
 import inspect
 import re
 from urllib.parse import parse_qsl
@@ -22,6 +22,8 @@ def _register(callback, before, *, scheme=None, host=None, path=None, required_p
     context = _context()
     parameters = inspect.signature(callback).parameters
     all_arguments = any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values())
+    # Legacy link handlers without an action keep their original dispatch scope.
+    action = "android.intent.action.VIEW" if action is None else action
     whitelist_flags = _flag_mask(whitelist_flags)
     blacklist_flags = _flag_mask(blacklist_flags)
     pattern = None
@@ -32,16 +34,21 @@ def _register(callback, before, *, scheme=None, host=None, path=None, required_p
 
     def receive(intent, account):
         uri = intent.getData()
+        if uri is None and action == "android.intent.action.VIEW":
+            return
         flags = intent.getFlags()
         actual_categories = set(intent.getCategories() or ())
-        values = dict(intent=intent, scheme=uri.getScheme(), host=uri.getHost(), path=uri.getPath(),
+        values = dict(intent=intent, scheme=uri.getScheme() if uri is not None else None,
+                      host=uri.getHost() if uri is not None else None, path=uri.getPath() if uri is not None else None,
                       action=intent.getAction(), flags=flags, type=intent.getType(), categories=actual_categories)
         for name, expected in (("scheme", scheme), ("host", host), ("action", action), ("type", type)):
             if expected is not None and values[name] != expected:
                 return
         if flags & whitelist_flags != whitelist_flags or flags & blacklist_flags or not set(categories) <= actual_categories:
             return
-        query = dict(parse_qsl(str(uri.getEncodedQuery() or ""), keep_blank_values=True))
+        query = {}
+        if uri is not None and uri.isHierarchical():
+            query = dict(parse_qsl(str(uri.getEncodedQuery() or ""), keep_blank_values=True))
         if not set(required_path_args_names) <= query.keys():
             return
         match = pattern.fullmatch(str(values["path"] or "")) if pattern else None

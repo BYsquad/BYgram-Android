@@ -184,6 +184,10 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
 
         LinearLayout header = new LinearLayout(getContext());
         header.setGravity(Gravity.CENTER_VERTICAL);
+        if (manifest.has("sticker_icon") || id.startsWith("extera.")) {
+            View icon = PluginPackageSheet.pluginIcon(getContext(), manifest, null, currentAccount, 36);
+            header.addView(icon, LayoutHelper.createLinear(36, 36, 0, 0, 0, 10, 0));
+        }
         TextView title = PluginPackageSheet.text(getContext(), name, 18, Theme.key_windowBackgroundWhiteBlackText);
         title.setTypeface(AndroidUtilities.bold());
         title.setOnClickListener(view -> openDetails(id));
@@ -559,27 +563,63 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             if (destroyed || getParentActivity() == null) return;
             if (error != null) { message(errorText(error)); return; }
             if (entries.size() == 0) { message(getString(R.string.BygramPluginEmpty)); return; }
-            CharSequence[] titles = new CharSequence[entries.size()];
-            for (int i = 0; i < titles.length; i++) {
-                JsonObject manifest = entries.get(i).getAsJsonObject().getAsJsonObject("manifest");
-                String version = manifest.get("version").getAsString();
-                titles[i] = manifest.get("name").getAsString() + (version.isEmpty() ? "" : " · " + version);
+            TreeSet<String> categories = new TreeSet<>();
+            for (JsonElement entry : entries) {
+                JsonArray values = entry.getAsJsonObject().getAsJsonObject("manifest").getAsJsonArray("category");
+                if (values != null) for (JsonElement value : values) categories.add(value.getAsString());
             }
-            showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalog))
-                    .setItems(titles, (d, index) -> {
-                        busy = true; changed.run();
-                        long download = ++catalogGeneration;
-                        catalogRequest = manager.stageCatalog(repository, currentAccount, entries.get(index).getAsJsonObject(), (token, failure) -> {
-                            if (download != catalogGeneration || destroyed) {
-                                if (token != null) manager.commit(token, false, null);
-                                return;
+            if (categories.isEmpty()) {
+                showCatalogEntries(repository, entries);
+            } else {
+                String[] filters = new String[categories.size() + 1];
+                filters[0] = getString(R.string.FilterAllChatsShort);
+                int row = 1;
+                for (String category : categories) filters[row++] = category;
+                showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalog))
+                        .setItems(filters, (dialog, index) -> {
+                            JsonArray filtered = new JsonArray();
+                            JsonPrimitive category = new JsonPrimitive(filters[index]);
+                            for (JsonElement entry : entries) {
+                                JsonArray values = entry.getAsJsonObject().getAsJsonObject("manifest").getAsJsonArray("category");
+                                if (index == 0 || values != null && values.contains(category)) filtered.add(entry);
                             }
-                            catalogRequest = null; staged(token, failure);
-                        });
-                        changed.run();
-                    }).setNegativeButton(getString(R.string.Cancel), null).create());
+                            AndroidUtilities.runOnUIThread(() -> {
+                                if (!destroyed && getParentActivity() != null && generation == catalogGeneration)
+                                    showCatalogEntries(repository, filtered);
+                            });
+                        })
+                        .setNegativeButton(getString(R.string.Cancel), null).create());
+            }
         });
         changed.run();
+    }
+
+    private void showCatalogEntries(String repository, JsonArray entries) {
+        CharSequence[] titles = new CharSequence[entries.size()];
+        for (int i = 0; i < titles.length; i++) {
+            JsonObject manifest = entries.get(i).getAsJsonObject().getAsJsonObject("manifest");
+            String version = manifest.get("version").getAsString();
+            titles[i] = manifest.get("name").getAsString() + (version.isEmpty() ? "" : " · " + version);
+            JsonArray categories = manifest.getAsJsonArray("category");
+            if (categories != null) {
+                StringBuilder title = new StringBuilder(titles[i]);
+                for (JsonElement category : categories) title.append(" · ").append(category.getAsString());
+                titles[i] = title.toString();
+            }
+        }
+        showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalog))
+                .setItems(titles, (d, index) -> {
+                    busy = true; changed.run();
+                    long download = ++catalogGeneration;
+                    catalogRequest = manager.stageCatalog(repository, currentAccount, entries.get(index).getAsJsonObject(), (token, failure) -> {
+                        if (download != catalogGeneration || destroyed) {
+                            if (token != null) manager.commit(token, false, null);
+                            return;
+                        }
+                        catalogRequest = null; staged(token, failure);
+                    });
+                    changed.run();
+                }).setNegativeButton(getString(R.string.Cancel), null).create());
     }
     private void cancelCatalog() {
         ++catalogGeneration;

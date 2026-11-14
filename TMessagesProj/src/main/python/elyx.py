@@ -114,6 +114,23 @@ class Asset:
         self.name = name
 
     @classmethod
+    def temp_asset_from_url(cls, url, filename):
+        from client_utils import _context
+        from file_utils import write_file_bytes
+
+        if (not isinstance(filename, str) or filename in ("", ".", "..")
+                or any(char in filename for char in ("/", "\\", ":", "\0"))):
+            raise ValueError("InvalidAssetFilename")
+        context = _context()
+        data = context.network._get_bytes(url)
+        directory = Path(str(context._bridge.tempAssetDirectory()))
+        asset = directory / filename
+        if not write_file_bytes(asset, data):
+            raise OSError("AssetWriteFailed")
+        context._bridge.networkCompleted(len(data))
+        return cls.from_path(asset)
+
+    @classmethod
     def from_path(cls, path):
         if hasattr(path, "getAbsolutePath"):
             path = str(path.getAbsolutePath())
@@ -287,7 +304,10 @@ class Strings:
             from java import jclass
         except ImportError:
             return "en"
-        return str(jclass("java.util.Locale").getDefault().getLanguage())
+        locale = jclass("org.telegram.messenger.LocaleController").getInstance().getCurrentLocale()
+        if locale is None:
+            locale = jclass("java.util.Locale").getDefault()
+        return str(locale.getLanguage())
 
     def get_with_locale(self, key, locale=None, default=None):
         locale = self._locale() if locale is None else locale.lower()

@@ -6,11 +6,43 @@ _invocation = ContextVar("bygram_proxy_invocation", default=None)
 _unset = object()
 
 
-def java_subclass(base, *interfaces):
+def java_subclass(base, *interfaces, methods=None, constructors=None, custom_name=None):
+    method_entries = tuple(methods.items() if isinstance(methods, dict) else methods or ())
+    method_specs = []
+    for entry in method_entries:
+        if isinstance(entry, str):
+            java_name, types, attr = entry, None, entry
+        elif hasattr(entry, "getParameterTypes"):
+            java_name = attr = str(entry.getName())
+            types = tuple(entry.getParameterTypes())
+        else:
+            java_name, types, *handler = entry
+            attr = handler[0] if handler else java_name
+            if len(handler) > 1 or not isinstance(java_name, str) or not isinstance(attr, str):
+                raise TypeError("Expected (Java method name, argument types[, Python method name])")
+        method_specs.append((java_name, None if types is None else tuple(types), attr))
+    constructor_specs = None if constructors is None else tuple(
+        tuple(entry.getParameterTypes() if hasattr(entry, "getParameterTypes") else entry)
+        for entry in constructors
+    )
+
     def decorate(cls):
         if not issubclass(cls, Base):
             raise TypeError("Java subclass must inherit Base")
         cls._java_base, cls._java_interfaces = base, interfaces
+        cls._java_name = custom_name
+        cls._java_methods = tuple(method_specs)
+        cls._java_constructors = constructor_specs
+        override_names = {attr for _, _, attr in method_specs}
+        override_names.update(name for name, method in vars(cls).items()
+                              if getattr(method, "_java_override", None) is not None)
+        parent_methods = {
+            name: Base.call_super for name in override_names
+            if not any(hasattr(parent, name) for parent in cls.__bases__)
+        }
+        if parent_methods:
+            parent = type(f"_{cls.__name__}JavaParent", cls.__bases__, {"__slots__": (), **parent_methods})
+            cls.__bases__ = (parent,)
         return cls
     return decorate
 
@@ -137,7 +169,12 @@ def _arguments(array, values, types):
 
 class Base:
     @classmethod
-    def new_instance(cls, *args, arg_types=(), init_args=None):
+    def bind(cls, base, *interfaces, methods=None, constructors=None, custom_name=None):
+        return java_subclass(base, *interfaces, methods=methods, constructors=constructors,
+                             custom_name=custom_name)(cls)
+
+    @classmethod
+    def new_instance(cls, *args, arg_types=None, init_args=None):
         from java import jarray, jclass, jint
         bridge = jclass("org.telegram.messenger.plugins.PluginClassProxy")
         classes = jarray(jclass("java.lang.Class"))
@@ -153,7 +190,29 @@ class Base:
 
         base = java_type(cls._java_base)
         interfaces = classes([java_type(value) for value in cls._java_interfaces])
-        constructor = classes([java_type(value) for value in arg_types])
+        declared_constructors = None
+        if cls._java_constructors is not None:
+            signatures = [tuple(map(java_type, spec)) for spec in cls._java_constructors]
+            declared_constructors = jarray(classes)([classes(spec) for spec in dict.fromkeys(signatures)])
+        if arg_types is None:
+            def inferred_type(value):
+                if value is None:
+                    return None
+                if type(value) is int:
+                    return bridge.type("int" if -(2**31) <= value < 2**31 else "long")
+                name = {bool: "boolean", float: "double", str: "java.lang.String"}.get(type(value))
+                if name is not None:
+                    return bridge.type(name)
+                if hasattr(value, "getClass"):
+                    return value.getClass()
+                raise TypeError("Pass arg_types for this constructor argument")
+
+            inferred = classes([inferred_type(value) for value in args])
+            constructor = bridge.constructorTypes(base, inferred, declared_constructors)
+        else:
+            constructor = classes([java_type(value) for value in arg_types])
+        if declared_constructors is not None and not any(list(spec) == list(constructor) for spec in declared_constructors):
+            raise TypeError("Java constructor is outside constructors=")
         owner = _owner()
         members = {name: value for parent in reversed(cls.__mro__) for name, value in vars(parent).items()}
         def constructor_hook(attribute):
@@ -208,15 +267,16 @@ class Base:
             for name, getter in field.methods:
                 declarations.append((name, field.field_type, (), index) if getter
                                     else (name, "void", (field.field_type,), -index))
-        if fields or declarations or supers or builder is not None:
-            base = bridge.extend(base, constructor, strings(list(fields)),
+        if fields or declarations or supers or builder is not None or cls._java_name is not None or declared_constructors is not None:
+            generated_constructors = declared_constructors if declared_constructors is not None else jarray(classes)([constructor])
+            base = bridge.extend(base, generated_constructors, strings(list(fields)),
                                  classes([java_type(field.field_type) for field in fields.values()]),
                                  strings([name for name, _, _, _ in declarations]),
                                  classes([java_type(result) for _, result, _, _ in declarations]),
                                  jarray(classes)([classes([java_type(value) for value in types])
                                                   for _, _, types, _ in declarations]),
                                  jarray(jint)([accessor for _, _, _, accessor in declarations]),
-                                 methods(supers), builder_key, builder)
+                                 methods(supers), builder_key, builder, cls._java_name)
         overrides = {}
         for attr, fn in members.items():
             declared = getattr(fn, "_java_method", None)
@@ -227,6 +287,11 @@ class Base:
                 name, types = spec
                 method = bridge.method(base, interfaces, name, None if types is None else classes([java_type(value) for value in types]))
                 overrides[str(method.toGenericString())] = method, attr
+        for name, types, attr in cls._java_methods:
+            method = bridge.method(base, interfaces, name, None if types is None else classes(list(map(java_type, types))))
+            if not callable(members.get(attr)):
+                raise TypeError(f"Missing Python override {attr!r} for Java method {name!r}")
+            overrides.setdefault(str(method.toGenericString()), (method, attr))
         instance = cls.__new__(cls)
 
         def dispatch(proxy, method, values):

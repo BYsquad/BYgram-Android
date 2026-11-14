@@ -70,7 +70,7 @@ public final class PluginManifest {
         }
         fields(root, "manifest_version", "id", "name", "description", "version", "author",
                 "entrypoint", "sdk", "python", "capabilities", "account_scope", "settings_schema",
-                "icon", "bygram", "telegram", "requires_hook_backend", "hook_targets");
+                "icon", "sticker_icon", "bygram", "telegram", "requires_hook_backend", "hook_targets");
         require(integer(root, "manifest_version") == 1, "InvalidManifest", "manifest_version");
         String id = string(root, "id", 120, true);
         require(id.length() >= 3 && id.matches("[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+"),
@@ -106,6 +106,9 @@ public final class PluginManifest {
             String icon = string(root, "icon", MAX_BYTES, true);
             path(icon, "icon");
             require(icon.endsWith(".png") || icon.endsWith(".webp"), "InvalidManifest", "icon");
+        }
+        if (root.has("sticker_icon")) {
+            require(isStickerIcon(string(root, "sticker_icon", 74, true)), "InvalidManifest", "sticker_icon");
         }
         if (root.has("bygram")) range(object(root, "bygram"), "min_build", "max_build", bygramBuild, "IncompatibleBuild");
         if (root.has("telegram")) range(object(root, "telegram"), "min_build", "max_build", telegramBuild, "IncompatibleBuild");
@@ -226,6 +229,10 @@ public final class PluginManifest {
         String[] parts = path.split("/", -1);
         require(parts.length <= 12 && !path.contains("\\") && !path.contains(":"), "InvalidManifest", field);
         for (String part : parts) require(!part.isEmpty() && !part.equals(".") && !part.equals(".."), "InvalidManifest", field);
+    }
+
+    public static boolean isStickerIcon(String value) {
+        return value != null && value.matches("[A-Za-z0-9_]{1,64}/[0-9]{1,9}");
     }
 
     private static final String JAVA_CLASS = "[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*";

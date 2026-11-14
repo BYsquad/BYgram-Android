@@ -20,6 +20,9 @@ from ui.settings import Header, Switch
 __id__ = "My-Hook"
 __name__ = "Example"
 __version__ = "1.2"
+__category__ = ["tools"]
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.5.1"
 Path(__file__).with_name("loaded").touch()
 
 class Example(BasePlugin):
@@ -52,7 +55,8 @@ def check_elyx(root, loader, bridge):
             with ZipFile(source, "w") as archive:
                 archive.writestr("refmap.json", json.dumps(dict(main="src/main.py", metainfo="meta.json",
                     strings="locales", assets="assets", wheels="wheels")))
-                archive.writestr("meta.json", json.dumps(dict(id=value, name="{title}")))
+                archive.writestr("meta.json", json.dumps(dict(id=value, name="{title}", description="Plugin {title}",
+                                                              icon="exteraPlugins/1")))
                 archive.writestr("locales/strings_en.json", json.dumps(dict(title=value, hello="Hello {name}")))
                 archive.writestr("assets/nested/config.json", json.dumps(dict(value=value)))
                 archive.writestr("src/helpers.py", "from vendorlib import VALUE\n")
@@ -87,6 +91,8 @@ class Example(BasePlugin):
                 install = root / ("installed-" + value)
                 archive.extractall(install)
             assert manifest["name"] == value
+            assert manifest["description"] == f"Plugin {value}"
+            assert manifest["sticker_icon"] == "exteraPlugins/1"
             assert manifest["entrypoint"] == "src/main.py:Example"
             compared = json.loads(compare(install, json.dumps({"files": {"src/main.py": "wrong"}})))
             assert compared["changed"] == ["src/main.py"] and "src/notice.txt" in compared["removed"]
@@ -275,32 +281,57 @@ def check_compat_helpers(root):
     from file_utils import list_dir, read_file, write_file
     from ui.settings import Custom, Switch
     from base_plugin import HookFilter
-    from client_utils import _current, get_hook_account
+    from client_utils import _current, get_hook_account, get_queue_by_name, CACHE_CLEAR_QUEUE
     from intents import IntentsManager
     from ui.bulletin import BulletinHelper
+    from elyx import Asset
 
     hooks, bulletins = [], []
     bridge = SimpleNamespace(
         intentHandler=lambda before, priority, callback: hooks.append(callback) or SimpleNamespace(close=lambda: None),
         pluginBulletin=lambda *args: bulletins.append(args),
     )
-    scope = _current.set((SimpleNamespace(_bridge=bridge), 2))
+    bridge.tempAssetDirectory = lambda: str(root)
+    downloaded = []
+    bridge.networkCompleted = downloaded.append
+    network = SimpleNamespace(_get_bytes=lambda url: b"asset")
+    scope = _current.set((SimpleNamespace(_bridge=bridge, network=network), 2))
     try:
         context = []
         IntentsManager.new_global_before_handler(lambda **values: context.append(values) or True,
                                                  path="/{name}", whitelist_flags=[1, 4], blacklist_flags=[2])
         uri = SimpleNamespace(getScheme=lambda: "tg", getHost=lambda: "test", getPath=lambda: "/demo",
-                              getEncodedQuery=lambda: "id=1")
+                              getEncodedQuery=lambda: "id=1", isHierarchical=lambda: True)
         intent = SimpleNamespace(getData=lambda: uri, getFlags=lambda: 5, getCategories=lambda: (),
-                                 getAction=lambda: "ACTION_VIEW", getType=lambda: None)
+                                 getAction=lambda: "android.intent.action.VIEW", getType=lambda: None)
         assert hooks[0](intent, 2) is True and context[0]["name"] == "demo" and context[0]["id"] == "1"
         intent.getFlags = lambda: 7
         assert hooks[0](intent, 2) is None
+        IntentsManager.new_global_before_handler(lambda **values: context.append(values) or True,
+                                                 action="android.intent.action.SEND", type="text/plain")
+        intent.getData = lambda: None
+        intent.getAction = lambda: "android.intent.action.SEND"
+        intent.getType = lambda: "text/plain"
+        assert hooks[0](intent, 2) is None
+        assert hooks[1](intent, 2) is True and context[-1]["path"] is None and not context[-1]["query_args"]
         BulletinHelper.show_with_button("Test", 7, "Open", lambda: get_hook_account(), fragment="fragment")
         assert bulletins[0][:6] == ("Test", "button", "fragment", 7, "Open", 5000)
         assert bulletins[0][6]() == 2
+        assert Asset.temp_asset_from_url("https://example.org/asset", "asset.txt").content_string() == "asset"
+        assert downloaded == [5]
+        try:
+            Asset.temp_asset_from_url("https://example.org/asset", "../escape")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("unsafe asset filename accepted")
     finally:
         _current.reset(scope)
+
+    utilities = SimpleNamespace(cacheClearQueue=object(), globalQueue=object())
+    with patch.dict(sys.modules, java=SimpleNamespace(jclass=lambda name: utilities)):
+        assert get_queue_by_name(CACHE_CLEAR_QUEUE) is utilities.cacheClearQueue
+        assert get_queue_by_name("global") is get_queue_by_name("globalQueue") is utilities.globalQueue
 
     java = SimpleNamespace(jclass=lambda name: lambda: SimpleNamespace(kind=name.rsplit("Entity", 1)[1]))
     with patch.dict(sys.modules, java=java):
@@ -389,8 +420,11 @@ def main():
         assert not (root / "loaded").exists()
         with ZipFile(package) as archive:
             manifest = json.loads(archive.read("manifest.json"))
+            metadata = json.loads(archive.read("_bygram_elyx.json"))["metainfo"]
+            assert metadata["category"] == ["tools"] and metadata["app_version"] == ">=12.5.1"
             archive.extractall(root)
         assert manifest["version"] == "1.2.0"
+        assert manifest["sticker_icon"] == "exteraPlugins/1"
         assert manifest["account_scope"] == "selected_accounts"
         assert manifest["capabilities"] == ["hooks.telegram", "telegram.requests", "messages.send"]
         assert not (root / "loaded").exists()

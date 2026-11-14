@@ -248,6 +248,12 @@ class Client:
 class _Network:
     def __init__(self, bridge): self._bridge = bridge
     def get_json(self, url):
+        body = self._get_bytes(url)
+        result = json.loads(body)
+        self._bridge.networkCompleted(len(body))
+        return result
+
+    def _get_bytes(self, url):
         import urllib.request
         import urllib.parse
         self._bridge.networkAllowed()
@@ -265,6 +271,4 @@ class _Network:
             body = response.read(1024 * 1024 + 1)
         if len(body) > 1024 * 1024: raise ValueError("NetworkLimitExceeded")
         self._bridge.check()
-        result = json.loads(body)
-        self._bridge.networkCompleted(len(body))
-        return result
+        return body

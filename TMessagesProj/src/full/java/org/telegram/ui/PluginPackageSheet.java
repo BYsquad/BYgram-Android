@@ -5,17 +5,24 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.widget.*;
 import com.google.gson.JsonObject;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ImageLocation;
+import org.telegram.messenger.MediaDataController;
+import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.plugins.PluginManager;
+import org.telegram.messenger.plugins.PluginManifest;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.BackupImageView;
 import java.util.function.BooleanSupplier;
 
 final class PluginPackageSheet {
@@ -26,6 +33,42 @@ final class PluginPackageSheet {
         String version = manifest.get("version").getAsString();
         if (previousVersion != null && !version.equals(previousVersion)) version = previousVersion + " → " + version;
         return LocaleController.formatString(R.string.BygramPluginByline, version, manifest.get("author").getAsString());
+    }
+
+    static BackupImageView pluginIcon(Context context, JsonObject manifest, String token, int account, int size) {
+        BackupImageView view = new BackupImageView(context);
+        view.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        Drawable fallback = context.getDrawable(R.drawable.settings_account).mutate();
+        fallback.setTint(Theme.getColor(Theme.key_featuredStickers_buttonText));
+        view.setImageDrawable(fallback);
+        view.setSize(dp(size - 16), dp(size - 16));
+        view.setBackground(Theme.createRoundRectDrawable(dp(24), Theme.getColor(Theme.key_featuredStickers_addButton)));
+        view.getImageReceiver().setAspectFit(true);
+        view.getImageReceiver().setCurrentAccount(account);
+        java.util.function.Consumer<String> load = reference -> {
+            if (!PluginManifest.isStickerIcon(reference) || !UserConfig.getInstance(account).isClientActivated()) return;
+            int slash = reference.indexOf('/');
+            int index = Integer.parseInt(reference.substring(slash + 1));
+            TLRPC.TL_inputStickerSetShortName setName = new TLRPC.TL_inputStickerSetShortName();
+            setName.short_name = reference.substring(0, slash);
+            long userId = UserConfig.getInstance(account).getClientUserId();
+            MediaDataController.getInstance(account).getStickerSet(setName, 0, false, set -> {
+                if (set == null || index >= set.documents.size()
+                        || userId != UserConfig.getInstance(account).getClientUserId()) return;
+                TLRPC.Document sticker = set.documents.get(index);
+                if (sticker == null) return;
+                view.setSize(dp(size), dp(size));
+                view.setImage(ImageLocation.getForDocument(sticker), size + "_" + size + "_firstframe", fallback, 0, set);
+            });
+        };
+        if (manifest.has("sticker_icon")) {
+            load.accept(manifest.get("sticker_icon").getAsString());
+        } else if (manifest.get("id").getAsString().startsWith("extera.")) {
+            PluginManager.get().importedStickerIcon(manifest.get("id").getAsString(), token, (reference, error) -> {
+                if (error == null) load.accept(reference);
+            });
+        }
+        return view;
     }
 
     static BottomSheet show(Context context, JsonObject manifest, String token, java.util.function.Consumer<Boolean> result) {
@@ -49,11 +92,7 @@ final class PluginPackageSheet {
         scroll.addView(details, LayoutHelper.createScroll(-1, -2, Gravity.TOP));
         content.addView(scroll, new LinearLayout.LayoutParams(-1, -2, 1));
 
-        ImageView icon = new ImageView(context);
-        icon.setImageResource(R.drawable.settings_account);
-        icon.setColorFilter(Theme.getColor(Theme.key_featuredStickers_buttonText));
-        icon.setPadding(dp(10), dp(10), dp(10), dp(10));
-        icon.setBackground(Theme.createRoundRectDrawable(dp(24), Theme.getColor(Theme.key_featuredStickers_addButton)));
+        BackupImageView icon = pluginIcon(context, manifest, token, UserConfig.selectedAccount, 44);
         details.addView(icon, LayoutHelper.createLinear(44, 44, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 10));
         TextView title = text(context, manifest.get("name").getAsString(), 22, TEXT);
         title.setTypeface(AndroidUtilities.bold());

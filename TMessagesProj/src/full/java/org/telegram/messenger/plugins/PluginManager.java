@@ -806,6 +806,18 @@ public final class PluginManager {
         }, callback);
     }
 
+    public void importedStickerIcon(String id, String token, Result<String> callback) {
+        readPackage(id, token, directory -> {
+            File file = new File(directory, "_bygram_elyx.json");
+            if (!file.isFile()) return null;
+            JsonElement value = JsonParser.parseString(new String(PluginPackage.read(file, 1024 * 1024),
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("metainfo").get("icon");
+            if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) return null;
+            String icon = value.getAsString();
+            return PluginManifest.isStickerIcon(icon) ? icon : null;
+        }, callback);
+    }
+
     public void sourceFile(String id, String token, String path, String truncated, Result<String> callback) {
         readPackage(id, token, directory -> PluginPackageAccess.source(directory, path, truncated), callback);
     }

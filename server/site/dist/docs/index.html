@@ -7,8 +7,8 @@
   <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/">
   <title>Документация плагинов BYgram</title>
   <link rel="icon" href="../assets/bygram-logo.png">
-  <script type="module" crossorigin src="../assets/docs-BwYYVCxM.js"></script>
-  <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill.js">
+  <script type="module" crossorigin src="../assets/docs-BUyR19nf.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-P2Xu9kJm.js">
   <link rel="stylesheet" crossorigin href="../assets/docs-BhNH_Qpp.css">
 </head>
 <body>
@@ -191,7 +191,8 @@ python Tools/check_plugins.py</code></pre></figure>
       <section id="compatibility">
         <h2>Совместимость с exteraGram</h2>
         <p>BYgram Full импортирует <code>.plugin</code>, <code>.elyx</code> и <code>.eaf</code> в свой формат <code>.byplugin</code>. Установка из файла, HTTPS-индекса и публичного Telegram-канала использует штатный просмотр пакета и подтверждение запуска.</p>
-        <p>Адаптер <code>BasePlugin</code> поддерживает меню сообщений, MVEL в условиях видимости и методы <code>jMVELmethod</code> и <code>jMVELoverride</code>. <code>jclassbuilder</code> даёт доступ к DexMaker перед загрузкой сгенерированного класса. Для ART-хуков укажите точные цели и диапазоны сборок в манифесте.</p>
+        <p>Адаптер <code>BasePlugin</code> поддерживает меню сообщений и MVEL. Декоратор <code>java_subclass</code> принимает <code>methods=</code> для явных сигнатур переопределяемых методов и <code>constructors=</code> для сигнатур конструкторов. <code>jclassbuilder</code> даёт доступ к DexMaker перед загрузкой класса. Для ART-хуков укажите точные цели и диапазоны сборок в манифесте.</p>
+        <p>Иконка <code>__icon__ = "exteraPlugins/1"</code> в <code>.plugin</code> или <code>icon: exteraPlugins/1</code> в Elyx переносится в <code>sticker_icon</code>. BYgram показывает первый кадр выбранного стикера в предпросмотре установки и карточке плагина.</p>
         <p>В Elyx используйте <code>to_svg_drawable()</code>, <code>to_svg_bitmap()</code> и <code>to_svg_thumb()</code> для SVG. <code>to_lottie_drawable(width, height)</code> загружает Lottie JSON или TGS. <code>requires</code> проверяет доступность обязательных плагинов, а Dev Server в Full Debug может передавать только изменившиеся файлы.</p>
       </section>
 

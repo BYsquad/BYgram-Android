@@ -8,6 +8,7 @@ import spyUrl from '../assets/spy-current.png';
 import customizationUrl from '../assets/customization-current.png';
 import profileUrl from '../assets/profile-current.png';
 import fallbackRelease from '../../activity-api/release.json';
+import fullDebug from '../../activity-api/full-debug.json';
 
 const managerUrl = 'api/manager.php';
 
@@ -106,8 +107,8 @@ function DownloadPage() {
           <a className="button" href={release.apk_name} download><DownloadIcon />Скачать APK</a>
           <p>Нажимая кнопку, вы загружаете установочный файл напрямую с сервера BYgram.</p>
           <h3 id="full-debug">BYgram Full Debug</h3>
-          <p>Тестовая сборка 13.2.1 (72919) от 14.11.2026 для Android 7.0 и новее. Размер 182,5 МиБ. Включает обновлённый Dev Server, Pillow и lxml.</p>
-          <a className="button button--tonal" href="BYgram-full-debug-13.2.1-72919.apk?v=628452fe" download><DownloadIcon />Скачать Full Debug APK</a>
+          <p>Тестовая сборка {fullDebug.version} ({fullDebug.version_code}) от {fullDebug.date} для {fullDebug.requirements}. Размер {fullDebug.size}. Добавлены иконки плагинов из стикерпаков Telegram и поддержка явных сигнатур Java-прокси.</p>
+          <a className="button button--tonal" href={fullDebug.apk_name} download><DownloadIcon />Скачать Full Debug APK</a>
           <p><a className="inline-link" href="docs/">Документация плагинов BYgram</a></p>
         </section>
         <aside className="side-card"><h2>Как установить</h2><ol><li>Дождитесь окончания загрузки.</li><li>Откройте APK из уведомления или папки «Загрузки».</li><li>Если Android спросит, разрешите установку из этого источника.</li><li>Нажмите «Установить» или «Обновить».</li></ol><p><strong>Важно:</strong> не удаляйте текущую версию перед обновлением, если хотите сохранить локальные данные.</p><p>В актуальной версии доступны видеообои, фон всего профиля и уведомления об удалениях в личных чатах.</p><p><a className="inline-link" href="features.html">Возможности BYgram →</a></p></aside>

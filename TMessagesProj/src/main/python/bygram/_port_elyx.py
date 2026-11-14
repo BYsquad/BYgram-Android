@@ -213,16 +213,12 @@ def prepare_elyx(source, root, *, resolve_pypi, read_source, resolver=None, meta
                 locale = file.stem.rsplit("_", 1)[-1].lower() if "_" in file.stem else "en"
                 locales.setdefault(locale, {}).update(read_mapping(file))
     manifest_metadata = dict(metadata)
+    from elyx import Strings
+    strings = Strings(locales)
     for key in ("name", "description"):
         value = manifest_metadata.get(key)
-        if isinstance(value, str) and re.fullmatch(r"\{[^{}]+\}", value):
-            token = value[1:-1]
-            translated = locales.get("en", {}).get(token)
-            if translated is None:
-                translated = next((strings[token] for strings in locales.values() if token in strings), None)
-            if not isinstance(translated, str):
-                raise ValueError(f"Missing localized metadata value: {token}")
-            manifest_metadata[key] = translated
+        if isinstance(value, str) and locales:
+            manifest_metadata[key] = re.sub(r"\{([^{}]+)\}", lambda match: str(strings.get(match[1])), value)
     wheels = root / relative_path(refmap["wheels"]) if "wheels" in refmap else None
     if not metadata_only:
         prepare_dependencies(root, metadata.get("requirements"), resolve_pypi=resolve_pypi, wheels=wheels, resolver=resolver,

@@ -51,34 +51,71 @@ public final class PluginClassProxy {
                 ? ApplicationLoader.applicationContext.getClassLoader() : base.getClassLoader();
     }
 
-    public static synchronized Class<?> extend(Class<?> base, Class<?>[] constructor,
+    public static Class<?>[] constructorTypes(Class<?> base, Class<?>[] supplied, Class<?>[][] allowed) throws NoSuchMethodException {
+        Class<?>[] best = null;
+        boolean ambiguous = false;
+        int bestScore = Integer.MAX_VALUE;
+        for (java.lang.reflect.Constructor<?> candidate : base.getDeclaredConstructors()) {
+            int flags = candidate.getModifiers();
+            if (!(Modifier.isPublic(flags) || Modifier.isProtected(flags))) continue;
+            Class<?>[] types = candidate.getParameterTypes();
+            if (types.length != supplied.length) continue;
+            if (allowed != null && Arrays.stream(allowed).noneMatch(spec -> Arrays.equals(spec, types))) continue;
+            int score = 0;
+            for (int i = 0; i < types.length; i++) {
+                if (types[i] == supplied[i]) continue;
+                if (types[i].isPrimitive() || supplied[i] != null && !types[i].isAssignableFrom(supplied[i])) {
+                    score = Integer.MAX_VALUE;
+                    break;
+                }
+                score++;
+            }
+            if (score == Integer.MAX_VALUE) continue;
+            if (score < bestScore) {
+                best = types;
+                bestScore = score;
+                ambiguous = false;
+            } else if (score == bestScore) {
+                ambiguous = true;
+            }
+        }
+        if (best == null || ambiguous) throw new NoSuchMethodException(base.getName() + " constructor needs explicit arg_types");
+        return best;
+    }
+
+    public static synchronized Class<?> extend(Class<?> base, Class<?>[][] constructors,
             String[] fields, Class<?>[] fieldTypes, String[] methods,
             Class<?>[] returnTypes, Class<?>[][] parameters, int[] accessors, Method[] supers,
-            String builderKey, PyObject builder) throws Exception {
-        List<?> key = Arrays.asList(base, Arrays.asList(constructor), Arrays.asList(fields),
+            String builderKey, PyObject builder, String customName) throws Exception {
+        List<?> key = Arrays.asList(base, Arrays.stream(constructors).map(Arrays::asList).collect(java.util.stream.Collectors.toList()), Arrays.asList(fields),
                 Arrays.asList(fieldTypes), Arrays.asList(methods), Arrays.asList(returnTypes),
                 Arrays.stream(parameters).map(Arrays::asList).collect(java.util.stream.Collectors.toList()),
-                Arrays.toString(accessors), Arrays.asList(supers), builderKey);
+                Arrays.toString(accessors), Arrays.asList(supers), builderKey, customName);
         Class<?> existing = shapes.get(key);
         if (existing != null) return existing;
-        int flags = base.getDeclaredConstructor(constructor).getModifiers();
-        if (!Modifier.isPublic(base.getModifiers()) || Modifier.isFinal(base.getModifiers())
-                || !(Modifier.isPublic(flags) || Modifier.isProtected(flags)))
+        if (!Modifier.isPublic(base.getModifiers()) || Modifier.isFinal(base.getModifiers()))
             throw new IllegalArgumentException("InaccessibleProxySuperclass");
 
         String fingerprint = java.util.UUID.nameUUIDFromBytes(
                 key.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString().replace("-", "");
-        String name = "org.telegram.messenger.plugins.generated.Shape" + fingerprint;
+        String label = customName == null ? "Shape" : customName.substring(0, Math.min(80, customName.length()))
+                .replaceAll("[^A-Za-z0-9_$]", "_") + "_";
+        String name = "org.telegram.messenger.plugins.generated.Proxy_" + label + fingerprint;
         TypeId<Object> generated = TypeId.get("L" + name.replace('.', '/') + ";");
         TypeId<?> parent = TypeId.get(base);
         DexMaker dex = new DexMaker();
         dex.declare(generated, "PluginClassProxy", Modifier.PUBLIC, parent);
-        TypeId<?>[] argumentTypes = dexTypes(constructor);
-        Code init = dex.declare(generated.getConstructor(argumentTypes), Modifier.PUBLIC);
-        Local<?>[] arguments = new Local<?>[constructor.length];
-        for (int i = 0; i < arguments.length; i++) arguments[i] = init.getParameter(i, argumentTypes[i]);
-        forwardConstructor(init, parent, argumentTypes, init.getThis(generated), arguments);
-        init.returnVoid();
+        for (Class<?>[] constructor : constructors) {
+            int flags = base.getDeclaredConstructor(constructor).getModifiers();
+            if (!(Modifier.isPublic(flags) || Modifier.isProtected(flags)))
+                throw new IllegalArgumentException("InaccessibleProxyConstructor");
+            TypeId<?>[] argumentTypes = dexTypes(constructor);
+            Code init = dex.declare(generated.getConstructor(argumentTypes), Modifier.PUBLIC);
+            Local<?>[] arguments = new Local<?>[constructor.length];
+            for (int i = 0; i < arguments.length; i++) arguments[i] = init.getParameter(i, argumentTypes[i]);
+            forwardConstructor(init, parent, argumentTypes, init.getThis(generated), arguments);
+            init.returnVoid();
+        }
         for (int i = 0; i < fields.length; i++)
             dex.declare(generated.getField(TypeId.get(fieldTypes[i]), fields[i]), Modifier.PUBLIC, null);
         for (int i = 0; i < methods.length; i++) {
