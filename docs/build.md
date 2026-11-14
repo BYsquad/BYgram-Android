@@ -98,6 +98,10 @@ APK отправлен в «Избранное» Telegram, сообщение 20
 
 APK отправлен в «Избранное» Telegram, сообщение 202358.
 
+### Full Debug 13.2.2 от 14.11.2026
+
+Универсальный APK `BYgram-full-debug-13.2.2-73039-29de231b.apk`: `com.bygram.mobile`, versionCode 73039, minSdk 24, 183655074 байт, SHA-256 `29de231b215aa5e9f774ae49faf2ee03938de164f1f471bb46cfafac0de97a6c`. Проверены подпись предыдущего Full Debug, четыре ABI, бинарная локализация и выравнивание 186 библиотек ELF64 для 16 КиБ. Настройки проверены по коду и JVM-сценариям, без прогона интерфейса.
+
 ## Release APK Lite и Full
 
 ```powershell

@@ -107,7 +107,7 @@ function DownloadPage() {
           <a className="button" href={release.apk_name} download><DownloadIcon />Скачать APK</a>
           <p>Нажимая кнопку, вы загружаете установочный файл напрямую с сервера BYgram.</p>
           <h3 id="full-debug">BYgram Full Debug</h3>
-          <p>Тестовая сборка {fullDebug.version} ({fullDebug.version_code}) от {fullDebug.date} для {fullDebug.requirements}. Размер {fullDebug.size}. Добавлены иконки плагинов из стикерпаков Telegram и поддержка явных сигнатур Java-прокси.</p>
+          <p>Тестовая сборка {fullDebug.version} ({fullDebug.version_code}) от {fullDebug.date} для {fullDebug.requirements}. Размер {fullDebug.size}. Обновлена основа Telegram: движок виджетов изолирован, внесены исправления в звонки и запись видеосообщений.</p>
           <a className="button button--tonal" href={fullDebug.apk_name} download><DownloadIcon />Скачать Full Debug APK</a>
           <p><a className="inline-link" href="docs/">Документация плагинов BYgram</a></p>
         </section>
