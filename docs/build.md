@@ -22,6 +22,8 @@ android sdk list --all
 
 ## Важные ограничения
 
+- Для Telegram 13.2.2 и новее выполните `git submodule update --init --recursive` после обновления исходников. Вложенный QuickJS нужен для сборки `libtwidget.so`: он находится внутри подмодуля widget-sandbox.
+
 - Не меняйте `APP_VERSION_CODE` и `APP_VERSION_NAME`, если задача отдельно этого не требует.
 - `APP_PACKAGE` для Full остаётся `com.bygram.mobile`; Lite основного модуля переопределяет applicationId на `org.telegram.messenger`.
 - Не уменьшайте KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.

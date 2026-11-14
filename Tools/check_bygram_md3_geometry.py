@@ -96,7 +96,7 @@ assert "bygram_uniform_avatars" not in image_receiver and "Arrays.fill(avatarRou
 assert "avatarRadius(" in config and "BygramConfig.avatarRadius" in image_receiver + profile + stories + profile_stories, "Profile avatars and story rings do not share the configured shape"
 assert "bygram_logo_new" not in badge and "getProfileBadgeInfo" not in activity_controller, "Profile badges are still present in the client"
 assert "setMultilineTextAndValue" in settings, "Long BYgram toggle labels are still ellipsized"
-assert "APP_VERSION_CODE=7291" in gradle and "APP_VERSION_NAME=13.2.1" in gradle and "APP_PACKAGE=com.bygram.mobile" in gradle, "Client version or package differs from the approved Telegram update"
+assert "APP_VERSION_CODE=7303" in gradle.splitlines() and "APP_VERSION_NAME=13.2.2" in gradle.splitlines() and "APP_PACKAGE=com.bygram.mobile" in gradle.splitlines(), "Client version or package differs from the approved Telegram update"
 assert "telegram-widget.js" in admin and "data-telegram-login" in admin and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
 assert "BYxarek" + "_manager" not in activity_controller + api + bootstrap + main_site + config_example and "BYgram_manager" in activity_controller + api + main_site + config_example, "Manager username is outdated"
 print("PASS: MD3, native liquid glass, avatar endpoints and removed profile badges")

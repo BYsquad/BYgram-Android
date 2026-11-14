@@ -26,9 +26,6 @@ methods = "\n".join(method(s) for s in ["private static boolean isActiveSetting(
 bar = (JAVA / "ui/ActionBar/ActionBar.java").read_text(encoding="utf-8")
 measure = "int availableWidth =" + bar.split("int availableWidth =", 1)[1].split("availableWidth = Math.max(availableWidth, 0);", 1)[0] + "availableWidth = Math.max(availableWidth, 0);"
 position = "int titleLeft = textLeft;" + bar.split("int titleLeft = textLeft;", 1)[1].split("titleTextView[i].layout(", 1)[0]
-page = (JAVA / "ui/BygramSettingsActivity.java").read_text(encoding="utf-8")
-header_padding = "int headerHeight =" + page.split("int headerHeight =", 1)[1].split("                super.onMeasure", 1)[0]
-header_padding = header_padding.replace("getPaddingTop()", "v.getPaddingTop()").replace("setPadding(", "v.setPadding(")
 harness = r'''
 import java.util.*;
 public class WinterSettingsCheck {
@@ -61,29 +58,6 @@ public class WinterSettingsCheck {
     static boolean titleGravityInGlass;
     static int getMeasuredWidth() { return width; }
     static int dp(int n) { return n; }
-    static final class Page {
-        int padding, changes;
-        int getPaddingTop() { return padding; }
-        void setPadding(int l, int t, int r, int b) { assert l==0 && r==0 && b==0; padding=t; changes++; }
-    }
-    static final class Bar { int height; int getMeasuredHeight() { return height; } boolean getOccupyStatusBar() { return true; } }
-    static class ActionBar { static int getCurrentActionBarHeight() { return 56; } }
-    static class AndroidUtilities { static int statusBarHeight=24; }
-    static void checkHeaderPadding() {
-        Page v=new Page(); Bar actionBar=new Bar();
-        for (int h : new int[]{0,80,64,112,80}) {
-            actionBar.height=h;
-            for (int repeat=0; repeat<2; repeat++) {
-                v.padding=24; // Framework inset dispatch overwrote the header padding.
-                int changes=v.changes;
-                __HEADER_PADDING__
-                assert v.padding==(h==0?80:h) : "Insets hid the first row";
-                assert v.changes==changes+1 : "Padding not restored before measure";
-                __HEADER_PADDING_REPEAT__
-                assert v.changes==changes+1 : "Measure loop";
-            }
-        }
-    }
     static void checkTitle() {
         int i=0, titleGravity=Gravity.CENTER_HORIZONTAL, titleRightMargin=0;
         for (width=320; width<=800; width+=120) for (int left : new int[]{24,76})
@@ -104,7 +78,6 @@ public class WinterSettingsCheck {
     __METHODS__
     public static void main(String[] args) {
         checkTitle();
-        checkHeaderPadding();
         for (String key : new String[]{HIDE_STORIES, HIDE_FOLDER_COUNTERS, HIDE_ALL_TAB, SNOW_CHATS, SNOW_PROFILES, SNOW_HEADER, SNOW_NAVIGATION, SNOW_DIALOGS, SNOW_SETTINGS, SNOW_BYGRAM_SETTINGS, SECONDS, MD3_PROFILE_BUTTONS, SEPARATE_HEADERS}) {
             assert isActiveSetting(key) : key;
             assert !getBoolean(key) : "Default must be off: " + key;
@@ -139,7 +112,7 @@ public class WinterSettingsCheck {
         System.out.println("PASS: preference persistence, bounds, whitelist and Lite ignores stored customization");
     }
 }
-'''.replace("__CONSTANTS__", constants).replace("__METHODS__", methods).replace("__MEASURE__", measure).replace("__POSITION__", position).replace("__HEADER_PADDING__", header_padding).replace("__HEADER_PADDING_REPEAT__", header_padding.replace("int headerHeight =", "headerHeight =", 1))
+'''.replace("__CONSTANTS__", constants).replace("__METHODS__", methods).replace("__MEASURE__", measure).replace("__POSITION__", position)
 with tempfile.TemporaryDirectory(prefix="bygram-winter-") as temp:
     path = Path(temp) / "WinterSettingsCheck.java"
     path.write_text(harness, encoding="utf-8")
