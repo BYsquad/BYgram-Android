@@ -45,6 +45,7 @@ import androidx.annotation.NonNull;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DispatchQueue;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.LiteMode;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.Utilities;
@@ -561,12 +562,15 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
     }
 
     private void checkSnowflake(Canvas canvas) {
-        if (backgroundView != null && (Theme.canStartHolidayAnimation() || org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.SNOW_CHATS)) && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND) && (android.os.Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())) {
+        boolean customSnow = BygramConfig.getBoolean(BygramConfig.SNOW_CHATS);
+        if (backgroundView != null && (Theme.canStartHolidayAnimation() || customSnow) && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND) && (android.os.Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())) {
             if (snowflakesEffect == null) {
                 snowflakesEffect = new SnowflakesEffect(1);
                 snowflakesEffect.setForcedColor(0xFFFFFFFF);
             }
-            snowflakesEffect.onDraw(backgroundView, canvas);
+            int amount = customSnow ? BygramConfig.getInt(BygramConfig.SNOW_AMOUNT, BygramConfig.SNOW_AMOUNT_MAX)
+                    : BygramConfig.SNOW_AMOUNT_MAX;
+            snowflakesEffect.onDraw(backgroundView, canvas, amount);
         } else {
             snowflakesEffect = null;
         }

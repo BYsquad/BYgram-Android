@@ -1,4 +1,4 @@
-"""Debugger adapters for authenticated Full Debug requests."""
+"""Debugger adapters for authenticated Debug requests."""
 from functools import partial
 import os
 from pathlib import Path

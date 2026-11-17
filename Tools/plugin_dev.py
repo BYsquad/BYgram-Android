@@ -1,4 +1,4 @@
-"""Deploy, reload and debug BYgram plugin packages on a Full Debug device."""
+"""Deploy, reload and debug BYgram plugin packages on a Debug device."""
 import argparse
 import base64
 import hashlib

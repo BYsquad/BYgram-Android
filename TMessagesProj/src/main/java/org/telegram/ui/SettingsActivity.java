@@ -67,7 +67,6 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AuthTokensHelper;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
-import org.telegram.messenger.BuildConfig;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLoader;
@@ -765,11 +764,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        if (BuildConfig.BYGRAM_FULL) {
-            items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom,
-                    R.drawable.bygram_logo_new, getString(R.string.BygramSettings)));
-            items.add(UItem.asShadow(null));
-        }
+        items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom,
+                R.drawable.bygram_logo_new, getString(R.string.BygramSettings)));
+        items.add(UItem.asShadow(null));
 
         final boolean walletAbove = getConnectionsManager().getCurrentTime() - 1791538462 < 4 * 7 * 24 * 60 * 60;
         if (walletAbove && getMessagesController().config.walletAvailable.get()) {
@@ -845,7 +842,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private void presentSettingFragment(BaseFragment fragment) {
-        fragment.inheritBygramSnow(this);
         if (AndroidUtilities.isTablet() && LaunchActivity.instance != null && LaunchActivity.instance.getRightActionBarLayout() != null) {
             final INavigationLayout layout = LaunchActivity.instance.getRightActionBarLayout();
             if (!layout.getFragmentStack().isEmpty()) {

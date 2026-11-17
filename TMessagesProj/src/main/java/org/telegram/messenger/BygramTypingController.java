@@ -21,6 +21,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.BitmapFactory;
@@ -37,8 +38,8 @@ public final class BygramTypingController {
     private static final Map<Long, Entry> cache = new HashMap<>();
     private static final java.util.HashSet<Integer> pollingProfileViews = new java.util.HashSet<>();
 
-    public interface Callback { void run(boolean ok, String botUrl); }
-    public interface ProfileViewsCallback { void run(JSONObject response, String botUrl); }
+    public interface Callback { void run(boolean ok, String authUrl); }
+    public interface ProfileViewsCallback { void run(JSONObject response, String authUrl); }
     private interface Result { void run(JSONObject value); }
     private static final class Entry {
         JSONObject statuses;
@@ -49,7 +50,6 @@ public final class BygramTypingController {
     private BygramTypingController() {}
 
     public static void loadProfileBackground(long ownerId, ProfileViewsCallback callback) {
-        if (!BuildConfig.BYGRAM_FULL) { callback.run(null, ""); return; }
         request(0, json("action", "profile_background_get", "owner_id", ownerId), false,
                 response -> callback.run(response, ""));
     }
@@ -79,9 +79,9 @@ public final class BygramTypingController {
                     }
                 }
                 request(userId, json("action", "profile_background_put", "user_id", userId, "image", encoded), true, response -> {
-                    if (response != null && response.optBoolean("needs_registration")) register(userId, (registered, botUrl) -> {
+                    if (response != null && response.optBoolean("needs_registration")) register(userId, (registered, authUrl) -> {
                         if (registered) publishProfileBackground(account, uri, callback);
-                        else callback.run(false, botUrl);
+                        else callback.run(false, authUrl);
                     });
                     else callback.run(response != null && response.optBoolean("ok"), "");
                 });
@@ -93,7 +93,6 @@ public final class BygramTypingController {
     }
 
     public static boolean profileViewsEnabled(int account) {
-        if (!BuildConfig.BYGRAM_FULL) return false;
         long id = UserConfig.getInstance(account).getClientUserId();
         return id > 0 && ApplicationLoader.applicationContext.getSharedPreferences("bygram_profile_views", Context.MODE_PRIVATE).getBoolean("enabled_" + id, false);
     }
@@ -104,9 +103,9 @@ public final class BygramTypingController {
         try { data.put("user_id", id); } catch (Exception e) { FileLog.e(e); callback.run(null, ""); return; }
         request(id, data, true, response -> {
             if (response != null && response.optBoolean("needs_registration") && "profile_views_set".equals(data.optString("action"))) {
-                register(id, (registered, botUrl) -> {
+                register(id, (registered, authUrl) -> {
                     if (registered) profileViewsRequest(account, data, callback);
-                    else callback.run(response, botUrl);
+                    else callback.run(response, authUrl);
                 });
                 return;
             }
@@ -134,7 +133,7 @@ public final class BygramTypingController {
     }
 
     public static void clearProfileViews(int account) {
-        if (profileViewsEnabled(account)) profileViewsRequest(account, json("action", "profile_views_set", "enabled", false), (response, botUrl) -> {});
+        if (profileViewsEnabled(account)) profileViewsRequest(account, json("action", "profile_views_set", "enabled", false), (response, authUrl) -> {});
     }
 
     public static void pollProfileViews(int account) {
@@ -149,7 +148,7 @@ public final class BygramTypingController {
         }
         if (!pollingProfileViews.add(account)) { if (done != null) done.run(); return; }
         JSONObject data = json("action", "profile_views_poll");
-        profileViewsRequest(account, data, (response, botUrl) -> {
+        profileViewsRequest(account, data, (response, authUrl) -> {
             org.json.JSONArray views = response == null || !response.optBoolean("ok") ? null : response.optJSONArray("views");
             if (views == null || views.length() == 0) {
                 pollingProfileViews.remove(account);
@@ -235,7 +234,7 @@ public final class BygramTypingController {
     }
 
     public static String status(int account, long userId, int action) {
-        if (!BuildConfig.BYGRAM_FULL || userId <= 0 || action < 0 || action > 10) return "";
+        if (userId <= 0 || action < 0 || action > 10) return "";
         Entry entry = cache.get(userId);
         if (entry == null) cache.put(userId, entry = new Entry());
         if (System.currentTimeMillis() - entry.loadedAt > CACHE_MS && !entry.loading) {
@@ -259,11 +258,10 @@ public final class BygramTypingController {
     }
 
     public static void clear(int account) {
-        publish(account, false, (ok, botUrl) -> {});
+        publish(account, false, (ok, authUrl) -> {});
     }
 
     private static void publish(int account, boolean registerIfNeeded, Callback callback) {
-        if (!BuildConfig.BYGRAM_FULL) { callback.run(false, ""); return; }
         long userId = UserConfig.getInstance(account).getClientUserId();
         if (userId <= 0) { callback.run(false, ""); return; }
         JSONObject statuses = new JSONObject();
@@ -279,21 +277,52 @@ public final class BygramTypingController {
                 cache.put(userId, entry);
                 callback.run(true, "");
             } else if (registerIfNeeded && result != null && result.optBoolean("needs_registration")) {
-                register(userId, (registered, botUrl) -> {
+                register(userId, (registered, authUrl) -> {
                     if (registered) publish(account, false, callback);
-                    else callback.run(false, botUrl);
+                    else callback.run(false, authUrl);
                 });
             } else callback.run(false, "");
         });
     }
 
     private static void register(long userId, Callback callback) {
+        register(userId, "typing_register", callback);
+    }
+
+    static void registerFlame(long userId, Callback callback) {
+        register(userId, "account_register", callback);
+    }
+
+    private static void register(long userId, String action, Callback callback) {
         try {
-            request(userId, json("action", "typing_register", "user_id", userId,
+            request(userId, json("action", action, "user_id", userId,
                     "public_key", BygramDeviceKey.publicKey(userId),
                     "proof", BygramDeviceKey.sign(userId, "BYGRAM_TYPING_V1\n" + userId)), false,
-                    result -> callback.run(result != null && result.optBoolean("registered"), result == null ? "" : result.optString("bot_url", "")));
+                    result -> {
+                        String url = result == null ? "" : result.optString("auth_url", "");
+                        if (!url.startsWith(ENDPOINT + "account-login.php?")) url = "";
+                        callback.run(result != null && result.optBoolean("registered"), url);
+                    });
         } catch (Exception e) { FileLog.e(e); callback.run(false, ""); }
+    }
+
+    static void flameRequest(long userId, JSONObject data, Utilities.Callback<JSONObject> callback) {
+        request(userId, data, true, callback::run);
+    }
+
+    static void reportDevice(String deviceId, String model, String version, int androidApi, Utilities.Callback<Boolean> callback) {
+        request(0, json("action", "device_seen", "device_id", deviceId, "model", model,
+                "version", version, "android_api", androidApi), false,
+                response -> callback.run(response != null && response.optBoolean("ok")));
+    }
+
+    public static void openAccountLogin(Context context, String url) {
+        if (context == null || !url.startsWith(ENDPOINT + "account-login.php?")) return;
+        try {
+            context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE));
+        } catch (Exception error) {
+            FileLog.e(error);
+        }
     }
 
     private static JSONObject json(Object... pairs) {

@@ -151,6 +151,7 @@ import org.telegram.messenger.BuildConfig;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.BygramActivityController;
 import org.telegram.messenger.BygramConfig;
+import org.telegram.messenger.BygramFlame;
 import org.telegram.messenger.ChannelBoostsController;
 import org.telegram.messenger.ChatMessageSharedResources;
 import org.telegram.messenger.ChatMessagesMetadataController;
@@ -468,6 +469,12 @@ public class ChatActivity extends BaseFragment implements
     private ActionBarMenu.LazyItem attachItem;
     private ActionBarMenuItem.Item savedChatsItem, savedChatsGap;;
     private ActionBarMenuItem headerItem;
+    private static final int RESTORE_FLAME = 28003;
+    private static final int ENABLE_FLAME = 28004;
+    private BygramFlame bygramFlame;
+    private org.telegram.ui.Components.BygramFlameEffect bygramFlameEffect;
+    private int bygramFlameLostDays;
+    private int bygramFlameRestoresLeft;
     protected ActionBarMenuItem searchItem;
     protected ActionBarMenuItem topicCreateItem;
     private ActionBarMenuItem topicsPanelItem;
@@ -892,7 +899,6 @@ public class ChatActivity extends BaseFragment implements
     private boolean bygramDestroyed;
 
     private void updateBygramVideoWallpaper() {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
         if (contentView == null || bygramDestroyed) return;
         org.telegram.ui.Components.BygramVideoWallpaper previous = bygramVideoWallpaper;
         File file = org.telegram.ui.Components.BygramVideoWallpaper.file(currentAccount, dialog_id);
@@ -903,14 +909,13 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public String getBygramActivitySubtitle() {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return "";
         if (bygramGroupActivity != null && !bygramGroupActivity.text().isEmpty()) return bygramGroupActivity.text();
         return System.currentTimeMillis() - bygramRemoteActivityTime < 60_000 ? bygramRemoteActivity : "";
     }
     private final Runnable bygramActivityRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL || paused) return;
+            if (paused) return;
             if (currentUser != null && currentUser.id != getUserConfig().getClientUserId()
                     && (bygramGroupActivity == null || bygramGroupActivity.loaded() && bygramGroupActivity.text().isEmpty())) {
                 BygramActivityController.get(currentAccount, currentUser.id, activity -> {
@@ -3495,6 +3500,7 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onFragmentDestroy() {
+        if (bygramFlame != null) bygramFlame.pause();
         super.onFragmentDestroy();
         bygramDestroyed = true;
         if (bygramGroupActivity != null) { bygramGroupActivity.stop(); bygramGroupActivity = null; }
@@ -4162,6 +4168,10 @@ public class ChatActivity extends BaseFragment implements
                     }
                 } else if (id == change_colors) {
                     showChatThemeBottomSheet();
+                } else if (id == RESTORE_FLAME) {
+                    confirmBygramFlameRestore();
+                } else if (id == ENABLE_FLAME) {
+                    confirmBygramFlameAccount();
                 } else if (id == 28001) {
                     Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                     intent.setType("video/*");
@@ -4589,9 +4599,13 @@ public class ChatActivity extends BaseFragment implements
             if (themeDelegate.isThemeChangeAvailable(true)) {
                 headerItem.lazilyAddSubItem(change_colors, R.drawable.msg_background, LocaleController.getString(R.string.SetWallpapers));
             }
-            if (org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
-                headerItem.lazilyAddSubItem(28001, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaper));
-                headerItem.lazilyAddSubItem(28002, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaperReset));
+            headerItem.lazilyAddSubItem(28001, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaper));
+            headerItem.lazilyAddSubItem(28002, R.drawable.msg_background, LocaleController.getString(R.string.BygramVideoWallpaperReset));
+            if (supportsBygramFlame()) {
+                headerItem.lazilyAddSubItem(RESTORE_FLAME, R.drawable.msg_mini_fireon, getString(R.string.BygramFlameRestore));
+                headerItem.hideSubItem(RESTORE_FLAME);
+                headerItem.lazilyAddSubItem(ENABLE_FLAME, R.drawable.msg_mini_fireon, getString(R.string.BygramFlameEnable));
+                headerItem.hideSubItem(ENABLE_FLAME);
             }
             if (currentUser != null && currentUser.self && getDialogId() != UserObject.VERIFY) {
                 headerItem.lazilyAddSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
@@ -20363,6 +20377,67 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    private boolean supportsBygramFlame() {
+        return chatMode == MODE_DEFAULT && !isReport() && !isThreadChat()
+                && !inPreviewMode && !isInPreviewMode() && !isInsideContainer && currentEncryptedChat == null
+                && currentUser != null && dialog_id == currentUser.id && dialog_id > 0
+                && !currentUser.self && !currentUser.bot && !UserObject.isDeleted(currentUser)
+                && !UserObject.isAnonymous(currentUser) && !UserObject.isReplyUser(currentUser)
+                && !MessagesController.isSupportUser(currentUser);
+    }
+
+    private void updateBygramFlame(int days, int activeDay, int lostDays, int restoresLeft, boolean needsConfirmation) {
+        bygramFlameLostDays = lostDays;
+        bygramFlameRestoresLeft = restoresLeft;
+        if (!supportsBygramFlame()) return;
+        if (avatarContainer != null) avatarContainer.setBygramFlame(days, activeDay != 0);
+        if (!isPaused && fragmentView instanceof FrameLayout && bygramFlame != null
+                && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
+                && bygramFlame.takeMilestone(days, activeDay)) {
+            if (bygramFlameEffect != null) bygramFlameEffect.stop();
+            bygramFlameEffect = new org.telegram.ui.Components.BygramFlameEffect((FrameLayout) fragmentView);
+        }
+        if (headerItem != null) {
+            headerItem.setSubItemShown(RESTORE_FLAME, lostDays > 0 && restoresLeft > 0);
+            headerItem.setSubItemShown(ENABLE_FLAME, needsConfirmation);
+        }
+    }
+
+    private void confirmBygramFlameAccount() {
+        if (bygramFlame == null || getParentActivity() == null) return;
+        showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle(getString(R.string.BygramFlameEnable))
+                .setMessage(getString(R.string.BygramFlameEnableMessage))
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.BygramFlameOpenLogin), (dialog, which) ->
+                        bygramFlame.requestAccountLogin(url -> {
+                            if (getParentActivity() == null) return;
+                            if (!url.isEmpty()) {
+                                org.telegram.messenger.BygramTypingController.openAccountLogin(getParentActivity(), url);
+                            } else {
+                                showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                                        .setMessage(getString(R.string.BygramFlameEnableError))
+                                        .setPositiveButton(getString(R.string.OK), null).create());
+                            }
+                        })).create());
+    }
+
+    private void confirmBygramFlameRestore() {
+        if (bygramFlame == null || bygramFlameLostDays <= 0 || bygramFlameRestoresLeft <= 0 || getParentActivity() == null) return;
+        showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle(getString(R.string.BygramFlameRestore))
+                .setMessage(LocaleController.formatString(R.string.BygramFlameRestoreMessage, bygramFlameLostDays, bygramFlameRestoresLeft))
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.BygramFlameRestoreAction), (dialog, which) ->
+                        bygramFlame.restore(restored -> {
+                            if (!restored && getParentActivity() != null) {
+                                showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                                        .setMessage(getString(R.string.BygramFlameRestoreError))
+                                        .setPositiveButton(getString(R.string.OK), null).create());
+                            }
+                        })).create());
+    }
+
     public void updateTitle(boolean animated) {
         if (avatarContainer == null) {
             return;
@@ -22972,6 +23047,7 @@ public class ChatActivity extends BaseFragment implements
                     return;
                 }
                 if (!scheduled) {
+                    if (bygramFlame != null) bygramFlame.messagesChanged();
                     invalidatePaidMessagesPriceOnIncoming(arr);
                 }
                 processNewMessages(arr);
@@ -23333,6 +23409,7 @@ public class ChatActivity extends BaseFragment implements
             processDeletedMessages(markAsDeletedMessages, 0, false);
         } else if (id == NotificationCenter.messageReceivedByServer) {
             Boolean scheduled = (Boolean) args[6];
+            if (bygramFlame != null && !scheduled && (Long) args[3] == dialog_id) bygramFlame.messagesChanged();
             if (scheduled != (chatMode == MODE_SCHEDULED)) {
                 return;
             }
@@ -30834,6 +30911,10 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onResume() {
         super.onResume();
+        if (supportsBygramFlame()) {
+            if (bygramFlame == null) bygramFlame = new BygramFlame(currentAccount, dialog_id, this::updateBygramFlame);
+            bygramFlame.resume();
+        }
         checkThemeEmoticonOrWallpaper();
         updateVisibleRows();
         checkShowBlur(false);
@@ -30935,7 +31016,7 @@ public class ChatActivity extends BaseFragment implements
         paused = false;
         pausedOnLastMessage = false;
         updateBygramVideoWallpaper();
-        if (org.telegram.messenger.BuildConfig.BYGRAM_FULL && currentUser != null && !currentUser.bot && !currentUser.self && currentEncryptedChat == null && chatMode == MODE_DEFAULT) {
+        if (currentUser != null && !currentUser.bot && !currentUser.self && currentEncryptedChat == null && chatMode == MODE_DEFAULT) {
             if (bygramGroupActivity != null) bygramGroupActivity.stop();
             bygramGroupActivity = new org.telegram.messenger.BygramGroupActivity(currentAccount, currentUser.id, classGuid, () -> {
                 if (!paused && avatarContainer != null) avatarContainer.updateSubtitle();
@@ -31062,6 +31143,11 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onPause() {
         super.onPause();
+        if (bygramFlame != null) bygramFlame.pause();
+        if (bygramFlameEffect != null) {
+            bygramFlameEffect.stop();
+            bygramFlameEffect = null;
+        }
         if (bygramGroupActivity != null) { bygramGroupActivity.stop(); bygramGroupActivity = null; }
         if (bygramVideoWallpaper != null) { bygramVideoWallpaper.release(); bygramVideoWallpaper = null; }
         AndroidUtilities.cancelRunOnUIThread(bygramActivityRunnable);

@@ -15,7 +15,6 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
-import org.telegram.messenger.BuildConfig;
 import org.telegram.messenger.BygramSettingsLink;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.FileLog;
@@ -325,11 +324,6 @@ public class LinkManager {
     }
 
     private boolean handleBygramSettings(Uri uri) {
-        if (!BuildConfig.BYGRAM_FULL) {
-            presentFragment(new SettingsActivity());
-            done();
-            return true;
-        }
         if (getUserConfig().isClientActivated()) {
             if (org.telegram.messenger.PluginEntry.openSettingsLink(uri)) {
                 done();
@@ -337,7 +331,7 @@ public class LinkManager {
             }
             BygramSettingsLink target = BygramSettingsLink.parse(uri.getQueryParameter("s"));
             // Unknown or unavailable destinations fall back to the settings overview.
-            if (target == null || target.requiresFullEdition() && !BuildConfig.BYGRAM_FULL) {
+            if (target == null) {
                 target = BygramSettingsLink.parse(null);
             }
             BaseFragment settings = BygramSettingsActivity.forLink(target);

@@ -26,7 +26,8 @@ public final class BygramSettingsLink {
             case "root": rows = new int[]{-1, -2, 10, 11, 12}; break;
             case "customization": rows = new int[]{-1}; break;
             case "plugins": rows = new int[]{}; break;
-            case "general": rows = new int[]{-1, -2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 200, 201, 202, 203}; break;
+            case "appearance": case "chat_list": case "winter": rows = new int[]{}; break;
+            case "general": rows = new int[]{-1, -2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 200, 201, 202, 203}; break;
             case "profile": rows = new int[]{-1, 1, 2, 3, 4, 5, 6, 7}; break;
             case "typing": rows = new int[]{-1, 100, 101, 103, 104, 105, 106, 107, 108, 109, 110, 200}; break;
             case "ghost": rows = new int[]{-1, 1, 2, 3, 4, 5, 7}; break;
@@ -63,15 +64,40 @@ public final class BygramSettingsLink {
             switch (row) {
                 case 1: return "profile";
                 case 2: return "general";
+                case 3: return "chat_list";
                 case 4: return "typing";
+                case 5: return "appearance";
+                case 6: return "winter";
             }
         }
         String target = page + "." + row;
         return row == 0 || parse(target) == null ? null : target;
     }
 
-    public boolean requiresFullEdition() {
-        return "activity".equals(page) || "typing".equals(page) || "plugins".equals(page);
+    public String customizationSection() {
+        if (!"general".equals(page)) return page;
+        switch (row) {
+            case 4: case 5: case 6: case 7: case 8: case 11:
+            case 12: case 13: case 14: case 15: case 16: case 17:
+                return "chat_list";
+            case 18: case 19: case 20: case 21: case 22: case 23: case 24: case 29:
+                return "winter";
+            case -1: case -2: case 3: case 26: case 27: case 28:
+            case 200: case 201: case 202: case 203:
+                return "appearance";
+            default:
+                return "general";
+        }
+    }
+
+    public int highlightedRow() {
+        if ("general".equals(page)) {
+            switch (row) {
+                case 19: case 23: case 24: return 22;
+                case 20: return 0;
+            }
+        }
+        return row;
     }
 
 }

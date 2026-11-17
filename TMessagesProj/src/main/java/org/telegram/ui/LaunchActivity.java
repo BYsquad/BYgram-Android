@@ -268,7 +268,6 @@ import java.util.HashSet;
 public class LaunchActivity extends BasePermissionsActivity implements INavigationLayout.INavigationLayoutDelegate, NotificationCenter.NotificationCenterDelegate, DialogsActivity.DialogsActivityDelegate {
     private final Runnable profileViewsPoll = new Runnable() {
         @Override public void run() {
-            if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
             org.telegram.messenger.BygramTypingController.pollProfileViews(currentAccount);
             AndroidUtilities.runOnUIThread(this, 60_000);
         }
@@ -1960,7 +1959,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
                     final LinkManager linkManager = new LinkManager(this, intentAccount[0], progress, openedTelegram);
                     if (linkManager.handle(data)) {
-                        if (org.telegram.messenger.BuildConfig.BYGRAM_FULL && intent.hasExtra(EXTRA_ACTION_TOKEN)) {
+                        if (intent.hasExtra(EXTRA_ACTION_TOKEN)) {
                             final boolean success = true;
                             final Action assistAction = new AssistActionBuilder()
                                 .setActionToken(intent.getStringExtra(EXTRA_ACTION_TOKEN))
@@ -2880,7 +2879,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                 }
                             }
                         }
-                        if (org.telegram.messenger.BuildConfig.BYGRAM_FULL && intent.hasExtra(EXTRA_ACTION_TOKEN)) {
+                        if (intent.hasExtra(EXTRA_ACTION_TOKEN)) {
                             final boolean success = UserConfig.getInstance(currentAccount).isClientActivated() && "tg".equals(scheme) && unsupportedUrl == null;
                             final Action assistAction = new AssistActionBuilder()
                                     .setActionToken(intent.getStringExtra(EXTRA_ACTION_TOKEN))

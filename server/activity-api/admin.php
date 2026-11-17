@@ -2,28 +2,33 @@
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
+header('Cache-Control: no-store');
+header('X-Frame-Options: DENY');
 $currentUserId = adminSessionUser();
-$botUsername = appSetting('bot_username');
+$page = $_GET['page'] ?? '';
+if ($currentUserId < 1 && is_string($page) && preg_match('/^[a-z]+$/D', $page)) {
+    $_SESSION['admin_return_page'] = $page;
+}
+$token = $currentUserId > 0 ? adminCsrfToken() : '';
+$botUsername = $currentUserId < 1 ? appSetting('bot_username') : '';
 $adminUrl = (string) (appConfig()['admin_url'] ?? 'https://byxarek.site/TEST-PROJECT/BYgram/api/admin.php');
 $loginUrl = preg_replace('~/[^/]+$~', '/admin-login.php', $adminUrl);
+
+function adminAttribute(string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
 ?>
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark">
-<title>BYgram — управление</title>
-<link rel="stylesheet" href="../assets/admin.css?v=20260925-redesign">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Управление BYgram</title>
+<link rel="stylesheet" href="../assets/admin-console.css?v=20261117-beta">
 </head>
 <body>
-<?php if ($currentUserId < 1): ?>
-<main class="login"><section class="card">
-<div class="mark">BY</div><h1>Управление BYgram</h1><p>Войдите через Telegram с аккаунта администратора.</p>
-<script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="<?= htmlspecialchars($botUsername, ENT_QUOTES, 'UTF-8') ?>" data-size="large" data-radius="12" data-userpic="false" data-auth-url="<?= htmlspecialchars((string) $loginUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
-</section></main>
-<?php else: ?>
-<div id="admin-root"></div>
-<a href="plugins.php">Модерация плагинов</a>
-<a class="admin-logout" href="admin-login.php?action=logout">Выйти</a>
-<script type="module" src="../assets/admin.js?v=20260925-redesign"></script>
-<?php endif; ?>
-</body></html>
+<section id="admin-root" data-csrf="<?= adminAttribute($token) ?>" data-bot="<?= adminAttribute($botUsername) ?>"
+    data-auth-url="<?= adminAttribute($loginUrl) ?>"></section>
+<script type="module" src="../assets/admin-console.js?v=20261117-beta"></script>
+</body>
+</html>

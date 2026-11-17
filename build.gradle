@@ -11,9 +11,7 @@ buildscript {
         classpath 'com.huawei.agconnect:agcp:1.9.6.300'
         classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.8'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
-        if ((project.findProperty('BYGRAM_EDITION') ?: 'lite').toString().toLowerCase() == 'full') {
-            classpath 'com.chaquo.python:gradle:17.2.0'
-        }
+        classpath 'com.chaquo.python:gradle:17.2.0'
     }
 }
 repositories {
@@ -29,8 +27,7 @@ repositories {
 //   drop:  latin/optional/, maths/optional/  (~290 KB; \textbf/\textit/\mathds fall back)
 //          licences/                          (~20 KB; pure license text files)
 subprojects {
-    if ((name == 'TMessagesProj' || name.startsWith('TMessagesProj_App'))
-            && (rootProject.findProperty('BYGRAM_EDITION') ?: 'lite').toString().toLowerCase() == 'full') {
+    if (name == 'TMessagesProj' || name.startsWith('TMessagesProj_App')) {
         repositories {
             maven {
                 url rootProject.file('third_party/maven')

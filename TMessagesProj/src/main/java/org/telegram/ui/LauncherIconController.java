@@ -10,10 +10,6 @@ import org.telegram.messenger.R;
 
 public class LauncherIconController {
     public static void tryFixLauncherIconIfNeeded() {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
-            if (!isEnabled(LauncherIcon.DEFAULT)) setIcon(LauncherIcon.DEFAULT);
-            return;
-        }
         for (LauncherIcon icon : LauncherIcon.values()) {
             if (isEnabled(icon)) {
                 if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT);
@@ -31,7 +27,6 @@ public class LauncherIconController {
     }
 
     public static void setIcon(LauncherIcon icon) {
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) icon = LauncherIcon.DEFAULT;
         Context ctx = ApplicationLoader.applicationContext;
         PackageManager pm = ctx.getPackageManager();
         int flags = PackageManager.DONT_KILL_APP;

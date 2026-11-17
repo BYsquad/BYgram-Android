@@ -49,10 +49,12 @@
     <string name="BygramHideFolderCounters">Приховати лічильники сповіщень папок</string>
     <string name="BygramHideAllTab">Приховати вкладку «Усі чати»</string>
     <string name="BygramFoldersPreviewInfo">Перегляд використовує ваші папки. Якщо інших папок немає, «Усі чати» залишається доступною.</string>
+    <string name="BygramAppearance">Зовнішній вигляд</string>
+    <string name="BygramChatList">Список чатів</string>
     <string name="BygramWinter">Зима</string>
+    <string name="BygramSnowScreens">Сніг у налаштуваннях, профілях і списку чатів</string>
+    <string name="BygramSnowAmount">Кількість снігу</string>
     <string name="BygramSnowChats">Падаючий сніг на фоні чатів</string>
-    <string name="BygramSnowProfiles">Падаючий сніг у профілях користувачів</string>
-    <string name="BygramSnowHeader">Падаючий сніг у верхніх блоках списку чатів</string>
     <string name="BygramSnowNavigation">Падаючий сніг у нижній навігації</string>
     <string name="BygramSnowInfo">Анімації враховують енергозбереження та зменшення руху. За замовчуванням усі ефекти вимкнено.</string>
     <string-array name="BygramFolderStyleOptions">
@@ -65,9 +67,6 @@
     <string name="BygramTitleRight">Праворуч</string>
     <string name="BygramTitleUsername">Ім’я користувача</string>
     <string name="BygramTitleName">Ім’я</string>
-    <string name="BygramSnowDialogs">Сніг у списку чатів</string>
-    <string name="BygramSnowSettings">Сніг у налаштуваннях і на внутрішніх сторінках</string>
-    <string name="BygramSnowBygramSettings">Сніг у налаштуваннях BYgram і на внутрішніх сторінках</string>
     <string name="BygramSeconds">Форматувати час із секундами</string>
     <string name="BygramSections">Секції</string>
     <string name="BygramSectionRadius">Заокруглення кутів блоків</string>
@@ -75,9 +74,6 @@
     <string name="BygramQrGlassStyle">Скляний стиль кнопок і блоків</string>
     <string name="BygramMd3ProfileButtons">Кнопки профілю</string>
     <string name="BygramOff">Вимкнено</string>
-    <string name="BygramActivityTestEnable">Увімкнути тестування активності BYgram</string>
-    <string name="BygramActivityTestDisable">Вимкнути тестування активності BYgram</string>
-    <string name="BygramActivityTestWarning">Увімкнувши цю функцію, ви погоджуєтеся надсилати всі активності цього облікового запису Telegram, які фіксує система, на сервери BYgram для тестування власної системи активності: відкриття списку чатів, профілів і чатів із користувачами, ботами, групами та каналами, включно з їхніми ID і назвами. Вміст повідомлень не надсилається. Вимкнути надсилання можна в цьому ж меню.</string>
     <string name="BygramPlugins">Плагіни</string>
     <string name="BygramPluginCount">Увімкнено %1$d з %2$d</string>
     <string name="BygramPluginSourceLocal">Локальний файл</string>

@@ -24,6 +24,9 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.Layout;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -83,6 +86,10 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     public BackupImageView avatarImageView;
     private boolean avatarImageIsHidden;
     private SimpleTextView titleTextView;
+    private CharSequence plainTitle;
+    private int flameDays;
+    private boolean flameActive;
+    private int titleAvailableWidth = -1;
     private AtomicReference<SimpleTextView> titleTextLargerCopyView = new AtomicReference<>();
     private SimpleTextView subtitleTextView;
     private AnimatedTextView animatedSubtitleTextView;
@@ -669,6 +676,10 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         final int width = MeasureSpec.getSize(widthMeasureSpec);
         final int availableWidth = width - dp((avatarImageView.getVisibility() == VISIBLE ? 54 : 0) + 16);
+        if (titleAvailableWidth != availableWidth) {
+            titleAvailableWidth = availableWidth;
+            if (flameDays > 0) applyTitle(true);
+        }
         avatarImageView.measure(MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY));
         titleTextView.measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24 + 8), MeasureSpec.AT_MOST));
         if (subtitleTextView != null) {
@@ -941,11 +952,44 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         setTitle(value, false, false, false, false, null, false);
     }
 
+    public void setBygramFlame(int days, boolean active) {
+        if (flameDays == days && flameActive == active) return;
+        flameDays = days;
+        flameActive = active;
+        applyTitle(true);
+    }
+
+    private void applyTitle(boolean force) {
+        if (flameDays <= 0 || TextUtils.isEmpty(plainTitle)) {
+            titleTextView.setText(plainTitle, force);
+            return;
+        }
+        int color = flameActive
+                ? androidx.core.graphics.ColorUtils.blendARGB(0xffd76a1d, 0xffd12237, Math.min(flameDays - 1, 29) / 29f)
+                : 0xff8b8e93;
+        SpannableStringBuilder suffix = new SpannableStringBuilder("\u00a0\ufffc\u00a0")
+                .append(LocaleController.formatNumber(flameDays, ','));
+        ColoredImageSpan flame = new ColoredImageSpan(R.drawable.filled_fire, ColoredImageSpan.ALIGN_CENTER);
+        flame.setSize(dp(16));
+        flame.setOverrideColor(color);
+        suffix.setSpan(flame, 1, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        CharSequence name = plainTitle;
+        if (titleAvailableWidth > 0) {
+            TextPaint paint = titleTextView.getTextPaint();
+            float nameWidth = titleAvailableWidth - Layout.getDesiredWidth(suffix, paint) - dp(4);
+            Drawable left = titleTextView.getLeftDrawable();
+            if (left != null) nameWidth -= left.getIntrinsicWidth() + dp(4);
+            name = TextUtils.ellipsize(name, paint, Math.max(0, nameWidth), TextUtils.TruncateAt.END);
+        }
+        titleTextView.setText(new SpannableStringBuilder(name).append(suffix), force);
+    }
+
     public void setTitle(CharSequence value, boolean scam, boolean fake, boolean verified, boolean premium, TLRPC.EmojiStatus emojiStatus, boolean animated) {
         if (value != null) {
             value = Emoji.replaceEmoji(value, titleTextView.getPaint().getFontMetricsInt(), false);
         }
-        titleTextView.setText(value);
+        plainTitle = value;
+        applyTitle(false);
         rightDrawableIsScam = false;
         if (scam || fake) {
             rightDrawableIsScam = true;
@@ -1667,7 +1711,11 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
         StringBuilder sb = new StringBuilder();
-        sb.append(titleTextView.getText());
+        if (plainTitle != null) sb.append(plainTitle);
+        if (flameDays > 0) {
+            sb.append(", ").append(LocaleController.formatString(
+                    flameActive ? R.string.BygramFlameActiveDays : R.string.BygramFlamePendingDays, flameDays));
+        }
         if (rightDrawableContentDescription != null) {
             sb.append(", ");
             sb.append(rightDrawableContentDescription);

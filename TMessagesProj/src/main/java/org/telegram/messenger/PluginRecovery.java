@@ -75,7 +75,6 @@ public final class PluginRecovery extends Activity {
     }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        if (!BuildConfig.BYGRAM_FULL) { finish(); return; }
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (24 * getResources().getDisplayMetrics().density);

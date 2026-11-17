@@ -395,6 +395,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             super(context);
         }
 
+        private final org.telegram.ui.Components.BygramSnowEffect listSnow = new org.telegram.ui.Components.BygramSnowEffect();
+        private final RectF snowBounds = new RectF();
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            super.dispatchDraw(canvas);
+            if (listView != null && listView.getVisibility() == VISIBLE && !SizeNotifierFrameLayout.drawingBlur) {
+                snowBounds.set(0, Math.max(0, listView.getTop() + listView.getPaddingTop() + scrollYOffset),
+                        getWidth(), getHeight());
+                listSnow.draw(this, canvas, BygramConfig.SNOW_SCREENS, snowBounds, 0);
+            }
+        }
+
         public boolean isDefaultDialogType() {
             return dialogsType == DIALOGS_TYPE_DEFAULT || dialogsType == 7 || dialogsType == 8;
         }
@@ -2948,7 +2961,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private void updateBygramTitle() {
         if (actionBar == null || onlySelect || folderId != 0 || communityId != 0 || searchString != null) return;
         actionBar.setTitle(BygramConfig.dialogsTitle(currentAccount), statusDrawable);
-        if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL) return;
         int position = BygramConfig.getInt(BygramConfig.TITLE_POSITION, 0);
         actionBar.setTitleGravityInGlass(position == 1 ? Gravity.CENTER : position == 2 ? Gravity.RIGHT : Gravity.LEFT);
     }
@@ -3381,7 +3393,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 return !actionBar.isActionModeShowed() && databaseMigrationHint == null;// && !rightSlidingDialogContainer.hasFragment();
             }
         }));
-        fragmentSearchField.bygramSnowEnabled = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && communityId == 0;
         fragmentSearchField.setSearchFiltersListener(new FragmentSearchField.SearchFiltersListener() {
             @Override
             public void onSearchFilterCleared(FiltersView.MediaFilterData filterData) {
@@ -5132,7 +5143,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             private final BlurredBackgroundDrawable storiesBackground = glassFactory().create(this,
                     BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(23)).setPadding(dp(6));
             private float lastStoriesRadius = -1f;
-            private final org.telegram.ui.Components.BygramSnowEffect snow = new org.telegram.ui.Components.BygramSnowEffect();
 
             @Override
             protected void dispatchDraw(Canvas canvas) {
@@ -5146,8 +5156,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     // Keep the drawable's vertical padding as gaps to the header and search field.
                     storiesBackground.setBounds(0, 0, getWidth(), getHeight() - dp(2));
                     storiesBackground.draw(canvas);
-                    AndroidUtilities.rectTmp.set(storiesBackground.getBounds());
-                    snow.draw(this, canvas, BygramConfig.SNOW_HEADER, AndroidUtilities.rectTmp, dp(23));
                 }
                 super.dispatchDraw(canvas);
             }

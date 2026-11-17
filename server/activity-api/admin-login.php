@@ -15,9 +15,10 @@ try {
     startAdminSession();
     session_regenerate_id(true);
     $_SESSION['telegram_id'] = $id;
-    header('Location: admin.php', true, 303);
+    unset($_SESSION['admin_csrf']);
+    $page = $_SESSION['admin_return_page'] ?? '';
+    unset($_SESSION['admin_return_page']);
+    header('Location: admin.php' . ($page === '' ? '' : '?page=' . rawurlencode($page)), true, 303);
 } catch (Throwable $error) {
-    http_response_code(403);
-    $message = $error instanceof AdminAuthenticationException ? $error->getMessage() : 'Не удалось выполнить вход';
-    echo '<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BYgram — вход</title><link rel="stylesheet" href="../assets/admin.css"><main class="login"><section class="card"><div class="mark">BY</div><h1>Ошибка входа</h1><p class="error">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p><a href="admin.php">Вернуться</a></section></main></html>';
+    header('Location: admin.php?login=failed', true, 303);
 }

@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="BygramFlameEnable">Подключить «Пламя»</string>
+    <string name="BygramFlameEnableMessage">Войдите через Telegram, чтобы подключить «Пламя» на этом устройстве. Для серии засчитываются дни, когда вы оба отправили сообщение в этом чате.</string>
+    <string name="BygramFlameOpenLogin">Войти через Telegram</string>
+    <string name="BygramFlameEnableError">Не удалось открыть вход через Telegram. Попробуйте ещё раз.</string>
+    <string name="BygramFlameRestore">Восстановить «Пламя»</string>
+    <string name="BygramFlameRestoreMessage">Вернуть серию (%1$d дн.)? Осталось восстановлений для этого чата в этом месяце: %2$d.</string>
+    <string name="BygramFlameRestoreAction">Восстановить</string>
+    <string name="BygramFlameRestoreError">Не удалось восстановить «Пламя». Проверьте подключение и попробуйте ещё раз, если восстановление ещё доступно.</string>
+    <string name="BygramFlameActiveDays">Пламя, дней: %1$d</string>
+    <string name="BygramFlamePendingDays">Пламя, дней: %1$d. Сегодня вам обоим нужно отправить сообщение.</string>
     <string name="BygramResourceBadgeNotice">Официальный ресурс BYgram</string>
     <string name="BygramUserBadgeNotice">Пользователь является участником команды BYgram</string>
     <string name="BygramCustomTyping">Кастомный статус печати</string>
@@ -18,8 +28,8 @@
     <string name="BygramTypingGame">Играет</string>
     <string name="BygramTypingPublish">Опубликовать статусы</string>
     <string name="BygramTypingPublishSuccess">Статусы успешно сохранены</string>
-    <string name="BygramTypingVerify">Не удалось опубликовать статусы. Проверьте подключение и попробуйте снова.</string>
-    <string name="BygramTypingOpenBot">Открыть бота</string>
+    <string name="BygramTypingVerify">Войдите через Telegram и вернитесь в BYgram, чтобы опубликовать статусы.</string>
+    <string name="BygramTypingOpenLogin">Войти через Telegram</string>
     <string name="BygramTypingPublishFailed">Не удалось опубликовать статусы. Проверьте сеть и повторите попытку.</string>
     <string name="BygramSettings">Настройки BYgram</string>
     <string name="BygramSettingsInfo">Конфиденциальность и локальное управление сообщениями</string>
@@ -73,18 +83,6 @@
     <string name="BygramActivityDialogsShort">список чатов</string>
     <string name="BygramActivityProfileShort">профили</string>
     <string name="BygramActivityChatShort">чаты</string>
-    <string name="BygramLicenseTitle">Функция недоступна</string>
-    <string name="BygramLicenseMessage">Не удалось получить доступ к функции. Попробуйте позже.</string>
-    <string name="BygramLicenseBuy">Открыть бота</string>
-    <string name="BygramLicenseUnavailable">Не удалось подключиться к BYgram. Проверьте подключение к интернету и попробуйте снова.</string>
-    <string name="BygramLicenseActivationMessage">Не удалось подключить аккаунт. Проверьте подключение и попробуйте снова.</string>
-    <string name="BygramLicenseActivate">Подключить</string>
-    <string name="BygramDeviceLimitTitle">Лимит устройств</string>
-    <string name="BygramDeviceLimitMessage">Достигнут лимит устройств. Выберите устройство, которое нужно отвязать.</string>
-    <string name="BygramDeviceReplaceTitle">Заменить устройство?</string>
-    <string name="BygramDeviceReplaceMessage">Отвязать «%1$s» и активировать это устройство?</string>
-    <string name="BygramDeviceReplace">Отвязать и активировать</string>
-    <string name="BygramUnknownDevice">Неизвестное Android-устройство</string>
     <string name="BygramAppIcons">Значки приложения</string>
     <string name="BygramIconCurrent">Текущий</string>
     <string name="BygramIconNew">Новый</string>
@@ -106,7 +104,7 @@
     <string name="BygramProfileViewsInfo">Узнайте, кто просматривал ваш профиль за последние 7 дней. Если у других пользователей включена эта настройка, они также увидят, что вы просматривали их профиль.</string>
     <string name="BygramProfileViewsRecent">За последние 7 дней</string>
     <string name="BygramProfileViewsEmpty">Пока никто не просматривал ваш профиль</string>
-    <string name="BygramProfileViewsVerify">Не удалось включить просмотры профиля. Проверьте подключение и попробуйте снова.</string>
+    <string name="BygramProfileViewsVerify">Войдите через Telegram и вернитесь в BYgram, чтобы включить просмотры профиля.</string>
     <string name="BygramProfileViewsNotification">%1$s просмотрел(а) ваш профиль</string>
     <string name="BygramReadDateLabel">Прочитано: %1$s</string>
     <string name="BygramKeepSearchCollapsed">Никогда не разворачивать поле поиска</string>
@@ -121,7 +119,7 @@
     <string name="BygramChooseBackground">Выбрать изображение или GIF</string>
     <string name="BygramPublishBackground">Опубликовать выбранный фон</string>
     <string name="BygramBackgroundPublished">Фон сохранён</string>
-    <string name="BygramBackgroundVerify">Не удалось опубликовать фон. Проверьте подключение и попробуйте снова.</string>
+    <string name="BygramBackgroundVerify">Войдите через Telegram и вернитесь в BYgram, чтобы опубликовать фон.</string>
     <string name="BygramBackgroundFailed">Не удалось сохранить фон. Проверьте подключение и выберите поддерживаемое изображение до 4 МиБ.</string>
     <string name="BygramNotifyDeleted">Уведомлять об удалении сообщений в личных чатах</string>
     <string name="BygramMessageDeletedInChat">В чате «%1$s» удалено сообщение</string>

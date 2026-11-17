@@ -162,13 +162,18 @@ public class SnowflakesEffect {
     }
 
     public void onDraw(View parent, Canvas canvas) {
+        onDraw(parent, canvas, 100);
+    }
+
+    void onDraw(View parent, Canvas canvas, int amount) {
         if (parent == null || canvas == null || !LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND)) {
             return;
         }
         updateColors(); // cheap (cached), follows theme switches: owners never call it
 
+        final int particleLimit = maxCount * amount / 100;
+        final int count = Math.min(particleLimit, particles.size());
         if (batchParticlesBuffer != null) {
-            final int count = Math.min(maxCount, particles.size());
             final int texSize = dp(TEXTURE_SIZE_DP);
 
             for (int a = 0; a < count; a++) {
@@ -183,7 +188,6 @@ public class SnowflakesEffect {
             }
             BatchParticlesDrawHelper.draw(canvas, batchParticlesBuffer, count, batchParticlesPaint);
         } else {
-            final int count = particles.size();
             for (int a = 0; a < count; a++) {
                 Particle particle = particles.get(a);
                 particle.draw(canvas);
@@ -191,9 +195,9 @@ public class SnowflakesEffect {
         }
 
         int createPerFrame = viewType == 0 ? 1 : 10;
-        if (particles.size() < maxCount) {
+        if (particles.size() < particleLimit) {
             for (int i = 0; i < createPerFrame; i++) {
-                if (particles.size() < maxCount && Utilities.random.nextFloat() > 0.7f) {
+                if (particles.size() < particleLimit && Utilities.random.nextFloat() < 0.3f * amount / 100) {
                     int statusBarHeight = AndroidUtilities.statusBarHeight;
                     float cx = Utilities.random.nextFloat() * parent.getMeasuredWidth();
                     float cy;

@@ -8,7 +8,7 @@ public class BygramSettingsLinkCheck {
     public static void main(String[] args) {
         check("root".equals(BygramSettingsLink.parse(null).page), "Missing target opens overview");
         check("root".equals(BygramSettingsLink.parse("").page), "Empty target opens overview");
-        String[] pages = {"root", "customization", "general", "profile", "typing", "ghost",
+        String[] pages = {"root", "customization", "general", "chat_list", "appearance", "winter", "profile", "typing", "ghost",
                 "spy", "hidden", "protected", "profile_views", "activity", "other", "plugins"};
         int count = 0;
         for (String page : pages) {
@@ -26,10 +26,20 @@ public class BygramSettingsLinkCheck {
             check(BygramSettingsLink.parse(value) == null, "Reject: " + value);
         }
         check("general".equals(BygramSettingsLink.target("customization", 2)), "Nested category");
+        check("chat_list".equals(BygramSettingsLink.target("customization", 3)), "Chat list category");
+        check("appearance".equals(BygramSettingsLink.target("customization", 5)), "Appearance category");
+        check("winter".equals(BygramSettingsLink.target("customization", 6)), "Winter category");
+        check("chat_list".equals(BygramSettingsLink.parse("general.8").customizationSection()), "Moved archive setting");
+        check("appearance".equals(BygramSettingsLink.parse("general.202").customizationSection()), "Moved MD3 setting");
+        for (int row : new int[]{19, 22, 23, 24}) {
+            BygramSettingsLink link = BygramSettingsLink.parse("general." + row);
+            check("winter".equals(link.customizationSection()) && link.highlightedRow() == 22, "Merged snow option: " + row);
+        }
+        BygramSettingsLink removed = BygramSettingsLink.parse("general.20");
+        check("winter".equals(removed.customizationSection()) && removed.highlightedRow() == 0, "Removed snow option");
+        BygramSettingsLink slider = BygramSettingsLink.parse("general.29");
+        check("winter".equals(slider.customizationSection()) && slider.highlightedRow() == 29, "Snow slider");
         check("hidden".equals(BygramSettingsLink.target("root", 5)), "PIN-protected category");
-        check(BygramSettingsLink.parse("activity.800").requiresFullEdition(), "Activity requires Full");
-        check(BygramSettingsLink.parse("typing.100").requiresFullEdition(), "Typing requires Full");
-        check(!BygramSettingsLink.parse("ghost.2").requiresFullEdition(), "Ghost works in Lite");
         check(BygramSettingsLink.parse("general.202").row == 202, "Collapsed MD3 destination");
         for (int row : new int[]{22, 23, 24, 25, 26, 27, 28, 203}) {
             check(BygramSettingsLink.parse("general." + row) != null, "Extended customization destination");

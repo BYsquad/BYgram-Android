@@ -6,8 +6,7 @@
 
 | Среда | Минимальная проверка |
 |---|---|
-| API 23, Lite | Сборка/запуск без Python и AliuHook; отсутствие plugin entry/runtime |
-| API 23, Full | Зафиксированное продуктовое решение: Full minSdk 24 не устанавливается; не обещать поддержку |
+| API 23 | Приложению требуется API 24 и новее |
 | API 24, arm32/arm64/x86/x86_64 при доступности среды | Запуск Python и корректность ABI packaging; не утверждать hardware coverage по одной эмуляции |
 | API 28, x86_64 | Холодный старт Python, перезапуск и установленный пакет |
 | API 30/33/34 | Python, host UI, accounts, hooks только для проверенного backend |
@@ -16,7 +15,7 @@
 | API 37, x86_64 4/16 KiB и arm64 | Целевая интеграция BYxarek/hook с Chaquopy/BYgram; повторить цепочку hooks и recovery |
 | 16 KiB arm64/x86_64 | ELF headers/align + установка + runtime load всех новых native libs |
 | Физический телефон arm64 | Реальный ART/OEM, scrolling, background/foreground, account switch |
-| Full Debug и Full Release/R8 | Одинаковые lifecycle и hooks; не только compilation |
+| Debug и Release/R8 | Одинаковые lifecycle и hooks; не только compilation |
 | Прочие app-модули | Gradle configuration/compile и согласованное minSdk/native packaging |
 
 Матрицу вести с OS build, ABI, page size, edition, APK type, dependency fingerprints и итогом. Отсутствующая среда отмечается NOT TESTED; backend на ней не объявляется поддерживаемым. Emulator не заменяет реальный телефон для native hooking.
@@ -39,13 +38,12 @@
 | UI contributions | Уникальность `(plugin_id, local_id)`, двойное enable, restore после disable, уничтоженный fragment |
 | Hooks | Static/instance/overload/primitive/null; изменение args/return; Java original throwable; invalid types |
 | Цепочка хуков | Два before/after; early return; exception одного; replacement conflict; reentrant call; unhook одного owner |
-| Операции Telegram | Приоритет и фильтры, отмена, замена и завершение цепочки. Отзыв аккаунта до отправки TL-запроса или ответа. В Full проверить контекстное меню сообщения и штатный процесс отправки на тестовом аккаунте |
+| Операции Telegram | Приоритет и фильтры, отмена, замена и завершение цепочки. Отзыв аккаунта до отправки TL-запроса или ответа. Проверить контекстное меню сообщения и штатный процесс отправки на тестовом аккаунте |
 | Внешний индекс | Проверка HTTPS URL, SHA-256 и manifest. Пакет внешнего индекса запрашивает подтверждение неизвестного источника даже при наличии полей модерации в индексе |
 | Original exactly once | Replacement вызвал оригинал и затем бросил: повторного вызова нет |
 | Hook cleanup | После 100 enable/disable нет повторных вызовов и не растёт число handles |
 | Safe mode | Recovery flag читается до Python/backend; import crash; native crash probe; startup marker ambiguity |
 | Updates | Pending version; новые возможности; неподписанный файл того же ID; same version/different hash; migration crash; downgrade |
-| Lite | Нет Python/AliuHook в dependencies/APK, нет startup side effects и работающего plugin deep link |
 
 Crash/ANR probes исполнять на выделенной тестовой установке без личных аккаунтов. Не проверять «спасение» клиента разрушением пользовательских auth/storage данных. Для сетевых сценариев использовать fake controller/тестовый account и явно маркированные сообщения; production backend не нужен.
 
@@ -55,11 +53,11 @@ Crash/ANR probes исполнять на выделенной тестовой �
 
 ### Проверка 12.11.2026
 
-Full Debug 13.2.1 на чистом Android API 37 x86_64. Обычный запуск исполнил разрешённый тестовый плагин. После имитации прерванной активации BYgram открылся без плагина, уведомление открыло `:plugin_recovery`. Повреждение основного реестра с рабочей резервной копией также включило безопасный режим и показало уведомление. В APK проверены четыре ABI и выравнивание ELF64 для 16 КиБ.
+Debug 13.2.1 на чистом Android API 37 x86_64. Обычный запуск исполнил разрешённый тестовый плагин. После имитации прерванной активации BYgram открылся без плагина, уведомление открыло `:plugin_recovery`. Повреждение основного реестра с рабочей резервной копией также включило безопасный режим и показало уведомление. В APK проверены четыре ABI и выравнивание ELF64 для 16 КиБ.
 
 ## 3. Ручная приёмка пользовательских сценариев
 
-1. Full → настройки BYgram → отдельная строка «Плагины» → back; заголовок/список не перекрываются.
+1. Настройки BYgram → отдельная строка «Плагины» → back; заголовок/список не перекрываются.
 2. Первое открытие без сети: страница доступна, движок off, установка из локального файла возможна.
 3. Выбор плохого пакета: точная причина, исходные пакеты/settings не изменились.
 4. Установить hello: до отдельного enable ни код, ни migration не запускаются.
@@ -87,7 +85,7 @@ Full Debug 13.2.1 на чистом Android API 37 x86_64. Обычный зап
 
 ## 5. Проверки перед первым пользовательским выпуском
 
-- Реализовано принятое решение: Full minSdk 24, Lite 23; документирована потеря Android 6 для новой Full-сборки.
+- Минимальная версия приложения — Android 7.0 / API 24.
 - Утверждены fingerprints зависимостей, лицензии/notices, фактические `.so` и доступность backend по устройствам.
 - Recovery работает без плагинов, без входа в аккаунт и при зависшем main runtime.
 - Нет silent enable, runtime pip и release dev server; пользователю честно объяснено доверие Python-коду.
@@ -103,10 +101,10 @@ Full Debug 13.2.1 на чистом Android API 37 x86_64. Обычный зап
 
 Во время разработки использовать unit/JVM tests, Gradle configuration/compile, library AAR и existing test harness. Instrumentation/device проверки могут потребовать тестовые APK: заранее согласовать смысл требования «один APK», не создавать и не рассылать несколько пользовательских сборок под видом финальной. Не объявлять hooks проверенными на устройстве, если из-за ограничения только компилировали код.
 
-До единственной финальной упаковки проверить release-совместимость максимально доступными compile/R8/harness средствами. После упаковки проверить подпись прежним ключом, package, edition, versionName/code, SDK, ABI, ZIP, zipalign/ELF 16 KiB, наличие переводов, отсутствие лишних runtime в Lite и smoke запуск. Версию клиента без запроса не менять.
+До единственной финальной упаковки проверить release-совместимость максимально доступными compile/R8/harness средствами. После упаковки проверить подпись прежним ключом, package, versionName/code, SDK, ABI, ZIP, zipalign/ELF 16 KiB, наличие переводов и smoke запуск. Версию клиента без запроса не менять.
 
 Если итоговый APK не прошёл проверку, его не отправлять как готовый; исправление и повторная сборка требуют честно зафиксировать необходимость дополнительного APK, а не обходить проверку. Нельзя одновременно гарантировать отсутствие второй упаковки при любых ошибках и полноценную проверку ещё не созданного артефакта.
 
 В `docs/build.md` записать команду, редакцию, окружение, hash и размер, пройденную матрицу, ограничения и подтверждение Telegram delivery без credentials. После проверки/доставки остановить лишние build daemons согласно обычному процессу проекта.
 
-Проверка готового Full артефакта: `python Tools/check_plugin_apk.py <apk> --report output/plugin-apk-report.json`. Она не заменяет подпись/zipalign, Android runtime и ARM hardware checks.
+Проверка готового APK: `python Tools/check_plugin_apk.py <apk> --report output/plugin-apk-report.json`. Она не заменяет подпись/zipalign, Android runtime и ARM hardware checks.

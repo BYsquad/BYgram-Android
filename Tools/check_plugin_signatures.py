@@ -38,7 +38,7 @@ def main():
         package(source, archive, key)
         with zipfile.ZipFile(archive) as signed:
             fingerprint = hashlib.sha256(base64.b64decode(json.loads(signed.read("signature.json"))["public_key"])).hexdigest()
-        java = ROOT / "TMessagesProj/src/full/java/org/telegram/messenger/plugins"
+        java = ROOT / "TMessagesProj/src/plugins/java/org/telegram/messenger/plugins"
         subprocess.run(["javac", "-encoding", "UTF-8", "-cp", str(gson), "-d", str(work),
             str(ROOT / "Tools/fixtures/plugins/android/util/AtomicFile.java"), str(ROOT / "Tools/fixtures/plugins/android/util/Base64.java"),
             *(str(java / name) for name in ("PluginManifest.java", "PluginSignature.java", "PluginPackage.java", "PluginPackageAccess.java", "PluginStore.java", "PluginSettingsFile.java")),

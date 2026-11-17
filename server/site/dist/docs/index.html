@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Документация по разработке плагинов для BYgram Full. Первый плагин на Python, справочник SDK v1 и каталог .byplugin.">
+  <meta name="description" content="Документация по разработке плагинов для BYgram. Первый плагин на Python, справочник SDK v1 и каталог .byplugin.">
   <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/">
   <title>Документация плагинов BYgram</title>
   <link rel="icon" href="../assets/bygram-logo.png">
@@ -75,12 +75,12 @@
     <main id="content">
       <section id="intro" aria-labelledby="intro-title">
         <h1 id="intro-title">Введение</h1>
-        <p class="lead">Разработка плагинов для BYgram Full на Python.</p>
+        <p class="lead">Разработка плагинов для BYgram на Python.</p>
         <h2 id="bygram-plugins">Плагины BYgram</h2>
         <p>Плагин добавляет функции в Android-клиент BYgram. Соберите свой пакет <code>.byplugin</code> или импортируйте поддерживаемый исходник <code>.plugin</code>, <code>.elyx</code> или <code>.eaf</code>.</p>
         <p>Встроенный движок использует Chaquopy для связи Python с Java. Перехваты методов работают через отдельный ART-мост.</p>
         <h2 id="baseline">Требования</h2>
-        <ul><li>Редакция BYgram Full, Android 7.0 и новее.</li><li>Версия SDK <code>1</code>, Python <code>3.11</code>.</li><li>Примеры ниже рассчитаны на <a href="../download.html#full-debug">Full Debug <code>13.2.1 (72919)</code></a>.</li></ul>
+        <ul><li>BYgram, Android 7.0 и новее.</li><li>Версия SDK <code>1</code>, Python <code>3.11</code>.</li><li>Примеры ниже рассчитаны на отладочную сборку BYgram <code>13.2.1 (72919)</code>.</li></ul>
         <aside class="note"><strong>Запуск плагинов</strong><p>Плагины выполняются с правами процесса клиента. Разрешайте запуск пакетов от авторов, которым доверяете.</p></aside>
         <h2 id="sdk-capabilities">Возможности SDK</h2>
         <ul><li>Перехваты запросов, ответов, обновлений и отправки сообщений.</li><li>Действия в меню, настройки, диалоги и уведомления Telegram.</li><li>Отправка текста и медиа, Java reflection, Class Proxy и хуки методов.</li><li>Ресурсы, переводы и зависимости Elyx, перезагрузка через Dev Server.</li></ul>
@@ -90,10 +90,10 @@
 
       <section id="install">
         <h2>Установка плагина</h2>
-        <p class="lead">Включите движок и установите пакет в BYgram Full.</p>
+        <p class="lead">Включите движок и установите пакет в BYgram.</p>
         <h3 id="install-package">Как установить</h3>
         <ol>
-          <li>Откройте <strong>Настройки → Настройки BYgram → Плагины · БЕТА</strong> в редакции Full.</li>
+          <li>Откройте <strong>Настройки → Настройки BYgram → Плагины · БЕТА</strong>.</li>
           <li>Выберите пакет из каталога или нажмите «Установить из файла» и откройте архив <code>.byplugin</code>. Пакет также можно открыть из вложения в чате.</li>
           <li>Проверьте источник, возможности и данные пакета, затем подтвердите установку.</li>
           <li>Включите движок и отдельно разрешите исполнение плагина в его карточке.</li>
@@ -190,15 +190,15 @@ python Tools/check_plugins.py</code></pre></figure>
 
       <section id="compatibility">
         <h2>Совместимость с exteraGram</h2>
-        <p>BYgram Full импортирует <code>.plugin</code>, <code>.elyx</code> и <code>.eaf</code> в свой формат <code>.byplugin</code>. Установка из файла, HTTPS-индекса и публичного Telegram-канала использует штатный просмотр пакета и подтверждение запуска.</p>
+        <p>BYgram импортирует <code>.plugin</code>, <code>.elyx</code> и <code>.eaf</code> в свой формат <code>.byplugin</code>. Установка из файла, HTTPS-индекса и публичного Telegram-канала использует штатный просмотр пакета и подтверждение запуска.</p>
         <p>Адаптер <code>BasePlugin</code> поддерживает меню сообщений и MVEL. Декоратор <code>java_subclass</code> принимает <code>methods=</code> для явных сигнатур переопределяемых методов и <code>constructors=</code> для сигнатур конструкторов. <code>jclassbuilder</code> даёт доступ к DexMaker перед загрузкой класса. Для ART-хуков укажите точные цели и диапазоны сборок в манифесте.</p>
         <p>Иконка <code>__icon__ = "exteraPlugins/1"</code> в <code>.plugin</code> или <code>icon: exteraPlugins/1</code> в Elyx переносится в <code>sticker_icon</code>. BYgram показывает первый кадр выбранного стикера в предпросмотре установки и карточке плагина.</p>
-        <p>В Elyx используйте <code>to_svg_drawable()</code>, <code>to_svg_bitmap()</code> и <code>to_svg_thumb()</code> для SVG. <code>to_lottie_drawable(width, height)</code> загружает Lottie JSON или TGS. <code>requires</code> проверяет доступность обязательных плагинов, а Dev Server в Full Debug может передавать только изменившиеся файлы.</p>
+        <p>В Elyx используйте <code>to_svg_drawable()</code>, <code>to_svg_bitmap()</code> и <code>to_svg_thumb()</code> для SVG. <code>to_lottie_drawable(width, height)</code> загружает Lottie JSON или TGS. <code>requires</code> проверяет доступность обязательных плагинов, а Dev Server в отладочной сборке BYgram может передавать только изменившиеся файлы.</p>
       </section>
 
       <section id="catalog">
         <h2>Каталог плагинов</h2>
-        <p>Опубликованные пакеты из каталога BYgram. Скачайте <code>.byplugin</code> и откройте его в Full или найдите плагин в менеджере приложения.</p>
+        <p>Опубликованные пакеты из каталога BYgram. Скачайте <code>.byplugin</code> и откройте его в BYgram или найдите плагин в менеджере приложения.</p>
         <p id="catalog-status" role="status"><a href="../plugins/index.json">Открыть индекс каталога</a></p>
         <ul class="packages" id="packages" aria-label="Опубликованные плагины"></ul>
       </section>
@@ -208,7 +208,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <ol>
           <li>Создайте публичный GitHub-репозиторий. Подпишите пакет приватным RSA-ключом 2048–4096 бит и держите ключ вне репозитория.</li>
           <li>Опубликуйте стабильный GitHub Release с одним <code>.byplugin</code>. Тег <code>v1.2.3</code> или <code>1.2.3</code> должен совпадать с версией в manifest.</li>
-          <li>В BYgram Full откройте «Добавить плагин в каталог» и отправьте URL репозитория. Каждый новый Release проходит модерацию отдельно. Для обновлений используйте тот же ключ.</li>
+          <li>В BYgram откройте «Добавить плагин в каталог» и отправьте URL репозитория. Каждый новый Release проходит модерацию отдельно. Для обновлений используйте тот же ключ.</li>
         </ol>
         <figure><figcaption>Упаковка с подписью</figcaption><pre><code>python Tools/package_plugin.py path/to/plugin output/plugin.byplugin --signing-key path/to/private.pem</code></pre></figure>
       </section>
@@ -226,7 +226,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <h2>Elyx</h2>
         <p class="lead">Модули, ресурсы, локализация и зависимости в одном архиве.</p>
         <h3 id="elyx-overview">Как это работает</h3>
-        <p>Elyx используется для многофайловых плагинов. BYgram Full преобразует архив в <code>.byplugin</code> и запускает его через обычный движок.</p>
+        <p>Elyx используется для многофайловых плагинов. BYgram преобразует архив в <code>.byplugin</code> и запускает его через обычный движок.</p>
         <h3 id="elyx-details">Первый запуск</h3>
         <p>Начните с <a href="#elyx-quick-start">импорта пакета</a>, затем проверьте <a href="#elyx-structure">структуру проекта</a>.</p>
       </section>
@@ -234,7 +234,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <h2>Быстрый старт</h2>
         <p class="lead">Преобразование исходного архива в пакет BYgram.</p>
         <h3 id="elyx-quick-start-overview">Как это работает</h3>
-        <p>Откройте <code>.elyx</code> или <code>.eaf</code> через «Установить из файла». Full преобразует пакет на устройстве и показывает его карточку. После установки разрешите запуск отдельно.</p>
+        <p>Откройте <code>.elyx</code> или <code>.eaf</code> через «Установить из файла». BYgram преобразует пакет на устройстве и показывает его карточку. После установки разрешите запуск отдельно.</p>
         <h3 id="elyx-quick-start-details">Сборка на компьютере</h3>
         <p>Выполните <code>python Tools/port_extera_plugin.py sample.elyx output/sample.byplugin --ui</code>. Добавьте <code>--resolve-pypi</code>, если проект объявляет зависимости.</p>
         <figure><figcaption>Терминал</figcaption><pre><code>python Tools/port_extera_plugin.py sample.elyx output/sample.byplugin --ui</code></pre></figure>
@@ -419,7 +419,7 @@ send_text(peer, &#x27;&lt;b&gt;Готово&lt;/b&gt;&#x27;, parse_mode=&#x27;HT
       </section>
       <section id="dev-server">
         <h2>Сервер разработки</h2>
-        <p class="lead">Развёртывание, перезагрузка и отладка в Full Debug.</p>
+        <p class="lead">Развёртывание, перезагрузка и отладка в отладочной сборке BYgram.</p>
         <h3 id="dev-server-overview">Как это работает</h3>
         <p>Сервер слушает loopback и требует токен. Подключите ADB, задайте <code>BYGRAM_DEV_TOKEN</code> и выполните <code>python Tools/plugin_dev.py start</code>. Затем используйте <code>deploy</code> или <code>watch</code> с пакетом.</p>
         <h3 id="dev-server-details">Отладка</h3>
@@ -435,11 +435,11 @@ python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></s
         <h3 id="pip-overview">Как это работает</h3>
         <p>Во время импорта или сборки можно разрешить PyPI requirements и включить универсальные pure-Python wheels. Телефон проверяет SHA‑256 скачанного wheel.</p>
         <h3 id="pip-details">Ограничения пакетов</h3>
-        <p>Колёса с нативным кодом при переносе отклоняются. Если библиотека уже входит в Full, её можно импортировать напрямую.</p>
+        <p>Колёса с нативным кодом при переносе отклоняются. Если библиотека уже входит в BYgram, её можно импортировать напрямую.</p>
       </section>
       <section id="libraries">
         <h2>Доступные библиотеки</h2>
-        <p class="lead">Модули, которые входят в Full и доступны плагинам.</p>
+        <p class="lead">Модули, которые входят в BYgram и доступны плагинам.</p>
         <h3 id="libraries-runtime">Python и Java</h3>
         <p>Доступны Python 3.11, мост Chaquopy <code>java</code>, <code>packaging</code>, <code>PyYAML</code>, <code>certifi</code>, <code>requests</code>, <code>bs4</code>, <code>PIL</code> (Pillow 11.0.0) и <code>lxml</code> (5.3.0).</p>
         <p>Нативные зависимости Pillow и lxml для arm64 и x86_64 пересобраны с выравниванием 16 КиБ. Загрузка библиотек, JPEG, FreeType и XML проверены на Android API 37 x86_64 с размером страницы 4 и 16 КиБ. <a href="https://github.com/BYxarek/chaquopy/releases/tag/bygram-python311-16k-v1">Wheels и контрольные суммы</a>.</p>

@@ -1,5 +1,6 @@
 """Run the production call-vibration policy for every combination of switches."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -9,7 +10,7 @@ config = (JAVA / "messenger/BygramConfig.java").read_text(encoding="utf-8")
 settings = (JAVA / "ui/BygramSettingsActivity.java").read_text(encoding="utf-8")
 assert "case CALL_VIBRATION:" in config
 assert "CALL_VIBRATION.equals(key)" in config.split("boolean defaultValue =", 1)[1].split(";", 1)[0]
-assert 'if (BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)) {\n                    items.add(UItem.asCheck(10,' in settings
+assert re.search(r"if \(BygramConfig.getBoolean\(BygramConfig.DISABLE_VIBRATION\)\) \{\s+items.add\(UItem.asCheck\(10,", settings)
 assert ".setChecked(BygramConfig.getBoolean(BygramConfig.CALL_VIBRATION))" in settings
 for file in ("messenger/voip/VoIPService.java", "messenger/voip/VoIPPreNotificationService.java",
              "ui/GroupCallActivity.java", "ui/Components/GroupCallPip.java", "ui/Components/GroupCallPipAlertView.java"):

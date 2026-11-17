@@ -39,37 +39,20 @@ echo "PASS: background migration, PNG/GIF, size/type/dimension rejection and bin
 $widgetValues = ['auth_date' => '1700000000', 'first_name' => 'Owner', 'id' => '1243802669'];
 assert(telegramLoginHash($widgetValues, 'self-test-token') === '3d22bf85ec04879c0f627bfffc76a504f489d95a19f0d4fa410cb64340db44c7');
 echo "PASS: Telegram Login Widget signature\n";
-$telegramId = 999999999999;
-$licensed = static function () use ($pdo, $telegramId): bool {
-    $query = $pdo->prepare("SELECT 1 FROM licenses WHERE telegram_id = ? AND status = 'active' AND (valid_until IS NULL OR valid_until > UTC_TIMESTAMP())");
-    $query->execute([$telegramId]);
-    return (bool) $query->fetchColumn();
-};
-
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('DELETE FROM licenses WHERE telegram_id = ?')->execute([$telegramId]);
-    assert(!$licensed());
-    $pdo->prepare("INSERT INTO licenses (telegram_id, status) VALUES (?, 'active')")->execute([$telegramId]);
-    assert($licensed());
-    $pdo->prepare("UPDATE licenses SET status = 'refunded' WHERE telegram_id = ?")->execute([$telegramId]);
-    assert(!$licensed());
-echo "PASS: missing, active and refunded licenses\n";
 $typingOwner = 999999999994;
-$pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name) VALUES (?,?,?,?,?)')
-    ->execute([str_repeat('a', 32), $typingOwner, 'full-test-key', str_repeat('b', 64), 'Self-test']);
-if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: unlicensed Full device policy');
-$pdo->prepare("INSERT INTO licenses (telegram_id,status) VALUES (?,'active')")->execute([$typingOwner]);
-if (typingPublicKeys($pdo, $typingOwner) !== ['full-test-key']) throw new RuntimeException('FAIL: active Full device cannot publish typing statuses');
+$pdo->prepare('INSERT INTO licensed_devices (id,telegram_id,public_key,key_fingerprint,device_name,account_confirmed) VALUES (?,?,?,?,?,1)')
+    ->execute([str_repeat('a', 32), $typingOwner, 'bound-device-key', str_repeat('b', 64), 'Self-test']);
+if (typingPublicKeys($pdo, $typingOwner, true) !== ['bound-device-key']) throw new RuntimeException('FAIL: confirmed device key');
 $pdo->prepare('UPDATE licensed_devices SET revoked_at=UTC_TIMESTAMP() WHERE telegram_id=?')->execute([$typingOwner]);
-if (typingPublicKeys($pdo, $typingOwner) !== (deviceRevocationChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: revoked Full device policy');
-$pdo->prepare('UPDATE licensed_devices SET revoked_at=NULL WHERE telegram_id=?')->execute([$typingOwner]);
-$pdo->prepare("UPDATE licenses SET status='refunded' WHERE telegram_id=?")->execute([$typingOwner]);
-if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? [] : ['full-test-key'])) throw new RuntimeException('FAIL: refunded Full license policy');
-$pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key) VALUES (?,?,?)')
-    ->execute([$typingOwner, str_repeat('c', 64), 'lite-test-key']);
-if (typingPublicKeys($pdo, $typingOwner) !== (licenseChecksEnabled() ? ['lite-test-key'] : ['lite-test-key', 'full-test-key'])) throw new RuntimeException('FAIL: independent Lite typing registration');
-echo "PASS: typing publication respects license policy and device revocation\n";
+if (typingPublicKeys($pdo, $typingOwner, true) !== []) throw new RuntimeException('FAIL: revoked device key');
+$pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key,account_confirmed) VALUES (?,?,?,0)')
+    ->execute([$typingOwner, str_repeat('c', 64), 'typing-test-key']);
+if (typingPublicKeys($pdo, $typingOwner, true) !== []) throw new RuntimeException('FAIL: unconfirmed typing device key');
+$pdo->prepare('UPDATE typing_devices SET account_confirmed=1 WHERE telegram_id=?')->execute([$typingOwner]);
+if (typingPublicKeys($pdo, $typingOwner, true) !== ['typing-test-key']) throw new RuntimeException('FAIL: confirmed typing device key');
+echo "PASS: confirmed account keys and device revocation\n";
 $owner = 999999999993; $viewer = 999999999992;
 $pdo->prepare('INSERT INTO profile_view_settings (telegram_id,enabled) VALUES (?,1),(?,1)')->execute([$owner, $viewer]);
 $pdo->prepare("INSERT INTO profile_views (owner_id,viewer_id,viewer_name,visited_at) VALUES (?,?,?,UTC_TIMESTAMP())")
@@ -91,7 +74,7 @@ $visible->execute([$owner]);
 if ($visible->fetchColumn()) throw new RuntimeException('FAIL: disabled viewer visible');
 echo "PASS: profile views respect mutual consent\n";
 
-$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','bank_requisites','chat_activity','device_activations','licensed_devices','licenses','orders','payment_methods','profile_view_settings','profile_views','promo_codes','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
+$required = ['activity_sessions','activity_viewers','admins','api_nonces','api_rate_limits','app_settings','bank_requisites','chat_activity','device_activations','licensed_devices','orders','payment_methods','profile_view_settings','profile_views','promo_codes','referral_adjustments','referral_earnings','referral_settings','referrals','users'];
 $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
 if (array_diff($required, $tables)) {
     throw new RuntimeException('FAIL: API schema is incomplete');

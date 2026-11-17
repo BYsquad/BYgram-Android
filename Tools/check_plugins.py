@@ -22,7 +22,7 @@ def main():
         raise RuntimeError("Resolve existing Gson 2.11.0 with Gradle before running checks")
     with tempfile.TemporaryDirectory(prefix="bygram-plugin-check-") as directory:
         work = Path(directory)
-        source = ROOT / "TMessagesProj/src/full/java/org/telegram/messenger/plugins"
+        source = ROOT / "TMessagesProj/src/plugins/java/org/telegram/messenger/plugins"
         run("javac", "--release", "8", "-encoding", "UTF-8", "-cp", str(jars[0]), "-d", str(work),
             "Tools/fixtures/plugins/android/util/AtomicFile.java",
             "Tools/fixtures/plugins/android/util/Base64.java",

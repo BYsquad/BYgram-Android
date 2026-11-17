@@ -204,9 +204,9 @@
     
     <string name="BygramFoldersPreviewInfo">Preview uses your folders. All Chats stays available when there are no other folders.</string>
     <string name="BygramWinter">Winter</string>
+    <string name="BygramSnowScreens">Snow in settings, profiles and the chat list</string>
+    <string name="BygramSnowAmount">Snow amount</string>
     <string name="BygramSnowChats">Falling snow on chat backgrounds</string>
-    <string name="BygramSnowProfiles">Falling snow on user profiles</string>
-    <string name="BygramSnowHeader">Falling snow in top navigation blocks</string>
     <string name="BygramSnowNavigation">Falling snow in bottom navigation</string>
     <string name="BygramSnowInfo">Animations respect power saving and reduced motion. All effects are off by default.</string>
     <string-array name="BygramFolderStyleOptions">
@@ -219,15 +219,9 @@
     <string name="BygramTitleRight">Right</string>
     <string name="BygramTitleUsername">Username</string>
     <string name="BygramTitleName">Name</string>
-    <string name="BygramSnowDialogs">Snow on the chat list</string>
-    <string name="BygramSnowSettings">Snow in Settings and subpages</string>
-    <string name="BygramSnowBygramSettings">Snow in BYgram settings and subpages</string>
     <string name="BygramSections">Sections</string>
     <string name="BygramMd3ProfileButtons">Profile buttons</string>
     <string name="BygramOff">Off</string>
-    <string name="BygramActivityTestEnable">Enable BYgram activity testing</string>
-    <string name="BygramActivityTestDisable">Disable BYgram activity testing</string>
-    <string name="BygramActivityTestWarning">By enabling this feature, you agree to send all activity recorded by this system for this Telegram account to BYgram servers to test the custom activity system: opening the chat list, profiles and chats with users, bots, groups and channels, including their IDs and names. Message contents are not sent. You can disable sending in this same menu.</string>
     <string name="BygramPlugins">Plugins</string>
     <string name="BygramPluginCount">Enabled %1$d of %2$d</string>
     <string name="BygramPluginSourceLocal">Local file</string>

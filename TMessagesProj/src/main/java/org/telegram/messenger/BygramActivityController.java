@@ -2,7 +2,6 @@ package org.telegram.messenger;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Build;
 
 import org.json.JSONArray;
@@ -26,21 +25,17 @@ import java.util.UUID;
 
 public final class BygramActivityController {
     private static final String ENDPOINT = "https://byxarek.site/TEST-PROJECT/BYgram/api/";
-    private static final long POSITIVE_REFRESH_MS = 60 * 60 * 1000L;
-    private static final long NEGATIVE_REFRESH_MS = 60 * 1000L;
-    private static final long LICENSE_GRACE_MS = 24 * 60 * 60 * 1000L;
     private static final long ACTIVITY_CACHE_MS = 7_000L;
     private static final long ACTIVITY_HEARTBEAT_MS = 7_000L;
 
     public interface Callback { void run(String activity); }
-    public interface LicenseCallback { void run(Boolean licensed, String botUrl); }
     private interface JsonCallback { void run(JSONObject response); }
     public interface PluginCatalogCallback { void run(JSONObject response); }
     public static void pluginCatalogRequest(int account, String repository, PluginCatalogCallback callback) {
         long userId = UserConfig.getInstance(account).getClientUserId();
         if (userId == 0) { callback.run(null); return; }
-        refreshLicense(account, true, (licensed, url) -> {
-            if (!Boolean.TRUE.equals(licensed) || UserConfig.getInstance(account).getClientUserId() != userId) { callback.run(null); return; }
+        ensureSession(account, ready -> {
+            if (!ready || UserConfig.getInstance(account).getClientUserId() != userId) { callback.run(null); return; }
             request(userId, repository == null ? json("action", "plugin_submissions") : json("action", "plugin_submit", "repository", repository),
                     true, response -> { if (UserConfig.getInstance(account).getClientUserId() == userId) callback.run(response); else callback.run(null); });
         });
@@ -87,6 +82,7 @@ public final class BygramActivityController {
     private static final Map<String, CachedActivity> activityCache = new HashMap<>();
     private static final Map<Integer, Set<Long>> pendingActivities = new HashMap<>();
     private static final Map<String, ArrayList<Runnable>> activityCallbacks = new HashMap<>();
+    private static final Map<Long, ArrayList<Utilities.Callback<Boolean>>> sessionCallbacks = new HashMap<>();
     private static final Set<Long> viewersSyncing = new HashSet<>();
     private static boolean activityFlushScheduled;
     private static boolean heartbeatScheduled;
@@ -102,103 +98,63 @@ public final class BygramActivityController {
     };
     private BygramActivityController() {}
 
-    public static String purchaseUrl(String botUrl) {
-        if (botUrl != null) {
-            try {
-                Uri uri = Uri.parse(botUrl);
-                String host = uri.getHost();
-                if ("https".equals(uri.getScheme()) && ("t.me".equalsIgnoreCase(host) || "byxarek.site".equalsIgnoreCase(host))) {
-                    return botUrl;
-                }
-            } catch (Exception e) {
-                FileLog.e(e);
-            }
-        }
-        return "";
-    }
-
     private static SharedPreferences preferences() {
         return ApplicationLoader.applicationContext.getSharedPreferences("bygram_licenses", Context.MODE_PRIVATE);
     }
 
     private static String key(String name, long userId) { return name + '_' + userId; }
 
-    public static boolean isLicensed(int account) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        return userId > 0 && preferences().getBoolean(key("licensed", userId), false)
-                && System.currentTimeMillis() - preferences().getLong(key("checked", userId), 0) < LICENSE_GRACE_MS;
+    private static boolean hasSession(long userId) {
+        SharedPreferences preferences = preferences();
+        return userId > 0 && !preferences.getString(key("access", userId), "").isEmpty()
+                && preferences.getLong(key("access_expires", userId), 0) > System.currentTimeMillis() / 1000 + 30;
     }
 
-    public static void refreshLicenses(boolean force) {
-        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
-            if (UserConfig.getInstance(account).getClientUserId() > 0
-                    && (BuildConfig.BYGRAM_FULL || BygramConfig.isActivityEnabled(account))) refreshLicense(account, force, null);
+    private static void ensureSession(int account, Utilities.Callback<Boolean> callback) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId <= 0 || hasSession(userId)) {
+            callback.run(userId > 0);
+            return;
         }
+        ArrayList<Utilities.Callback<Boolean>> waiting = sessionCallbacks.computeIfAbsent(userId, id -> new ArrayList<>());
+        waiting.add(callback);
+        if (waiting.size() != 1) return;
+        Utilities.Callback<Boolean> done = ready -> {
+            sessionCallbacks.remove(userId);
+            boolean sameAccount = UserConfig.getInstance(account).getClientUserId() == userId;
+            for (Utilities.Callback<Boolean> waiter : waiting) waiter.run(ready && sameAccount);
+        };
+        refreshAccess(userId, done);
     }
 
-    public static void refreshLicense(int account, boolean force, LicenseCallback callback) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        if (userId <= 0) { if (callback != null) callback.run(false, ""); return; }
-        SharedPreferences prefs = preferences();
-        String access = prefs.getString(key("access", userId), "");
-        if (access.isEmpty()) {
-            if (prefs.getString(key("refresh", userId), "").isEmpty()) authenticate(account, callback);
-            else refreshAccess(account, callback);
-            return;
-        }
-        if (prefs.getLong(key("access_expires", userId), 0) <= System.currentTimeMillis() / 1000 + 30) {
-            refreshAccess(account, callback);
-            return;
-        }
-        boolean cached = prefs.getBoolean(key("licensed", userId), false);
-        long now = System.currentTimeMillis();
-        long age = now - prefs.getLong(key("checked", userId), 0);
-        long attemptAge = now - prefs.getLong(key("attempted", userId), 0);
-        if (!force && (attemptAge < NEGATIVE_REFRESH_MS || age < (cached ? POSITIVE_REFRESH_MS : NEGATIVE_REFRESH_MS))) {
-            if (callback != null) callback.run(cached, prefs.getString("manager_url", ""));
-            return;
-        }
-        prefs.edit().putLong(key("attempted", userId), now).apply();
-        request(userId, json("action", "license"), true, response -> {
-            if (response == null || !response.optBoolean("ok")) { if (callback != null) callback.run(null, prefs.getString("manager_url", "")); return; }
-            boolean licensed = response.optBoolean("licensed");
-            String managerUrl = response.optString("manager_url", prefs.getString("manager_url", ""));
-            prefs.edit().putBoolean(key("licensed", userId), licensed).putLong(key("checked", userId), System.currentTimeMillis()).putString("manager_url", managerUrl).apply();
-            if (callback != null) callback.run(licensed, managerUrl);
-        });
-    }
-
-    private static void authenticate(int account, LicenseCallback callback) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
+    private static void authenticate(long userId, Utilities.Callback<Boolean> callback) {
         SharedPreferences prefs = preferences();
         String activation = prefs.getString(key("activation", userId), "");
         if (!activation.isEmpty()) {
             try {
                 request(userId, json("action", "device_status", "activation", activation,
                         "signature", BygramDeviceKey.sign(userId, "BYGRAM_STATUS_V1\n" + activation)), false,
-                        response -> handleActivation(account, response, callback, true));
+                        response -> handleActivation(userId, response, callback, true));
             } catch (Exception e) {
                 FileLog.e(e);
                 clearActivation(userId);
-                if (callback != null) callback.run(null, "");
+                callback.run(false);
             }
             return;
         }
         request(userId, json("action", "device_start", "user_id", userId), false, response -> {
-            if (response == null || !response.optBoolean("ok")) { if (callback != null) callback.run(null, ""); return; }
-            if ("denied".equals(response.optString("state"))) { markDenied(userId, response.optString("bot_url", ""), callback); return; }
+            if (response == null || !response.optBoolean("ok")) { callback.run(false); return; }
             String nextActivation = response.optString("activation", "");
             String challenge = response.optString("challenge", "");
-            if (nextActivation.isEmpty() || challenge.isEmpty()) { if (callback != null) callback.run(null, ""); return; }
+            if (nextActivation.isEmpty() || challenge.isEmpty()) { callback.run(false); return; }
             prefs.edit().putString(key("activation", userId), nextActivation)
                     .putString(key("activation_challenge", userId), challenge)
-                    .putString("manager_url", response.optString("bot_url", "")).apply();
-            proveDevice(account, callback);
+                    .apply();
+            proveDevice(userId, callback);
         });
     }
 
-    private static void proveDevice(int account, LicenseCallback callback) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
+    private static void proveDevice(long userId, Utilities.Callback<Boolean> callback) {
         SharedPreferences prefs = preferences();
         String activation = prefs.getString(key("activation", userId), "");
         String challenge = prefs.getString(key("activation_challenge", userId), "");
@@ -208,89 +164,50 @@ public final class BygramActivityController {
             request(userId, json("action", "device_prove", "activation", activation,
                     "public_key", BygramDeviceKey.publicKey(userId), "signature", proof,
                     "device_name", name.isEmpty() ? "Android" : name), false,
-                    response -> handleActivation(account, response, callback, false));
+                    response -> handleActivation(userId, response, callback, false));
         } catch (Exception e) {
             FileLog.e(e);
             clearActivation(userId);
-            BygramDeviceKey.delete(userId);
-            if (callback != null) callback.run(null, "");
+            callback.run(false);
         }
     }
 
-    private static void handleActivation(int account, JSONObject response, LicenseCallback callback, boolean retryExpired) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        if (response == null) { if (callback != null) callback.run(null, ""); return; }
+    private static void handleActivation(long userId, JSONObject response, Utilities.Callback<Boolean> callback, boolean retryExpired) {
+        if (response == null) { callback.run(false); return; }
         if (!response.optBoolean("ok")) {
-            if (retryExpired) { clearActivation(userId); authenticate(account, callback); }
-            else if (callback != null) callback.run(null, "");
+            if (retryExpired) { clearActivation(userId); authenticate(userId, callback); }
+            else callback.run(false);
             return;
         }
-        String state = response.optString("state");
-        if ("denied".equals(state)) { markDenied(userId, response.optString("bot_url", ""), callback); return; }
         if (!response.optString("access_token", "").isEmpty()) {
             saveTokens(userId, response);
             clearActivation(userId);
-            preferences().edit().putBoolean(key("licensed", userId), true)
-                    .putLong(key("checked", userId), System.currentTimeMillis()).apply();
-            if (callback != null) callback.run(true, "");
+            callback.run(true);
             return;
         }
-        String botUrl = response.optString("bot_url", preferences().getString("manager_url", ""));
-        preferences().edit().putString(key("devices", userId), response.optJSONArray("devices") == null
-                ? "" : response.optJSONArray("devices").toString()).putString("manager_url", botUrl).apply();
-        if (callback != null) callback.run(false, botUrl);
-    }
-
-    private static void markDenied(long userId, String botUrl, LicenseCallback callback) {
-        clearActivation(userId);
-        botUrl = purchaseUrl(botUrl);
-        preferences().edit().putBoolean(key("licensed", userId), false)
-                .putLong(key("checked", userId), System.currentTimeMillis()).putString("manager_url", botUrl).apply();
-        if (callback != null) callback.run(false, botUrl);
+        callback.run(false);
     }
 
     private static void clearActivation(long userId) {
-        preferences().edit().remove(key("activation", userId)).remove(key("activation_challenge", userId))
-                .remove(key("devices", userId)).apply();
+        preferences().edit().remove(key("activation", userId)).remove(key("activation_challenge", userId)).apply();
     }
 
-    public static JSONArray getPendingDevices(int account) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        try { return new JSONArray(preferences().getString(key("devices", userId), "[]")); }
-        catch (Exception e) { return new JSONArray(); }
-    }
-
-    public static void replaceDevice(int account, String deviceId, LicenseCallback callback) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        String activation = preferences().getString(key("activation", userId), "");
-        if (activation.isEmpty()) { if (callback != null) callback.run(false, ""); return; }
-        try {
-            request(userId, json("action", "device_replace", "activation", activation, "device_id", deviceId,
-                    "signature", BygramDeviceKey.sign(userId, "BYGRAM_REPLACE_V1\n" + activation + "\n" + deviceId)), false,
-                    response -> handleActivation(account, response, callback, false));
-        } catch (Exception e) {
-            FileLog.e(e);
-            if (callback != null) callback.run(null, "");
-        }
-    }
-
-    private static void refreshAccess(int account, LicenseCallback callback) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
+    private static void refreshAccess(long userId, Utilities.Callback<Boolean> callback) {
         String refresh = preferences().getString(key("refresh", userId), "");
-        if (refresh.isEmpty()) { preferences().edit().remove(key("access", userId)).apply(); authenticate(account, callback); return; }
+        if (refresh.isEmpty()) { preferences().edit().remove(key("access", userId)).apply(); authenticate(userId, callback); return; }
         request(userId, json("action", "refresh", "refresh_token", refresh), false, response -> {
             if (response == null || response.optInt("_http_status") >= 500 || response.optInt("_http_status") == 429) {
-                if (callback != null) callback.run(null, "");
+                callback.run(false);
             } else if (!response.optBoolean("ok")) {
                 if (response.optInt("_http_status") != 401 && response.optInt("_http_status") != 403) {
-                    if (callback != null) callback.run(null, "");
+                    callback.run(false);
                     return;
                 }
                 preferences().edit().remove(key("access", userId)).remove(key("refresh", userId)).apply();
-                authenticate(account, callback);
+                authenticate(userId, callback);
             } else {
                 saveTokens(userId, response);
-                refreshLicense(account, true, callback);
+                callback.run(hasSession(userId));
             }
         });
     }
@@ -304,17 +221,14 @@ public final class BygramActivityController {
     }
 
     private static boolean hasAccess(int account, Runnable retry) {
-        long userId = UserConfig.getInstance(account).getClientUserId();
-        if (!preferences().getString(key("access", userId), "").isEmpty()
-                && preferences().getLong(key("access_expires", userId), 0) > System.currentTimeMillis() / 1000 + 30) return true;
-        refreshAccess(account, (licensed, botUrl) -> { if (Boolean.TRUE.equals(licensed)) retry.run(); });
+        if (hasSession(UserConfig.getInstance(account).getClientUserId())) return true;
+        ensureSession(account, ready -> { if (ready) retry.run(); });
         return false;
     }
 
     public static void setCurrentActivity(int account, int type, long dialogId, TLRPC.User user, TLRPC.Chat chat) {
         long selfId = UserConfig.getInstance(account).getClientUserId();
-        if (!isLicensed(account) || !BygramConfig.isActivityEnabled(account)
-                || (BuildConfig.BYGRAM_FULL && BygramConfig.getActivityViewers(account).isEmpty())) return;
+        if (selfId <= 0 || !BygramConfig.isActivityEnabled(account) || BygramConfig.getActivityViewers(account).isEmpty()) return;
         if (type != BygramConfig.ACTIVITY_DIALOGS && type != BygramConfig.ACTIVITY_PROFILE && type != BygramConfig.ACTIVITY_CHAT) return;
         if (type != BygramConfig.ACTIVITY_DIALOGS && (dialogId == 0 || dialogId == selfId)) return;
         String username = user != null ? UserObject.getPublicUsername(user) : chat != null ? ChatObject.getPublicUsername(chat) : null;
@@ -338,7 +252,7 @@ public final class BygramActivityController {
         OwnActivity activity = ownActivities[account];
         long selfId = UserConfig.getInstance(account).getClientUserId();
         if (activity == null) return;
-        if (!isLicensed(account) || !BygramConfig.isActivityEnabled(account)) { ownActivities[account] = null; return; }
+        if (selfId <= 0 || !BygramConfig.isActivityEnabled(account)) { ownActivities[account] = null; return; }
         if (viewersDirty(selfId)) { syncViewers(account); return; }
         if (!hasAccess(account, () -> sendActivity(account))) return;
         request(selfId, json("action", "update", "activity_type", activity.type,
@@ -358,7 +272,6 @@ public final class BygramActivityController {
 
     private static JSONArray viewerPayload(int account) {
         JSONArray viewers = new JSONArray();
-        if (!BuildConfig.BYGRAM_FULL) return viewers;
         for (Map.Entry<Long, Integer> viewer : BygramConfig.getActivityPermissions(account).entrySet()) {
             viewers.put(json("user_id", viewer.getKey(), "permissions", viewer.getValue()));
         }
@@ -367,7 +280,7 @@ public final class BygramActivityController {
 
     private static void syncViewers(int account) {
         long userId = UserConfig.getInstance(account).getClientUserId();
-        if (!isLicensed(account)) return;
+        if (userId <= 0) return;
         if (!hasAccess(account, () -> syncViewers(account))) return;
         if (!viewersSyncing.add(userId)) return;
         JSONArray viewers = viewerPayload(account);
@@ -391,7 +304,7 @@ public final class BygramActivityController {
     public static void clear(int account) {
         ownActivities[account] = null;
         long userId = UserConfig.getInstance(account).getClientUserId();
-        if (!isLicensed(account) || userId <= 0 || !hasAccess(account, () -> clear(account))) return;
+        if (userId <= 0 || !hasAccess(account, () -> clear(account))) return;
         request(userId, json("action", "clear"), true, null);
     }
 
@@ -413,7 +326,7 @@ public final class BygramActivityController {
 
     public static void get(int account, long ownerId, Callback callback) {
         long userId = UserConfig.getInstance(account).getClientUserId();
-        if (!BuildConfig.BYGRAM_FULL || !isLicensed(account) || ownerId <= 0) { callback.run(null); return; }
+        if (ownerId <= 0) { callback.run(null); return; }
         if (!hasAccess(account, () -> get(account, ownerId, callback))) return;
         request(userId, json("action", "activity_get", "owner_id", ownerId), true, response -> {
             if (response == null || !response.optBoolean("ok")) return;
@@ -423,7 +336,7 @@ public final class BygramActivityController {
     }
 
     public static ActivityInfo getCachedActivity(int account, long ownerId, Runnable callback) {
-        if (!BuildConfig.BYGRAM_FULL || !isLicensed(account) || ownerId <= 0) return null;
+        if (ownerId <= 0) return null;
         String key = account + ":" + ownerId;
         CachedActivity cached = activityCache.get(key);
         if (cached != null && System.currentTimeMillis() - cached.loadedAt < ACTIVITY_CACHE_MS) return cached.info;

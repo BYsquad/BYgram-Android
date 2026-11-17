@@ -411,7 +411,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private boolean bygramProfilePaused = true;
     private final Runnable bygramProfileActivityRunnable = new Runnable() {
         @Override public void run() {
-            if (!org.telegram.messenger.BuildConfig.BYGRAM_FULL || bygramProfilePaused || userId <= 0 || userId == getUserConfig().getClientUserId()) return;
+            if (bygramProfilePaused || userId <= 0 || userId == getUserConfig().getClientUserId()) return;
             BygramActivityController.get(currentAccount, userId, activity -> {
                 if (!bygramProfilePaused && musicView != null) {
                     int previousHeaderHeight = getHeaderExtraHeight();
@@ -3515,9 +3515,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 //                    canvas.drawRect(0, top + extraHeight + searchTransitionOffset, getMeasuredWidth(), top + getMeasuredHeight(), whitePaint);
                 }
                 super.dispatchDraw(canvas);
-                if (userId != 0 && !isCapturingProfileGlass()) {
+                if (userId != 0 && !isSettings() && !isCapturingProfileGlass()) {
                     AndroidUtilities.rectTmp.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
-                    bygramSnow.draw(this, canvas, BygramConfig.SNOW_PROFILES, AndroidUtilities.rectTmp, 0);
+                    bygramSnow.draw(this, canvas, BygramConfig.SNOW_SCREENS, AndroidUtilities.rectTmp, 0);
                 }
                 /*
                 if (profileTransitionInProgress && parentLayout.getFragmentStack().size() > 1) {
@@ -4181,7 +4181,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             editItem = menu.addItem(edit_channel, R.drawable.group_edit_profile);
             editItem.setContentDescription(LocaleController.getString(R.string.Edit));
         }
-        if (myProfile && org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
+        if (myProfile) {
             profileViewsItem = menu.addItem(94, R.drawable.bygram_footprints);
             profileViewsItem.setContentDescription(LocaleController.getString(R.string.BygramProfileViews));
             profileViewsAvatar = new BackupImageView(getContext());
@@ -4884,7 +4884,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 !SharedConfig.forceForumTabs ? "Force Forum Tabs" : "Do Not Force Forum Tabs",
                             "Make Memory Dump",
                                 BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.fastWallpaperDisabled ? "enable wallpaper shader" : "disable wallpaper shader") : null,
-                                !org.telegram.messenger.BuildConfig.BYGRAM_FULL ? BygramSettingsActivity.liteActivityMenuTitle(currentAccount) : null
                         };
 
                         builder.setItems(items, (dialog, which) -> {
@@ -5181,8 +5180,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 FileLog.getInstance().dumpMemory(true);
                             } else if (which == 38) {
                                 SharedConfig.toggleFastWallpaperDisabled();
-                            } else if (which == 39 && !org.telegram.messenger.BuildConfig.BYGRAM_FULL) {
-                                BygramSettingsActivity.toggleLiteActivity(ProfileActivity.this);
                             }
                         });
                         builder.setNegativeButton(getString("Cancel", R.string.Cancel), null);

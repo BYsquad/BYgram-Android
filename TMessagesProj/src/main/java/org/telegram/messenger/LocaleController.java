@@ -1471,8 +1471,6 @@ public class LocaleController {
     }
 
     private String getStringInternal(String key, String fallback, int res) {
-        if (!BuildConfig.BYGRAM_FULL && (res == R.string.AppName || res == R.string.AppNameBeta
-                || "AppName".equals(key) || "AppNameBeta".equals(key))) return "Telegram";
         final String value = getStringV2(key, res, fallback);
         if (value == null) {
             return "LOC_ERR:" + key;

@@ -311,9 +311,9 @@
     
     <string name="BygramFoldersPreviewInfo">Предпросмотр использует ваши папки. Если других папок нет, «Все чаты» остаётся доступна.</string>
     <string name="BygramWinter">Зима</string>
+    <string name="BygramSnowScreens">Снег в настройках, профилях и списке чатов</string>
+    <string name="BygramSnowAmount">Количество снега</string>
     <string name="BygramSnowChats">Падающий снег на фоне чатов</string>
-    <string name="BygramSnowProfiles">Падающий снег в профилях пользователей</string>
-    <string name="BygramSnowHeader">Падающий снег в верхних блоках списка чатов</string>
     <string name="BygramSnowNavigation">Падающий снег в нижней навигации</string>
     <string name="BygramSnowInfo">Анимации учитывают энергосбережение и уменьшение движения. По умолчанию все эффекты выключены.</string>
     <string-array name="BygramFolderStyleOptions">
@@ -326,15 +326,9 @@
     <string name="BygramTitleRight">Справа</string>
     <string name="BygramTitleUsername">Имя пользователя</string>
     <string name="BygramTitleName">Имя</string>
-    <string name="BygramSnowDialogs">Снег на списке чатов</string>
-    <string name="BygramSnowSettings">Снег в настройках и на внутренних страницах</string>
-    <string name="BygramSnowBygramSettings">Снег в настройках BYgram и на внутренних страницах</string>
     <string name="BygramSections">Секции</string>
     <string name="BygramMd3ProfileButtons">Кнопки профиля</string>
     <string name="BygramOff">Отключено</string>
-    <string name="BygramActivityTestEnable">Включить тестирование активности BYgram</string>
-    <string name="BygramActivityTestDisable">Отключить тестирование активности BYgram</string>
-    <string name="BygramActivityTestWarning">Включая эту функцию, вы соглашаетесь отправлять все активности этого аккаунта Telegram, фиксируемые системой, на серверы BYgram для тестирования кастомной системы активности: открытие списка чатов, профилей и чатов с пользователями, ботами, группами и каналами, включая их ID и названия. Содержимое сообщений не отправляется. Отключить отправку можно в этом же меню.</string>
     <string name="BygramPlugins">Плагины</string>
     <string name="BygramPluginCount">Включено %1$d из %2$d</string>
     <string name="BygramPluginSourceLocal">Локальный файл</string>

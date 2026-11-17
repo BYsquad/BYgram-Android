@@ -2,6 +2,15 @@ Options -Indexes
 <Files "plugin-catalog.php">
     Require all denied
 </Files>
+<Files "chat-flames.php">
+    Require all denied
+</Files>
+<Files "admin-flames.php">
+    Require all denied
+</Files>
+<FilesMatch "^(client-devices|release-channels)\.php$">
+    Require all denied
+</FilesMatch>
 <Files "plugin-self-test.php">
     Require all denied
 </Files>

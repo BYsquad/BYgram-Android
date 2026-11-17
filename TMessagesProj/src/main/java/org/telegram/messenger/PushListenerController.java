@@ -1808,7 +1808,6 @@ public class PushListenerController {
 
         @Override
         public void onRequestPushToken() {
-            if (!BuildConfig.BYGRAM_FULL) return;
             String currentPushString = SharedConfig.pushString;
             if (!TextUtils.isEmpty(currentPushString)) {
                 if (BuildVars.DEBUG_PRIVATE_VERSION && BuildVars.LOGS_ENABLED) {
@@ -1847,7 +1846,6 @@ public class PushListenerController {
 
         @Override
         public boolean hasServices() {
-            if (!BuildConfig.BYGRAM_FULL) return false;
             if (hasServices == null) {
                 try {
                     int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(ApplicationLoader.applicationContext);

@@ -1,6 +1,6 @@
 # Настройки BYgram для Android
 
-Full: **Настройки → Настройки BYgram**. Точка входа — `SettingsActivity`, общая панель кастомных страниц — `BygramSettingsPage`. В Lite основного модуля этот раздел скрыт; добровольная отправка активности доступна отдельно через меню отладки.
+**Настройки → Настройки BYgram**. Точка входа — `SettingsActivity`, общая панель кастомных страниц — `BygramSettingsPage`.
 
 ```text
 Настройки → Настройки BYgram
@@ -20,6 +20,7 @@ Full: **Настройки → Настройки BYgram**. Точка вход�
 - [Кастомизация интерфейса и профиля](customization.md)
 - [Призрак, Шпион и защита чатов](privacy-modes.md)
 - [Активность, просмотры профиля и привязка аккаунта](activity-sharing.md)
+- [Пламя в личных чатах](chat-flame.md)
 - [Ссылки на пункты настроек](links.md)
 - [Плагины Android](../plugins/README.md)
 - [Сборка](../build.md) и [проверки](testing.md)
@@ -31,7 +32,7 @@ Full: **Настройки → Настройки BYgram**. Точка вход�
 | Экран и вложенные screens | `TMessagesProj/src/main/java/org/telegram/ui/BygramSettingsActivity.java` |
 | Ключи, defaults, Ghost/Spy helpers | `TMessagesProj/src/main/java/org/telegram/messenger/BygramConfig.java` |
 | Локальные скрытые и запароленные чаты | `TMessagesProj/src/main/java/org/telegram/messenger/BygramChatPrivacy.java` |
-| Лицензия, activity, badges | `TMessagesProj/src/main/java/org/telegram/messenger/BygramActivityController.java` |
+| Обмен активностью и сессии | `TMessagesProj/src/main/java/org/telegram/messenger/BygramActivityController.java` |
 | Точка входа | `TMessagesProj/src/main/java/org/telegram/ui/SettingsActivity.java` |
 | Строки | `TMessagesProj/src/main/res/values/bygram_*.xml`, `values-ru/...` |
 | Activity backend | `server/activity-api/index.php`, `bootstrap.php`, `schema.sql` |
@@ -47,6 +48,6 @@ Full: **Настройки → Настройки BYgram**. Точка вход�
 5. решение для export/reset/migration;
 6. минимальная regression check.
 
-Privacy-функции должны быть opt-in, не отправлять данные до действия пользователя и не логировать message text, viewer list или tokens. Пакеты редакций и параметры сборки описаны в [инструкции](../build.md#две-редакции-apk).
+Privacy-функции должны быть opt-in, не отправлять данные до действия пользователя и не логировать message text, viewer list или tokens. Параметры сборки описаны в [инструкции](../build.md#сборка-apk).
 
 При изменениях актуализируйте эту директорию и `docs/readme.md`.

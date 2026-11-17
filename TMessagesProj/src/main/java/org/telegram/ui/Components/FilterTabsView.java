@@ -77,8 +77,6 @@ import java.util.Map;
 public class FilterTabsView extends FrameLayout {
 
     private final Theme.ResourcesProvider resourcesProvider;
-    private final BygramSnowEffect bygramSnow = new BygramSnowEffect();
-    private final RectF bygramSnowBounds = new RectF();
 
     public int getCurrentTabStableId() {
         return positionToStableId.get(currentPosition, -1);
@@ -1532,8 +1530,6 @@ public class FilterTabsView extends FrameLayout {
     protected void dispatchDraw(@NonNull Canvas canvas) {
         canvas.save();
         canvas.clipPath(clipPath);
-        bygramSnowBounds.set(dp(9), dp(9), getWidth() - dp(9), getHeight() - dp(9));
-        bygramSnow.draw(this, canvas, org.telegram.messenger.BygramConfig.SNOW_HEADER, bygramSnowBounds, dp(16));
         super.dispatchDraw(canvas);
         canvas.restore();
     }

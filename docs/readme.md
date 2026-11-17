@@ -1,10 +1,12 @@
 # Документация BYgram Android
 
-- [Сборка Lite и Full, проверка APK и переводы](build.md)
+- [Сборка BYgram, проверка APK и переводы](build.md)
 - [Карта настроек и описание кастомных функций](bygram-settings/README.md)
+- [Пламя в личных чатах](bygram-settings/chat-flame.md)
+- [Панель управления BYgram](admin-panel.md)
 - [Проверки перед выпуском](bygram-settings/testing.md)
 - [Совместимость с базой Telegram](development-notes.md)
-- [Привязка устройств Full](full-edition-device-licensing.md)
+- [Обмен активностью и сессии](bygram-settings/activity-sharing.md)
 - [Плагины Android, SDK и каталог](plugins/README.md)
 - [История изменений](../changelog.md)
 

@@ -16,7 +16,7 @@ export default defineConfig({
         editions: resolve('editions.html'),
         thanks: resolve('thanks.html'),
         docs: resolve('docs/index.html'),
-        admin: resolve('src/admin.jsx'),
+        'admin-console': resolve('src/admin.jsx'),
       },
       output: {
         entryFileNames: (chunk) => ['main', 'docs'].includes(chunk.name) ? 'assets/[name]-[hash].js' : 'assets/[name].js',

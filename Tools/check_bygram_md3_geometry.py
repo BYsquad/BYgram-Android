@@ -66,9 +66,11 @@ for selector in (dialogs, source("TMessagesProj/src/main/java/org/telegram/ui/Ma
     account_view = selector.split("public LinearLayout accountView(", 1)[1].split("return btn;", 1)[0]
     assert "canvas.drawCircle(" not in account_view and "canvas.drawRoundRect(AndroidUtilities.rectTmp, BygramConfig.avatarRadius(dp(32))" in account_view, "Selected account outline ignores the BYgram avatar shape"
 main_settings, customization = settings.split("public static class CustomizationSettingsActivity", 1)
-assert "asButton(400," not in main_settings and "asButton(400," in customization and "new TypingCustomizationActivity()" in customization, "Typing statuses must live in Customization"
+menu = customization.split("public static class TypingCustomizationActivity", 1)[0]
+assert "R.string.BygramCustomTyping" not in main_settings and "UItem.asButton(4, getString(R.string.BygramCustomTyping))" in menu
+assert "presentFragment(page)" in menu and "new TypingCustomizationActivity()" in main_settings, "Typing statuses must live in Customization"
 assert "new EditText(" not in settings and "shape.setStroke(" in settings and "dialogInputContainer(input)" in chat, "BYgram dialogs must share the themed input style"
-icons = settings.split("AppIconsSelectorCell icons =", 1)[1].split("BackupImageView avatarPreview", 1)[0]
+icons = settings.split("icons = new AppIconsSelectorCell", 1)[1].split("BackupImageView avatarPreview", 1)[0]
 launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")
 manifest = source("TMessagesProj/src/main/AndroidManifest.xml")
 assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "Customization must only offer BYgram and Telegram icons"

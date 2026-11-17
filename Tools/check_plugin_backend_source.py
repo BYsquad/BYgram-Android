@@ -55,7 +55,7 @@ def main():
     abi = device("shell", "getprop", "ro.product.cpu.abi")
     if abi not in ("x86_64", "arm64-v8a"):
         raise RuntimeError("This raw backend probe requires a 64-bit test device")
-    source = ROOT / "TMessagesProj/src/full/java/org/telegram/messenger/plugins/HookBridge.java"
+    source = ROOT / "TMessagesProj/src/plugins/java/org/telegram/messenger/plugins/HookBridge.java"
     source_bytes = source.read_bytes()
     bridge = source_bytes.decode("utf-8").replace("HookBridge", "ExperimentalHookBridge")
     start = bridge.index("    public static synchronized boolean available() {")
@@ -72,7 +72,7 @@ def main():
     with zipfile.ZipFile(work / "sdk-types.jar", "w", zipfile.ZIP_DEFLATED) as jar:
         files = list((compile_root / "org/telegram/messenger/plugins").glob("*.class"))
         if not files:
-            raise RuntimeError("Compile Full Debug Java before running this probe")
+            raise RuntimeError("Compile Debug Java before running this probe")
         for file in files: jar.write(file, file.relative_to(compile_root).as_posix())
     aar = ROOT / f"third_party/maven/com/aliucord/Aliuhook/{VERSION}/Aliuhook-{VERSION}.aar"
     with zipfile.ZipFile(aar) as archive:

@@ -19,17 +19,16 @@
 | `TMessagesProj`: minSdk 23, compile/targetSdk 36, NDK 27.2.12479018 | Встраивание Python затрагивает поддержку Android 6 и native packaging |
 | `TMessagesProj_App`: универсальные варианты с четырьмя ABI | Нельзя незаметно потерять 32-битные установки |
 | Release/standalone используют R8 и shrinkResources | Работоспособность Debug не доказывает работоспособность reflection/хуков в Release |
-| Full/Lite выбираются `BYGRAM_EDITION`, default — Lite | Проверки и сборка должны явно указывать редакцию |
-| Текущий Lite основного app-модуля использует `org.telegram.messenger`, Full — `APP_PACKAGE` | Не переносить устаревшее утверждение об одинаковых package из ранних документов |
-| `BygramSettingsPage.onFragmentCreate()` допускает страницы только в Full | Базовое предложение — плагины Full; Lite потребует отдельного продуктового решения |
+| Плагины входят в основную сборку | Проверки используют один набор исходников |
+| Пакет приложения — `com.bygram.mobile` | Обновления сохраняют данные и подпись |
 | `BygramSettingsActivity` использует `UItem`, `UniversalRecyclerView`, общий `BygramSettingsPage` | Плагин-менеджер строить теми же компонентами |
 | Страницы имеют общий заголовок, adaptive background и защиту от перекрытия строк | Сохранить это поведение на новых страницах |
 | Есть настройки-ссылки и `settingsPage()/linkedRow()/forLink()` | Новый экран должен иметь корректный маршрут и безопасное поведение долгого нажатия |
 | Есть проверки в `Tools`, отдельный модуль instrumentation | Использовать существующие места для проверок |
 
-Изученные участки: `BygramSettingsActivity.java` (общий класс страницы, создание списка, маршрутизация), `ApplicationLoader.java` (инициализация приложения), Gradle-файлы корня, библиотеки, основного приложения и тестового приложения, `proguard-rules.pro`, документы сборки, кастомизации и редакций.
+Изученные участки: `BygramSettingsActivity.java` (общий класс страницы, создание списка, маршрутизация), `ApplicationLoader.java` (инициализация приложения), Gradle-файлы корня, библиотеки, основного приложения и тестового приложения, `proguard-rules.pro`, документы сборки и кастомизации.
 
-В рабочем дереве уже есть многочисленные изменения. Реализацию вести поверх согласованного снимка; чужие изменения не откатывать и не включать в отчёт как свои. Документы могут отставать от исходников: например, раннее описание Lite отличается от пометки 27.10.2026 и текущего Gradle.
+Сохраняйте изменения рабочего дерева, сделанные вне задачи.
 
 ## 3. Зависимости и обязательный технический прототип
 
@@ -47,9 +46,9 @@
 
 Для прототипа: **Chaquopy 17.2.0 + Python 3.11 + все четыре текущих ABI**. Python 3.11 выбран ради 32 бит, а не как вечное ограничение SDK. Native pip-зависимости пока не добавлять. Проверить фактические Python patch-version и `.so` каждого ABI по артефактам.
 
-**Решение владельца от 30.10.2026 принято:** Full с плагинами — **Android 7.0+ / minSdk 24**, Lite сохраняет 23. Android 6 не получает новую Full-сборку с плагинами. Повторное согласование этого решения не требуется; фактический Gradle будет изменён при реализации, в этой задаче обновлена документация.
+Минимальная версия BYgram — **Android 7.0 / API 24**.
 
-Поддержка Python на API 23 и отдельная legacy Full-сборка в согласованный объём не входят. Не нужны downgrade AGP, старая Chaquopy или `overrideLibrary` ради Android 6.
+Python 3.11 и плагины используют API 24 и новее.
 
 Зафиксировать форк AliuHook на **`28137a6287e78ec55aaaa439c3c8e4cae55c0cf0`**, версия **`1.1.4-api37.1`**, LSPlant **`6ac2280d8d88e14f0864c26ac97c1dc96713bde1`**. Не ждать merge [upstream PR #21](https://github.com/Aliucord/hook/pull/21): на момент проверки он открыт. `main`/`main-SNAPSHOT` не использовать как неизменяемую зависимость. Сохранить контрольные суммы AAR и транзитивных артефактов после своей воспроизводимой сборки.
 
@@ -57,7 +56,7 @@ API 36 и 37 входят в целевую поддержку выбранно�
 
 ### 3.2.1. Уже имеющиеся подтверждения и оставшаяся интеграция
 
-По [отчёту автора PR #21](https://github.com/Aliucord/hook/pull/21): на x86_64 прошли 17 тестов на API 28, API 35 / 16 KiB и API 37 / 4 и 16 KiB. На API 21 — 16 PASS и один FAIL `shouldDisableProfileSaver`; этот API ниже принятого минимума Full. Это результаты библиотеки из внешнего отчёта, не повторный прогон в BYgram. [CI build на `6e866b0`](https://github.com/BYxarek/hook/actions/runs/41119632142) имеет статус Success; последующие коммиты меняли README.
+По [отчёту автора PR #21](https://github.com/Aliucord/hook/pull/21): на x86_64 прошли 17 тестов на API 28, API 35 / 16 KiB и API 37 / 4 и 16 KiB. На API 21 — 16 PASS и один FAIL `shouldDisableProfileSaver`; этот API ниже принятого минимума BYgram. Это результаты библиотеки из внешнего отчёта, не повторный прогон в BYgram. [CI build на `6e866b0`](https://github.com/BYxarek/hook/actions/runs/41119632142) имеет статус Success; последующие коммиты меняли README.
 
 Поэтому не исследуем заново, существует ли поддержка API 37. P0 проверяет совместную работу закреплённого форка с Python bridge, BYgram, R8 и его native libs. В опубликованном отчёте нет ARM runtime и отдельного API 36 прогона; эти проверки остаются в интеграционной матрице.
 
@@ -68,7 +67,7 @@ NDK Telegram 27.2 не повышать автоматически: готовы
 ### 3.3. Прототип перед основным кодом
 
 1. Зафиксировать build snapshot, JDK, AGP, Gradle, Python host, Chaquopy, AliuHook и транзитивные версии; не записывать секреты.
-2. Проверить minSdk/manifest merge для Full и Lite во всех поддерживаемых app-модулях.
+2. Проверить minSdk/manifest merge для BYgram во всех поддерживаемых app-модулях.
 3. Запустить Python из Java и обратно; загрузить тестовый модуль из private storage.
 4. Сделать Java-адаптер `XC_MethodHook`, передающий вызов в Python через интерфейс. Проверить before/after, изменение аргумента, результата, исключение оригинала, unhook.
 5. Проверить вызовы private/overloaded/static методов и конструкторов, primitive/boxed/null типы. Abstract/native/boot-image методы не объявлять поддерживаемыми по аналогии.
@@ -77,7 +76,7 @@ NDK Telegram 27.2 не повышать автоматически: готовы
 8. Измерить старт без плагинов, первый старт Python, память и размер зависимостей по ABI.
 9. Проверить лицензионные требования Chaquopy, AliuHook, LSPlant, Dobby и совместимость их распространения с проектом; собрать notices. У Chaquopy MIT, у AliuHook OSL-3.0 по страницам репозиториев. Юридическая совместимость в этом плане не устанавливается.
 
-Выход этапа: таблица интеграционных результатов для принятого Full API 24+, hashes зависимостей и подтверждение hooks/Python на API 36/37. Решение по API 23 уже принято; повторно его не запрашивать.
+Выход этапа: таблица интеграционных результатов для принятого API 24+, hashes зависимостей и подтверждение hooks/Python на API 36/37. Решение по API 23 уже принято; повторно его не запрашивать.
 
 ## 4. Архитектура
 
@@ -97,7 +96,7 @@ NDK Telegram 27.2 не повышать автоматически: готовы
                               PluginScope: owned handles
 ```
 
-Начать в существующем `TMessagesProj`, без отдельного Gradle-модуля движка. Применять Chaquopy только в этой библиотеке для Full; не дублировать применение в app-модулях. Учитывать, что библиотеку используют Huawei, HockeyApp, Standalone и тестовое приложение: нельзя случайно добавить Python только в основной APK или сломать остальные конфигурации.
+Начать в существующем `TMessagesProj`, без отдельного Gradle-модуля движка. Применять Chaquopy только в этой библиотеке; не дублировать применение в app-модулях. Учитывать, что библиотеку используют Huawei, HockeyApp, Standalone и тестовое приложение: нельзя случайно добавить Python только в основной APK или сломать остальные конфигурации.
 
 Пакет реализации: `org.telegram.messenger.plugins`. Разделение ответственностей:
 
@@ -304,7 +303,7 @@ Recovery читается до старта Chaquopy и загрузки AliuHoo
 
 Ведение startup-session marker и подтверждение здорового старта после устойчивой работы главного экрана; серия незавершённых стартов (начально 2) включает safe mode. Force-stop/обновление/перезагрузка могут дать ложное подозрение — recovery должен быть обратимым и понятным. Нельзя надёжно классифицировать все завершения процесса только marker-файлом.
 
-С 12.11.2026 BYgram Full автоматически включает безопасный режим в фоновой очереди при запуске после прерванной активации или при ошибке восстановления. Приложение открывается без плагинов и показывает уведомление, если Android разрешает уведомления BYgram. Нажатие открывает экран в отдельном процессе `:plugin_recovery`; он также доступен из настроек плагинов. Выход из безопасного режима оставляет движок и плагины выключенными.
+С 12.11.2026 BYgram автоматически включает безопасный режим в фоновой очереди при запуске после прерванной активации или при ошибке восстановления. Приложение открывается без плагинов и показывает уведомление, если Android разрешает уведомления BYgram. Нажатие открывает экран в отдельном процессе `:plugin_recovery`; он также доступен из настроек плагинов. Выход из безопасного режима оставляет движок и плагины выключенными.
 
 Recovery пишет только отдельный atomic recovery preferences/flag, а не одновременно registry основного процесса; основной процесс перечитывает его на resume/start. Если основной завис, изменения гарантированно действуют при следующем холодном старте; инструкция предлагает штатно закрыть/перезапустить приложение. Проверить сценарий, когда main-process Python завис до первого кадра. UI recovery не импортирует plugin icons/layouts и не выполняет авторский cleanup.
 
@@ -317,8 +316,8 @@ Recovery пишет только отдельный atomic recovery preferences/
 | Место | Необходимое изменение |
 |---|---|
 | Корневой `build.gradle`, repository config | Закрепить Chaquopy, AliuHook и dependency verification; repository только нужной группы |
-| `TMessagesProj/build.gradle` | Единственное применение Python plugin для Full, Python 3.11, ABI; принятый Full minSdk 24 / Lite 23 |
-| App/Huawei/HockeyApp/Standalone/Tests Gradle | Согласовать minSdk, native packaging и редакции; не дублировать Python plugin |
+| `TMessagesProj/build.gradle` | Python 3.11, ABI, minSdk 24 |
+| App/Huawei/HockeyApp/Standalone/Tests Gradle | Согласовать minSdk и native packaging; не дублировать Python plugin |
 | `TMessagesProj/src/main/python/bygram/` | Встроенный SDK и loader; не пользовательские пакеты |
 | `.../messenger/plugins/` | Registry, installer, runtime, scope, recovery, bridge |
 | `ApplicationLoader.java` | Ранний recovery/process gate, поздний lazy runtime; не запускать Python в push/recovery процессах |
@@ -330,18 +329,17 @@ Recovery пишет только отдельный atomic recovery preferences/
 | `proguard-rules.pro` | Точные keep rules для bridge, Python-facing API и заявленных stable signatures |
 | Main/config manifests и backup rules | Recovery entry, process gate и запрет восстановления исполняемого состояния |
 | UI/controllers Telegram из матрицы покрытия | Явные точки расширения с быстрым no-op и lifecycle cleanup |
-| `Tools/`, `TMessagesProj_AppTests` | Реальные проверки формата, lifecycle, hooks, recovery и редакций |
+| `Tools/`, `TMessagesProj_AppTests` | Реальные проверки формата, lifecycle, hooks и recovery |
 | `docs/plugins`, `docs/bygram-settings`, `docs/build.md`, `changelog.md` | Обновлять по фактически реализованному этапу |
 
 Не делать `-keep class org.telegram.** { *; }` как универсальное решение. Текущие широкие messenger rules уже есть, но UI reflection и inlining всё равно требуют точечных правил/проверок. Результаты R8 и размер APK фиксировать сравнением.
 
-Lite: в нём должны отсутствовать не только строки, но и Python/native runtime, startup side effects и пользовательские plugin callbacks. Прямые ссылки на Full-only классы выносить в edition-specific source roots с одинаковым узким entry contract и no-op Lite реализацией; не считать `if (BYGRAM_FULL)` гарантией отсутствия зависимостей в Debug. Проверять APK contents и dependency graph. Дополнительную абстракцию создавать только для этой реально нужной границы.
 
 ## 15. Этапы, зависимости и критерии завершения
 
 | Этап | Работа | Измеримый результат / условие перехода |
 |---|---|---|
-| P0 — совместимость | Прототип с BYxarek/hook из раздела 3, minSdk/ABI/licences, benchmark baseline | Применено принятое Full API 24+; проверена интеграция API 24/35/36/37 и 16 KiB, закреплены hashes |
+| P0 — совместимость | Прототип с BYxarek/hook из раздела 3, minSdk/ABI/licences, benchmark baseline | Применено принятое API 24+; проверена интеграция API 24/35/36/37 и 16 KiB, закреплены hashes |
 | P1 — менеджер без исполнения | Native страницы, schema/installer/registry, установка выключенным, удаление | Любой файл проверяется без запуска кода; process-death/плохой ZIP не теряют предыдущий пакет |
 | P2 — runtime + SDK ядро | Lazy Python, lifecycle, scope, global/account settings, queue/logging | Hello-plugin включается/выключается, не оставляет callbacks, ошибка изолируется на границе SDK |
 | P3 — восстановление | Markers, safe mode, recovery Activity/process, quarantine | После тестового зависания/падения клиент открывается без плагинов; настройки Telegram целы |
@@ -373,8 +371,7 @@ P3 обязателен **до выдачи исполняющего движк�
 
 | Вопрос | Решение / статус |
 |---|---|
-| Редакции | Full v1; Lite без runtime согласно текущему назначению |
-| Минимальный Android | Принято владельцем: Full с плагинами Android 7.0+ / API 24; Lite остаётся API 23 |
+| Минимальный Android | Android 7.0 / API 24 |
 | Runtime | Chaquopy 17.2.0, Python 3.11, четыре ABI — кандидаты P0 |
 | Hook backend | Выбран BYxarek/hook `28137a6287e78ec55aaaa439c3c8e4cae55c0cf0`, `1.1.4-api37.1`; поддержка до API 37, интеграция BYgram — P0 |
 | Android 16/17 | В целевой матрице API 36/37; учитывать имеющиеся тесты форка, проверить связку с BYgram |

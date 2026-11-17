@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="BygramFlameEnable">Enable Flame</string>
+    <string name="BygramFlameEnableMessage">Sign in to Telegram to link this device to Flame. Flame counts the days when you both send a message in this chat.</string>
+    <string name="BygramFlameOpenLogin">Sign in with Telegram</string>
+    <string name="BygramFlameEnableError">Couldn’t open Telegram sign-in. Try again.</string>
+    <string name="BygramFlameRestore">Restore Flame</string>
+    <string name="BygramFlameRestoreMessage">Restore the %1$d-day streak? Restores left for this chat this month: %2$d.</string>
+    <string name="BygramFlameRestoreAction">Restore</string>
+    <string name="BygramFlameRestoreError">Couldn’t restore Flame. Check your connection and try again if the option is still available.</string>
+    <string name="BygramFlameActiveDays">Flame, %1$d days</string>
+    <string name="BygramFlamePendingDays">Flame, %1$d days. Both people need to send a message today.</string>
     <string name="BygramResourceBadgeNotice">Official BYgram resource</string>
     <string name="BygramUserBadgeNotice">This user is a member of the BYgram team</string>
     <string name="BygramCustomTyping">Custom typing status</string>
@@ -18,8 +28,8 @@
     <string name="BygramTypingGame">Playing game</string>
     <string name="BygramTypingPublish">Publish statuses</string>
     <string name="BygramTypingPublishSuccess">Statuses saved successfully</string>
-    <string name="BygramTypingVerify">Could not publish statuses. Check your connection and try again.</string>
-    <string name="BygramTypingOpenBot">Open bot</string>
+    <string name="BygramTypingVerify">Sign in with Telegram and return to BYgram to publish statuses.</string>
+    <string name="BygramTypingOpenLogin">Sign in with Telegram</string>
     <string name="BygramTypingPublishFailed">Could not publish statuses. Check your connection and try again.</string>
     <string name="BygramSettings">BYgram Settings</string>
     <string name="BygramSettingsInfo">Privacy and local message controls</string>
@@ -73,18 +83,6 @@
     <string name="BygramActivityDialogsShort">chat list</string>
     <string name="BygramActivityProfileShort">profiles</string>
     <string name="BygramActivityChatShort">chats</string>
-    <string name="BygramLicenseTitle">Feature unavailable</string>
-    <string name="BygramLicenseMessage">Could not access this feature. Please try again later.</string>
-    <string name="BygramLicenseBuy">Open manager</string>
-    <string name="BygramLicenseUnavailable">Could not connect to BYgram. Check your internet connection and try again.</string>
-    <string name="BygramLicenseActivationMessage">Could not connect your account. Check your connection and try again.</string>
-    <string name="BygramLicenseActivate">Connect</string>
-    <string name="BygramDeviceLimitTitle">Device limit</string>
-    <string name="BygramDeviceLimitMessage">The device limit has been reached. Choose one device to unlink.</string>
-    <string name="BygramDeviceReplaceTitle">Replace device?</string>
-    <string name="BygramDeviceReplaceMessage">Unlink “%1$s” and activate this device?</string>
-    <string name="BygramDeviceReplace">Unlink and activate</string>
-    <string name="BygramUnknownDevice">Unknown Android device</string>
     <string name="BygramAppIcons">App icons</string>
     <string name="BygramIconCurrent">Current</string>
     <string name="BygramIconNew">New</string>
@@ -106,7 +104,7 @@
     <string name="BygramProfileViewsInfo">See who viewed your profile in the last 7 days. If others enable this setting, they can also see that you viewed their profile.</string>
     <string name="BygramProfileViewsRecent">Last 7 days</string>
     <string name="BygramProfileViewsEmpty">No one has viewed your profile yet</string>
-    <string name="BygramProfileViewsVerify">Could not enable profile views. Check your connection and try again.</string>
+    <string name="BygramProfileViewsVerify">Sign in with Telegram and return to BYgram to enable profile views.</string>
     <string name="BygramProfileViewsNotification">%1$s viewed your profile</string>
     <string name="BygramReadDateLabel">Read on: %1$s</string>
     <string name="BygramKeepSearchCollapsed">Keep the search field collapsed</string>
@@ -121,7 +119,7 @@
     <string name="BygramChooseBackground">Choose image or GIF</string>
     <string name="BygramPublishBackground">Publish selected background</string>
     <string name="BygramBackgroundPublished">Background saved</string>
-    <string name="BygramBackgroundVerify">Could not publish the background. Check your connection and try again.</string>
+    <string name="BygramBackgroundVerify">Sign in with Telegram and return to BYgram to publish the background.</string>
     <string name="BygramBackgroundFailed">Could not save background. Check connection and choose a supported image up to 4 MiB.</string>
     <string name="BygramNotifyDeleted">Notify when messages are deleted in private chats</string>
     <string name="BygramMessageDeletedInChat">A message was deleted in the chat with %1$s</string>

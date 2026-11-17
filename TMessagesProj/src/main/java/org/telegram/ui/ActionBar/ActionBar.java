@@ -127,8 +127,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     private boolean supportsHolidayImage;
     private SnowflakesEffect snowflakesEffect;
-    private final org.telegram.ui.Components.BygramSnowEffect bygramHeaderSnow = new org.telegram.ui.Components.BygramSnowEffect();
-    private final org.telegram.ui.Components.BygramSnowEffect bygramMenuSnow = new org.telegram.ui.Components.BygramSnowEffect();
     private FireworksEffect fireworksEffect;
     private Paint.FontMetricsInt fontMetricsInt;
     private boolean manualStart;
@@ -2592,10 +2590,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             return;
         }
 
-        if (parentFragment instanceof org.telegram.ui.DialogsActivity && !isActionModeShowed()) {
-            drawBygramSnow(canvas, glassDrawable, bygramHeaderSnow);
-            if (menuWidth > 0) drawBygramSnow(canvas, glassDrawableMenu, bygramMenuSnow);
-        }
         super.dispatchDraw(canvas);
     }
 
@@ -2615,12 +2609,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     public void setForceSkipTouches(boolean forceSkipTouches) {
         this.forceSkipTouches = forceSkipTouches;
-    }
-
-    private void drawBygramSnow(Canvas canvas, BlurredBackgroundDrawable block, org.telegram.ui.Components.BygramSnowEffect snow) {
-        if (block == null || block.getAlpha() == 0) return;
-        AndroidUtilities.rectTmp.set(block.getBounds());
-        snow.draw(this, canvas, org.telegram.messenger.BygramConfig.SNOW_HEADER, AndroidUtilities.rectTmp, dp(23));
     }
 
     public void setDrawBackButton(boolean b) {

@@ -26,7 +26,7 @@ def main():
     with zipfile.ZipFile(args.aar) as aar:
         (work / "aliuhook.jar").write_bytes(aar.read("classes.jar"))
         (work / "libaliuhook.so").write_bytes(aar.read("jni/" + abi + "/libaliuhook.so"))
-    source = ROOT / "TMessagesProj/src/full/java/org/telegram/messenger/plugins"
+    source = ROOT / "TMessagesProj/src/plugins/java/org/telegram/messenger/plugins"
     candidate = (source / "HookBridge.java").read_text(encoding="utf-8")
     (work / "HookBridge.java").write_text(candidate, encoding="utf-8")
     cache = Path.home() / ".gradle/caches/modules-2/files-2.1"

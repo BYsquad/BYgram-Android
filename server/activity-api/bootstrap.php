@@ -15,23 +15,17 @@ function appSetting(string $key, string $default = ''): string {
 function saveAppSetting(string $key, string $value): void {
     db()->prepare('INSERT INTO app_settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)')->execute([$key, $value]);
 }
-// shortcut: Full is temporarily free; set license_checks_enabled=true to restore paid access.
-function licenseChecksEnabled(): bool { return (bool) (appConfig()['license_checks_enabled'] ?? false); }
 function accountConfirmationEnabled(): bool { return (bool) (appConfig()['account_confirmation_enabled'] ?? true); }
 function requestSignatureChecksEnabled(): bool { return (bool) (appConfig()['request_signature_checks_enabled'] ?? true); }
 function deviceRevocationChecksEnabled(): bool { return (bool) (appConfig()['device_revocation_checks_enabled'] ?? true); }
-function licensed(int $telegramId): bool {
-    if ($telegramId < 1) return false;
-    if (!licenseChecksEnabled()) return true;
-    $q = db()->prepare("SELECT 1 FROM licenses WHERE telegram_id=? AND status='active' AND (valid_until IS NULL OR valid_until>UTC_TIMESTAMP())"); $q->execute([$telegramId]); return (bool) $q->fetchColumn();
-}
-function typingPublicKeys(PDO $pdo, int $telegramId): array {
+function typingPublicKeys(PDO $pdo, int $telegramId, bool $requireConfirmed = false): array {
     $query = $pdo->prepare("SELECT public_key FROM typing_devices WHERE telegram_id=? AND (?=0 OR account_confirmed=1)
         UNION ALL
         SELECT d.public_key FROM licensed_devices d
-        LEFT JOIN licenses l ON l.telegram_id=d.telegram_id AND l.status='active' AND (l.valid_until IS NULL OR l.valid_until>UTC_TIMESTAMP())
-        WHERE d.telegram_id=? AND (?=0 OR d.revoked_at IS NULL) AND (?=0 OR d.account_confirmed=1) AND (?=0 OR l.telegram_id IS NOT NULL)");
-    $query->execute([$telegramId, (int) accountConfirmationEnabled(), $telegramId, (int) deviceRevocationChecksEnabled(), (int) accountConfirmationEnabled(), (int) licenseChecksEnabled()]);
+        WHERE d.telegram_id=? AND (?=0 OR d.revoked_at IS NULL) AND (?=0 OR d.account_confirmed=1)");
+    $confirmation = (int) ($requireConfirmed || accountConfirmationEnabled());
+    $revocation = (int) ($requireConfirmed || deviceRevocationChecksEnabled());
+    $query->execute([$telegramId, $confirmation, $telegramId, $revocation, $confirmation]);
     return $query->fetchAll(PDO::FETCH_COLUMN);
 }
 function isOwner(int $id): bool { return $id === (int) (appConfig()['owner_id'] ?? 0); }
@@ -81,6 +75,15 @@ function requireAdminSession(): int {
     $id = adminSessionUser();
     if ($id < 1) throw new AdminAuthenticationException('Требуется вход через Telegram');
     return $id;
+}
+function adminCsrfToken(): string {
+    return $_SESSION['admin_csrf'] ??= bin2hex(random_bytes(32));
+}
+function requireAdminCsrf(): void {
+    $expected = $_SESSION['admin_csrf'] ?? '';
+    if ($expected === '' || !hash_equals($expected, (string) ($_SERVER['HTTP_X_BYGRAM_CSRF'] ?? ''))) {
+        jsonResponse(['ok' => false, 'error' => 'Обновите страницу и повторите действие'], 403);
+    }
 }
 function jsonResponse(mixed $data, int $status = 200): never { http_response_code($status); header('Content-Type: application/json; charset=utf-8'); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; }
 function loadBadges(): array {

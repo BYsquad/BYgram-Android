@@ -41,12 +41,11 @@ public final class BygramSnowEffect {
             effect = new SnowflakesEffect(1);
             effect.setColorKey(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhiteGrayText);
         }
-        effect.updateColors();
         canvas.save();
         clip.rewind();
         clip.addRoundRect(bounds, radius, radius, Path.Direction.CW);
         canvas.clipPath(clip);
-        effect.onDraw(view, canvas);
+        effect.onDraw(view, canvas, BygramConfig.getInt(BygramConfig.SNOW_AMOUNT, BygramConfig.SNOW_AMOUNT_MAX));
         canvas.restore();
     }
 }

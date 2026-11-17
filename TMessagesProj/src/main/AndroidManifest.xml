@@ -110,7 +110,7 @@
     >
         <!-- usesCleartextTraffic for browser supporting opening http:// links -->
         <service android:name="org.telegram.messenger.plugins.PluginBackendProbe"
-            android:enabled="${bygramPluginsEnabled}" android:exported="false" android:process=":plugin_probe" />
+            android:exported="false" android:process=":plugin_probe" />
         <activity android:name="org.telegram.messenger.plugins.PluginDiagnosticActivity"
             android:enabled="${bygramPluginDiagnosticsEnabled}" android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
@@ -119,19 +119,16 @@
             android:permission="android.permission.DUMP" android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="org.telegram.messenger.PluginRecovery"
-            android:enabled="${bygramPluginsEnabled}"
             android:exported="false" android:process=":plugin_recovery"
             android:label="@string/BygramPluginRecoveryTitle"
             android:taskAffinity="${applicationId}.plugin_recovery"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="org.telegram.ui.PluginFileActivity"
-            android:enabled="${bygramPluginsEnabled}"
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@style/Theme.TMessages.Transparent" />
         <activity-alias android:name="org.telegram.ui.OpenPluginFile"
-            android:enabled="${bygramPluginsEnabled}"
             android:exported="true"
             android:targetActivity="org.telegram.ui.PluginFileActivity">
             <intent-filter>

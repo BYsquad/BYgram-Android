@@ -194,7 +194,7 @@ public class ApplicationLoader extends Application {
         }
         applicationInited = true;
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
-        if (BuildConfig.BYGRAM_FULL) Utilities.globalQueue.postRunnable(BygramConfig::pruneSpyData);
+        Utilities.globalQueue.postRunnable(BygramConfig::pruneSpyData);
         BygramConfig.clearRemovedCustomizationSettings();
         BygramConfig.applyTelemetrySettings();
 
@@ -351,7 +351,7 @@ public class ApplicationLoader extends Application {
                 boolean wasInBackground = isBackground();
                 super.onActivityStarted(activity);
                 if (wasInBackground) {
-                    BygramActivityController.refreshLicenses(true);
+                    BygramDeviceReporter.report();
                     ensureCurrentNetworkGet(true);
                 }
             }

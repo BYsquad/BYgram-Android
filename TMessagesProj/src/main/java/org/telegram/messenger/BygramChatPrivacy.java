@@ -56,7 +56,6 @@ public final class BygramChatPrivacy {
     }
 
     public static boolean hasPin(int account) {
-        if (!BuildConfig.BYGRAM_FULL) return false;
         return prefs().contains(key(account, "pin", 0));
     }
 
@@ -70,12 +69,10 @@ public final class BygramChatPrivacy {
     }
 
     public static Set<String> hiddenIds(int account) {
-        if (!BuildConfig.BYGRAM_FULL) return new HashSet<>();
         return new HashSet<>(prefs().getStringSet(key(account, "hidden", 0), java.util.Collections.emptySet()));
     }
 
     public static boolean isHidden(int account, long dialogId) {
-        if (!BuildConfig.BYGRAM_FULL) return false;
         return prefs().getStringSet(key(account, "hidden", 0), java.util.Collections.emptySet())
                 .contains(Long.toString(dialogId));
     }
@@ -89,7 +86,6 @@ public final class BygramChatPrivacy {
     }
 
     public static boolean isProtected(int account, long dialogId) {
-        if (!BuildConfig.BYGRAM_FULL) return false;
         return prefs().contains(key(account, "lock", dialogId));
     }
 

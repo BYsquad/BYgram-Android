@@ -42,7 +42,6 @@ public final class BygramVideoWallpaper extends Drawable {
         return ApplicationLoader.applicationContext.getSharedPreferences("bygram_video_wallpapers", 0);
     }
     public static File file(int account, long chat) {
-        if (!BuildConfig.BYGRAM_FULL) return null;
         return file(key(account, chat));
     }
     private static File file(String key) {
@@ -57,7 +56,6 @@ public final class BygramVideoWallpaper extends Drawable {
         if (preferences().edit().remove(key(account, chat)).commit() && previous != null) previous.delete();
     }
     public static void importVideo(int account, long chat, Uri uri, java.util.function.Consumer<Boolean> done) {
-        if (!BuildConfig.BYGRAM_FULL) { done.accept(false); return; }
         String key = key(account, chat);
         Object token = new Object();
         imports.put(key, token);
