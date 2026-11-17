@@ -19,12 +19,8 @@
     "file": "assets/jsx-runtime-Wy9s6hX0.js",
     "name": "jsx-runtime"
   },
-  "_main-D_XNuzXJ.css": {
-    "file": "assets/main-D_XNuzXJ.css",
-    "src": "_main-D_XNuzXJ.css"
-  },
-  "_main-JXMlunaw.js": {
-    "file": "assets/main-JXMlunaw.js",
+  "_main-5yUxzssl.js": {
+    "file": "assets/main-5yUxzssl.js",
     "name": "main",
     "imports": [
       "_jsx-runtime-Wy9s6hX0.js",
@@ -48,6 +44,10 @@
       "assets/inter-latin-ext-wght-normal.woff2",
       "assets/inter-latin-wght-normal.woff2"
     ]
+  },
+  "_main-D_XNuzXJ.css": {
+    "file": "assets/main-D_XNuzXJ.css",
+    "src": "_main-D_XNuzXJ.css"
   },
   "_modulepreload-polyfill-P2Xu9kJm.js": {
     "file": "assets/modulepreload-polyfill-P2Xu9kJm.js",

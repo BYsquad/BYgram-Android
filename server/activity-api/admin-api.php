@@ -34,10 +34,6 @@ try{
             if(!isOwner($currentUserId))throw new RuntimeException('Только владелец может удалять администраторов');
             $id=(int)($input['telegram_id']??0);if($id<1)throw new InvalidArgumentException('Неверный Telegram ID');
             $pdo->prepare('DELETE FROM admins WHERE telegram_id=?')->execute([$id]);
-        }elseif($action==='device.revoke'){
-            $deviceId=(string)($input['device_id']??'');if(!preg_match('/^[a-f0-9]{32}$/D',$deviceId))throw new InvalidArgumentException('Неверное устройство');
-            $q=$pdo->prepare('UPDATE licensed_devices SET revoked_at=UTC_TIMESTAMP() WHERE id=? AND revoked_at IS NULL');$q->execute([$deviceId]);if(!$q->rowCount())throw new InvalidArgumentException('Активное устройство не найдено');
-            $pdo->prepare('UPDATE activity_sessions SET revoked_at=UTC_TIMESTAMP() WHERE device_id=? AND revoked_at IS NULL')->execute([$deviceId]);
         }elseif($action==='badge.save'){
             $type=(string)($input['peer_type']??'user');$id=badgeId($type,$input['telegram_id']??'');
             $key=badgeKey($type,$id);$badges=loadBadges();$badges[$key]=true;saveBadges($badges);
@@ -57,7 +53,6 @@ try{
     $data['beta']=releaseMetadata('beta');
     $data['user_count']=clientDeviceCount($pdo);
     $data['badges']=loadBadges();
-    $data['devices']=$pdo->query('SELECT id,telegram_id,device_name,created_at,last_seen_at FROM licensed_devices WHERE revoked_at IS NULL ORDER BY last_seen_at DESC LIMIT 400')->fetchAll();
     $data['admins']=$data['is_owner']?$pdo->query('SELECT a.*,u.username,u.first_name FROM admins a LEFT JOIN users u ON u.telegram_id=a.telegram_id ORDER BY a.created_at DESC')->fetchAll():[];
     jsonResponse(['ok'=>true,'data'=>$data]);
 }catch(Throwable $e){if(isset($pdo)&&$pdo->inTransaction())$pdo->rollBack();jsonResponse(['ok'=>false,'error'=>$e->getMessage()],$e instanceof InvalidArgumentException?422:($e instanceof AdminAuthenticationException?401:403));}

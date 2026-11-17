@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="BygramFlameEnable">Enable Flame</string>
-    <string name="BygramFlameEnableMessage">Sign in to Telegram to link this device to Flame. Flame counts the days when you both send a message in this chat.</string>
+    <string name="BygramFlameEnableMessage">Sign in with Telegram to access your Flame streaks. Flame counts the days when you both send a message in this chat.</string>
     <string name="BygramFlameOpenLogin">Sign in with Telegram</string>
     <string name="BygramFlameEnableError">Couldn’t open Telegram sign-in. Try again.</string>
     <string name="BygramFlameRestore">Restore Flame</string>

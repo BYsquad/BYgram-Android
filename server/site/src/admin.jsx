@@ -36,7 +36,7 @@ const pages = {
   publication: { label: 'Публикация APK', icon: Upload },
   beta: { label: 'Бета-версия', icon: FlaskConical },
   users: { label: 'Пользователи', icon: Smartphone },
-  access: { label: 'Доступ и устройства', icon: ShieldCheck },
+  access: { label: 'Администраторы', icon: ShieldCheck },
   integrations: { label: 'Интеграции', icon: KeyRound },
 };
 const active = Object.hasOwn(pages, query.get('page')) ? query.get('page') : 'home';

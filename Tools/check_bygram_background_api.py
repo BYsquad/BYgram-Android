@@ -1,6 +1,7 @@
 """Exercise real signed profile-background routes against a disposable local MySQL database."""
 import base64
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -22,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
     work = Path(directory)
     shutil.copytree(ROOT / "server/activity-api", work / "api", ignore=shutil.ignore_patterns("config.php"))
     # This suite deliberately never reads production config.php.
-    config = {"db_dsn": f"mysql:host=127.0.0.1;port=3306;dbname={DATABASE};charset=utf8mb4", "db_user": "root", "db_password": "root", "bot_username": "BygramTestBot", "manager_username": "BygramTestManager"}
+    config = {"db_dsn": f"mysql:host=127.0.0.1;port=3306;dbname={DATABASE};charset=utf8mb4", "db_user": "root", "db_password": "root", "bot_token": "local-test-token", "bot_username": "BygramTestBot", "manager_username": "BygramTestManager"}
     (work / "config.json").write_text(json.dumps(config))
     (work / "api/config.php").write_text("<?php return json_decode(file_get_contents(__DIR__ . '/../config.json'), true);")
     (work / "openssl.cnf").write_text("[req]\ndistinguished_name=req_dn\n[req_dn]\n")
@@ -49,8 +50,6 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
     require __DIR__.'/api/migrations/20261024_access_policy.php';
     require __DIR__.'/api/migrations/20261024_access_policy.php';
     if ((int)$pdo->query('SELECT account_confirmed FROM licensed_devices WHERE telegram_id=123')->fetchColumn() !== 1) throw new RuntimeException('Legacy device lost confirmation');
-    $key2=openssl_pkey_new(['private_key_bits'=>2048,'private_key_type'=>OPENSSL_KEYTYPE_EC,'curve_name'=>'prime256v1','config'=>__DIR__.'/openssl.cnf']);
-    openssl_pkey_export($key2,$private2,null,['config'=>__DIR__.'/openssl.cnf']);file_put_contents(__DIR__.'/key2.pem',$private2);
     """)
     signer = work / "sign.php"
     signer.write_text("<?php openssl_sign(file_get_contents($argv[1]), $signature, file_get_contents(__DIR__.'/'.($argv[2]??'key.pem')), OPENSSL_ALGO_SHA256); echo base64_encode($signature);")
@@ -68,8 +67,11 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
       case 'unconfirm':
         $pdo->exec('UPDATE licensed_devices SET account_confirmed=0 WHERE telegram_id=123');
         $pdo->exec('UPDATE typing_devices SET account_confirmed=0 WHERE telegram_id=123');break;
-      case 'confirm-new':
-        $pdo->exec('UPDATE device_activations SET telegram_confirmed_at=UTC_TIMESTAMP() WHERE expected_user_id=456');break;
+      case 'unbound':
+        if ((int)$pdo->query('SELECT COUNT(*) FROM activity_sessions WHERE telegram_id=456 AND device_id IS NULL')->fetchColumn() < 2
+            || (int)$pdo->query('SELECT COUNT(*) FROM licensed_devices WHERE telegram_id=456')->fetchColumn()
+            || (int)$pdo->query('SELECT COUNT(*) FROM typing_devices WHERE telegram_id=456')->fetchColumn()) exit(2);
+        break;
       case 'expire':
         $pdo->exec('UPDATE activity_sessions SET access_expires_at=UTC_TIMESTAMP()-INTERVAL 1 SECOND WHERE telegram_id=123');break;
       case 'limits': $pdo->exec('DELETE FROM api_rate_limits');break;
@@ -125,30 +127,8 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
         auth = {"Content-Type": "application/json", "Authorization": "Bearer test-access"}
         status, response, _ = request({"action": "license"}, signed=True, headers=auth)
         assert status == 200 and response["licensed"], (status, response)
-        assert request({"action": "license"}, headers=auth)[0] == 401, "Free Full must still require a signature"
-        assert request({"action": "license"}, signed=True)[0] == 401, "Free Full must still require a session"
-        config["license_checks_enabled"] = True
-        (work / "config.json").write_text(json.dumps(config))
-        status, response, _ = request({"action": "license"}, signed=True, headers=auth)
-        assert status == 200 and response["licensed"] is False
-        assert request({"action": "viewers_get"}, signed=True, headers=auth)[0] == 403
-        config["license_checks_enabled"] = False
-        (work / "config.json").write_text(json.dumps(config))
-        status, response, _ = request({"action": "device_start", "user_id": 123})
-        assert status == 200 and response["state"] == "pending_proof"
-        proof = f"BYGRAM_DEVICE_V1\n{response['activation']}\n{response['challenge']}\n123"
-        (work / "proof.txt").write_bytes(proof.encode("utf-8"))
-        signature = subprocess.check_output([PHP, str(signer), str(work / "proof.txt")]).decode()
-        # A new key must still be confirmed through Telegram; a known verified key can restore its session.
-        public_key_script = work / "public.php"
-        public_key_script.write_text("<?php $k=openssl_pkey_get_private(file_get_contents(__DIR__.'/key.pem')); echo preg_replace('/-----[^-]+-----|\\\\s/', '', openssl_pkey_get_details($k)['key']);")
-        public_key = subprocess.check_output([PHP, str(public_key_script)]).decode()
-        status, response, _ = request({"action": "device_prove", "activation": response["activation"], "public_key": public_key, "device_name": "Verified fixture", "signature": signature})
-        assert status == 200 and response["state"] == "active" and response["access_token"], (status, response)
-        config["license_checks_enabled"] = True
-        (work / "config.json").write_text(json.dumps(config))
-        assert request({"action": "device_start", "user_id": 123})[1]["state"] == "denied"
-        print("PASS: temporary free Full, reversible license gate, signed sessions and verified device restoration")
+        assert request({"action": "license"}, headers=auth)[0] == 401, "Legacy request must still use a signature"
+        assert request({"action": "license"}, signed=True)[0] == 401, "Legacy request must still use a session"
         def configure(**values):
             config.update(values)
             (work / "config.json").write_text(json.dumps(config))
@@ -156,7 +136,6 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
         def mutate(action):
             subprocess.run([PHP, str(fixture), action], check=True, capture_output=True)
 
-        configure(license_checks_enabled=False)
         for confirmation, signatures, revocation in itertools.product([False, True], repeat=3):
             configure(account_confirmation_enabled=confirmation, request_signature_checks_enabled=signatures, device_revocation_checks_enabled=revocation)
             mutate("reset")
@@ -182,54 +161,38 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
         assert request({"action": "typing_put", "user_id": 999, "statuses": {"0": "a" * 65}})[0] == 400
         assert request(dict(put, user_id=999))[0] == 200
 
-        # Restore the confirmation gate: a device admitted while it was off must not become trusted.
-        public_key_script.write_text("<?php $k=openssl_pkey_get_private(file_get_contents(__DIR__.'/'.($argv[1]??'key.pem'))); echo preg_replace('/-----[^-]+-----|\\\\s/', '', openssl_pkey_get_details($k)['key']);")
-        public2 = subprocess.check_output([PHP, str(public_key_script), "key2.pem"]).decode()
         mutate("limits")
-        status, start, _ = request({"action": "device_start", "user_id": 456})
-        assert status == 200 and "activation" in start, (status, start)
-        activation = start["activation"]
-        status, new, _ = request({"action": "device_prove", "activation": activation, "public_key": public2, "device_name": "Unconfirmed fixture"})
-        assert status == 200 and new["state"] == "active", (status, new)
-        new_auth = {"Authorization": "Bearer " + new["access_token"], "Content-Type": "application/json"}
-        assert request({"action": "license"}, headers=new_auth)[0] == 200
-        configure(account_confirmation_enabled=True)
-        assert request({"action": "license"}, headers=new_auth)[0] == 401
-        assert request({"action": "device_status", "activation": activation})[1]["state"] == "pending_telegram"
-        mutate("confirm-new")
-        status, confirmed, _ = request({"action": "device_status", "activation": activation})
-        assert status == 200 and confirmed["state"] == "active", (status, confirmed)
-        new_auth["Authorization"] = "Bearer " + confirmed["access_token"]
-        assert request({"action": "license"}, headers=new_auth)[0] == 200
-        print("PASS: automatic activation without a bot, bearer/expiry/validation retained, confirmation restored")
+        old = request({"action": "device_start", "user_id": 456})[1]
+        assert old["state"] == "pending_proof"
+        older_session = request({"action": "device_prove", "activation": old["activation"], "device_name": "Ignored"})[1]
+        session = request({"action": "activity_start", "user_id": 456})[1]
+        assert session["access_token"] != older_session["access_token"]
+        auth = {"Authorization": "Bearer " + session["access_token"], "Content-Type": "application/json"}
+        assert request({"action": "activity_get"}, headers=auth)[0] == 200
+        assert request({"action": "refresh", "refresh_token": session["refresh_token"]})[0] == 200
+        assert request({"action": "activity_get"}, headers={**auth, "Authorization": "Bearer " + older_session["access_token"]})[0] == 200
+        mutate("unbound")
 
-        configure(account_confirmation_enabled=False, request_signature_checks_enabled=True)
-        proof = "BYGRAM_TYPING_V1\n789"
-        (work / "proof.txt").write_bytes(proof.encode())
-        signature = subprocess.check_output([PHP, str(signer), str(work / "proof.txt"), "key2.pem"]).decode()
-        assert request({"action": "typing_register", "user_id": 789, "public_key": public2, "proof": signature})[1]["registered"]
-        typing = {"action": "typing_put", "user_id": 789, "statuses": {"0": "test"}}
-        assert request(typing, signed=True, key_name="key2.pem")[0] == 200
-        configure(account_confirmation_enabled=True)
-        assert request(typing, signed=True, key_name="key2.pem")[0] == 401
-        print("PASS: independent typing registration and rejection of unconfirmed keys after restoring the gate")
-        configure(account_confirmation_enabled=False, request_signature_checks_enabled=False, device_revocation_checks_enabled=True)
-        mutate("reset")
-        mutate("revoke")
-        mutate("limits")
-        start = request({"action": "device_start", "user_id": 123})[1]
-        proof = {"action": "device_prove", "activation": start["activation"], "public_key": public_key, "device_name": "Revoked fixture"}
-        assert request(proof)[1]["state"] == "denied", "Revoked device must not automatically reactivate with revocation checks on"
-        configure(device_revocation_checks_enabled=False)
-        active = request({"action": "device_status", "activation": start["activation"]})[1]
-        assert active["state"] == "active"
-        revoked_auth = {"Authorization": "Bearer " + active["access_token"], "Content-Type": "application/json"}
-        assert request({"action": "license"}, headers=revoked_auth)[0] == 200
-        assert request({"action": "refresh", "refresh_token": "test-refresh"})[0] == 200
-        configure(device_revocation_checks_enabled=True)
-        assert request({"action": "license"}, headers=revoked_auth)[0] == 401
-        assert request({"action": "refresh", "refresh_token": "test-refresh"})[0] == 401
-        print("PASS: revoked device/session markers survive bypass, restoration rejects activation, access and refresh")
+        configure(account_confirmation_enabled=True, request_signature_checks_enabled=True)
+        assert request({"action": "activity_start", "user_id": 456})[0] == 401
+        start = request({"action": "account_login_start", "user_id": 456})[1]
+        exchange = {"action": "account_login_exchange", "user_id": 456, "exchange_token": start["exchange_token"]}
+        assert request(exchange)[1] == {"ok": True, "expired": False}
+        target = base + start["auth_url"].split("/")[-1]
+        identity = {"id": 456, "first_name": "Account fixture", "auth_date": int(time.time())}
+        payload = "\n".join(f"{key}={value}" for key, value in sorted(identity.items())).encode()
+        identity["hash"] = hmac.new(hashlib.sha256(config["bot_token"].encode()).digest(), payload, "sha256").hexdigest()
+        assert json.load(urllib.request.urlopen(urllib.request.Request(target, data=json.dumps(identity).encode())))["ok"]
+        token = request(exchange)[1]["account_token"]
+        assert request(exchange)[1]["expired"]
+        flame = {"action": "flame_get", "user_id": 456, "peer_id": 789}
+        auth = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+        assert request(flame)[0] == 401
+        assert request(dict(flame, user_id=457), headers=auth)[0] == 401
+        assert request(flame, headers=auth)[0] == 200
+        assert request({"action": "activity_start", "user_id": 456}, headers=auth)[1]["access_token"]
+        mutate("unbound")
+        print("PASS: independent account sessions, one-time exchange, account isolation, no device records")
     finally:
         if server:
             server.terminate()

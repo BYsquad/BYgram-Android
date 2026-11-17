@@ -8,7 +8,7 @@ Options -Indexes
 <Files "admin-flames.php">
     Require all denied
 </Files>
-<FilesMatch "^(client-devices|release-channels)\.php$">
+<FilesMatch "^(client-devices|release-channels|account-sessions)\.php$">
     Require all denied
 </FilesMatch>
 <Files "plugin-self-test.php">

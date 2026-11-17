@@ -8,7 +8,7 @@ header('X-Frame-Options: DENY');
 $mode = $_GET['mode'] ?? '';
 $token = $_GET['token'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? '';
-if (!in_array($mode, ['account', 'device'], true) || !is_string($token)
+if ($mode !== 'account' || !is_string($token)
     || !preg_match('/^[A-Za-z0-9_-]{43}$/D', $token) || !in_array($method, ['GET', 'POST'], true)) {
     http_response_code(404);
     exit;
@@ -16,10 +16,8 @@ if (!in_array($mode, ['account', 'device'], true) || !is_string($token)
 
 $pdo = db();
 $tokenHash = hash('sha256', $token);
-$lookup = $mode === 'account'
-    ? 'SELECT telegram_id,public_key FROM typing_activations WHERE token_hash=? AND expires_at>UTC_TIMESTAMP() AND confirmed_at IS NULL'
-    : 'SELECT expected_user_id AS telegram_id,public_key FROM device_activations WHERE token_hash=? AND expires_at>UTC_TIMESTAMP()
-        AND completed_at IS NULL AND proof_at IS NOT NULL AND telegram_confirmed_at IS NULL';
+$lookup = 'SELECT telegram_id FROM account_login_attempts
+    WHERE login_hash=? AND expires_at>UTC_TIMESTAMP() AND confirmed_at IS NULL';
 if ($method === 'POST') {
     try {
         if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 8192) {
@@ -45,14 +43,7 @@ if ($method === 'POST') {
         $seen = $pdo->prepare('INSERT IGNORE INTO typing_nonces (telegram_id,nonce,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 10 MINUTE)');
         $seen->execute([$id, 'auth' . substr($hash, 0, 32)]);
         if ($seen->rowCount() !== 1) throw new InvalidArgumentException('Вход уже использован. Откройте новую ссылку из BYgram.');
-        if ($mode === 'account') {
-            $key = (string) $attempt['public_key'];
-            $pdo->prepare('INSERT INTO typing_devices (telegram_id,key_fingerprint,public_key,account_confirmed) VALUES (?,?,?,1)
-                ON DUPLICATE KEY UPDATE account_confirmed=1')->execute([$id, hash('sha256', base64_decode($key, true)), $key]);
-            $pdo->prepare('UPDATE typing_activations SET confirmed_at=UTC_TIMESTAMP() WHERE token_hash=?')->execute([$tokenHash]);
-        } else {
-            $pdo->prepare('UPDATE device_activations SET telegram_confirmed_at=UTC_TIMESTAMP() WHERE token_hash=?')->execute([$tokenHash]);
-        }
+        $pdo->prepare('UPDATE account_login_attempts SET confirmed_at=UTC_TIMESTAMP() WHERE login_hash=?')->execute([$tokenHash]);
         $pdo->prepare('INSERT INTO users (telegram_id,username,first_name,last_name,last_seen_at) VALUES (?,?,?,?,UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE username=VALUES(username),first_name=VALUES(first_name),last_name=VALUES(last_name),last_seen_at=UTC_TIMESTAMP()')
             ->execute([$id, mb_substr((string) ($identity['username'] ?? ''), 0, 64),

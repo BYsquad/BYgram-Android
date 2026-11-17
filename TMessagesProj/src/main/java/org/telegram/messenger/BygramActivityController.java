@@ -2,7 +2,6 @@ package org.telegram.messenger;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,13 +14,11 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.UUID;
 
 public final class BygramActivityController {
     private static final String ENDPOINT = "https://byxarek.site/TEST-PROJECT/BYgram/api/";
@@ -99,7 +96,7 @@ public final class BygramActivityController {
     private BygramActivityController() {}
 
     private static SharedPreferences preferences() {
-        return ApplicationLoader.applicationContext.getSharedPreferences("bygram_licenses", Context.MODE_PRIVATE);
+        return ApplicationLoader.applicationContext.getSharedPreferences("bygram_activity_sessions", Context.MODE_PRIVATE);
     }
 
     private static String key(String name, long userId) { return name + '_' + userId; }
@@ -128,68 +125,11 @@ public final class BygramActivityController {
     }
 
     private static void authenticate(long userId, Utilities.Callback<Boolean> callback) {
-        SharedPreferences prefs = preferences();
-        String activation = prefs.getString(key("activation", userId), "");
-        if (!activation.isEmpty()) {
-            try {
-                request(userId, json("action", "device_status", "activation", activation,
-                        "signature", BygramDeviceKey.sign(userId, "BYGRAM_STATUS_V1\n" + activation)), false,
-                        response -> handleActivation(userId, response, callback, true));
-            } catch (Exception e) {
-                FileLog.e(e);
-                clearActivation(userId);
-                callback.run(false);
-            }
-            return;
-        }
-        request(userId, json("action", "device_start", "user_id", userId), false, response -> {
+        request(userId, json("action", "activity_start", "user_id", userId), false, response -> {
             if (response == null || !response.optBoolean("ok")) { callback.run(false); return; }
-            String nextActivation = response.optString("activation", "");
-            String challenge = response.optString("challenge", "");
-            if (nextActivation.isEmpty() || challenge.isEmpty()) { callback.run(false); return; }
-            prefs.edit().putString(key("activation", userId), nextActivation)
-                    .putString(key("activation_challenge", userId), challenge)
-                    .apply();
-            proveDevice(userId, callback);
-        });
-    }
-
-    private static void proveDevice(long userId, Utilities.Callback<Boolean> callback) {
-        SharedPreferences prefs = preferences();
-        String activation = prefs.getString(key("activation", userId), "");
-        String challenge = prefs.getString(key("activation_challenge", userId), "");
-        try {
-            String proof = BygramDeviceKey.sign(userId, "BYGRAM_DEVICE_V1\n" + activation + "\n" + challenge + "\n" + userId);
-            String name = (Build.MANUFACTURER + " " + Build.MODEL).trim();
-            request(userId, json("action", "device_prove", "activation", activation,
-                    "public_key", BygramDeviceKey.publicKey(userId), "signature", proof,
-                    "device_name", name.isEmpty() ? "Android" : name), false,
-                    response -> handleActivation(userId, response, callback, false));
-        } catch (Exception e) {
-            FileLog.e(e);
-            clearActivation(userId);
-            callback.run(false);
-        }
-    }
-
-    private static void handleActivation(long userId, JSONObject response, Utilities.Callback<Boolean> callback, boolean retryExpired) {
-        if (response == null) { callback.run(false); return; }
-        if (!response.optBoolean("ok")) {
-            if (retryExpired) { clearActivation(userId); authenticate(userId, callback); }
-            else callback.run(false);
-            return;
-        }
-        if (!response.optString("access_token", "").isEmpty()) {
             saveTokens(userId, response);
-            clearActivation(userId);
-            callback.run(true);
-            return;
-        }
-        callback.run(false);
-    }
-
-    private static void clearActivation(long userId) {
-        preferences().edit().remove(key("activation", userId)).remove(key("activation_challenge", userId)).apply();
+            callback.run(hasSession(userId));
+        });
     }
 
     private static void refreshAccess(long userId, Utilities.Callback<Boolean> callback) {
@@ -424,13 +364,9 @@ public final class BygramActivityController {
                     if (token.isEmpty()) throw new IllegalStateException("Missing BYgram access token");
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
-                if (authenticated || "refresh".equals(data.optString("action"))) {
-                    String timestamp = Long.toString(System.currentTimeMillis() / 1000);
-                    String nonce = UUID.randomUUID().toString();
-                    String canonical = "POST\n" + url.getPath() + "\n" + timestamp + "\n" + nonce + "\n" + sha256(body);
-                    connection.setRequestProperty("X-BYgram-Timestamp", timestamp);
-                    connection.setRequestProperty("X-BYgram-Nonce", nonce);
-                    connection.setRequestProperty("X-BYgram-Signature", BygramDeviceKey.sign(userId, canonical));
+                if ("activity_start".equals(data.optString("action"))) {
+                    String credential = BygramTypingController.accountToken(userId);
+                    if (!credential.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + credential);
                 }
                 connection.setDoOutput(true);
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }
@@ -449,10 +385,4 @@ public final class BygramActivityController {
         });
     }
 
-    private static String sha256(byte[] value) throws Exception {
-        byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
-        StringBuilder result = new StringBuilder(digest.length * 2);
-        for (byte part : digest) result.append(String.format("%02x", part & 0xff));
-        return result.toString();
-    }
 }

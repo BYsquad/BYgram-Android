@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="BygramFlameEnable">Подключить «Пламя»</string>
-    <string name="BygramFlameEnableMessage">Войдите через Telegram, чтобы подключить «Пламя» на этом устройстве. Для серии засчитываются дни, когда вы оба отправили сообщение в этом чате.</string>
+    <string name="BygramFlameEnableMessage">Войдите через Telegram, чтобы открыть свои серии «Пламени». Засчитываются дни, когда вы оба отправляли сообщения в этом чате.</string>
     <string name="BygramFlameOpenLogin">Войти через Telegram</string>
     <string name="BygramFlameEnableError">Не удалось открыть вход через Telegram. Попробуйте ещё раз.</string>
     <string name="BygramFlameRestore">Восстановить «Пламя»</string>

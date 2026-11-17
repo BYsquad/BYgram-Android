@@ -10,10 +10,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.app.Notification;
@@ -285,25 +283,29 @@ public final class BygramTypingController {
         });
     }
 
+    private static SharedPreferences accountSessions() {
+        return ApplicationLoader.applicationContext.getSharedPreferences("bygram_account_sessions", Context.MODE_PRIVATE);
+    }
+
+    static String accountToken(long userId) {
+        return accountSessions().getString("token_" + userId, "");
+    }
+
     private static void register(long userId, Callback callback) {
-        register(userId, "typing_register", callback);
+        request(userId, json("action", "account_login_start", "user_id", userId), false, response -> {
+            String url = response == null ? "" : response.optString("auth_url", "");
+            String exchange = response == null ? "" : response.optString("exchange_token", "");
+            if (!url.startsWith(ENDPOINT + "account-login.php?") || exchange.isEmpty()) {
+                callback.run(false, "");
+                return;
+            }
+            accountSessions().edit().putString("exchange_" + userId, exchange).apply();
+            callback.run(false, url);
+        });
     }
 
     static void registerFlame(long userId, Callback callback) {
-        register(userId, "account_register", callback);
-    }
-
-    private static void register(long userId, String action, Callback callback) {
-        try {
-            request(userId, json("action", action, "user_id", userId,
-                    "public_key", BygramDeviceKey.publicKey(userId),
-                    "proof", BygramDeviceKey.sign(userId, "BYGRAM_TYPING_V1\n" + userId)), false,
-                    result -> {
-                        String url = result == null ? "" : result.optString("auth_url", "");
-                        if (!url.startsWith(ENDPOINT + "account-login.php?")) url = "";
-                        callback.run(result != null && result.optBoolean("registered"), url);
-                    });
-        } catch (Exception e) { FileLog.e(e); callback.run(false, ""); }
+        register(userId, callback);
     }
 
     static void flameRequest(long userId, JSONObject data, Utilities.Callback<JSONObject> callback) {
@@ -332,7 +334,28 @@ public final class BygramTypingController {
         return result;
     }
 
-    private static void request(long userId, JSONObject data, boolean signed, Result callback) {
+    private static void request(long userId, JSONObject data, boolean useAccount, Result callback) {
+        String key = "exchange_" + userId;
+        String pendingLogin = useAccount ? accountSessions().getString(key, "") : "";
+        if (!pendingLogin.isEmpty()) {
+            sendRequest(userId, json("action", "account_login_exchange", "user_id", userId, "exchange_token", pendingLogin),
+                    false, response -> {
+                        if (pendingLogin.equals(accountSessions().getString(key, "")) && response != null) {
+                            String credential = response.optString("account_token", "");
+                            if (!credential.isEmpty()) {
+                                accountSessions().edit().remove(key).putString("token_" + userId, credential).apply();
+                            } else if (response.optBoolean("expired")) {
+                                accountSessions().edit().remove(key).apply();
+                            }
+                        }
+                        sendRequest(userId, data, true, callback);
+                    });
+            return;
+        }
+        sendRequest(userId, data, useAccount, callback);
+    }
+
+    private static void sendRequest(long userId, JSONObject data, boolean useAccount, Result callback) {
         Utilities.globalQueue.postRunnable(() -> {
             JSONObject result = null;
             HttpURLConnection connection = null;
@@ -343,16 +366,9 @@ public final class BygramTypingController {
                 connection.setConnectTimeout(7000); connection.setReadTimeout(7000);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 byte[] body = data.toString().getBytes(StandardCharsets.UTF_8);
-                if (signed) {
-                    String timestamp = Long.toString(System.currentTimeMillis() / 1000);
-                    String nonce = UUID.randomUUID().toString();
-                    byte[] digest = MessageDigest.getInstance("SHA-256").digest(body);
-                    StringBuilder hash = new StringBuilder();
-                    for (byte part : digest) hash.append(String.format(java.util.Locale.US, "%02x", part & 0xff));
-                    String canonical = "POST\n" + url.getPath() + "\n" + timestamp + "\n" + nonce + "\n" + hash;
-                    connection.setRequestProperty("X-BYgram-Timestamp", timestamp);
-                    connection.setRequestProperty("X-BYgram-Nonce", nonce);
-                    connection.setRequestProperty("X-BYgram-Signature", BygramDeviceKey.sign(userId, canonical));
+                if (useAccount) {
+                    String credential = accountToken(userId);
+                    if (!credential.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + credential);
                 }
                 connection.setDoOutput(true);
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }

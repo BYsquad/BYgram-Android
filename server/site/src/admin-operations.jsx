@@ -93,25 +93,13 @@ export function AccessPage({ data, run, confirmAction }) {
       onClick={() => confirmAction('Убрать доступ администратора?', 'Telegram ID ' + row.telegram_id,
         () => run({ action: 'admin.remove', telegram_id: row.telegram_id }))} /> },
   ];
-  const devices = [
-    { key: 'device_name', header: 'Устройство', width: proportional(2, { minWidth: 130 }) },
-    { key: 'telegram_id', header: 'Telegram ID', width: pixel(132) },
-    { key: 'last_seen_at', header: 'В сети (UTC)', width: pixel(175) },
-    { key: 'remove', header: 'Действие', width: pixel(112),
-      renderCell: row => <Button label="Отозвать" size="sm" variant="ghost"
-        onClick={() => confirmAction('Отозвать устройство?', row.device_name + ' · ' + row.telegram_id,
-          () => run({ action: 'device.revoke', device_id: row.id }))} /> },
-  ];
-  return <VStack gap={4}>
-    {data.is_owner && <Grid columns={{ minWidth: 300, repeat: 'fit' }} gap={4}>
+  if (!data.is_owner) return <Text type="supporting">Доступом управляет владелец BYgram.</Text>;
+  return <Grid columns={{ minWidth: 300, repeat: 'fit' }} gap={4}>
       <FormCard title="Добавить администратора" action="admin.add" run={run} label="Добавить">
         <Field name="telegram_id" label="Telegram ID" inputMode="numeric" isRequired />
       </FormCard>
       <Records title="Администраторы" rows={data.admins} columns={admins} rowKey="telegram_id" empty="Других администраторов пока нет." />
-    </Grid>}
-    <Records title="Устройства" description="До 400 записей по времени последней активности." rows={data.devices}
-      columns={devices} rowKey="id" empty="Активных устройств нет." />
-  </VStack>;
+  </Grid>;
 }
 
 export function UsersPage({ revision }) {
