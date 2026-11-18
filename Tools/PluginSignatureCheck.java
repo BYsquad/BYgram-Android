@@ -49,6 +49,10 @@ public final class PluginSignatureCheck {
             PluginPackageAccess.export(store.packageDir(store.plugins().getAsJsonObject(manifest.id())), archive, exported);
             assert java.util.Arrays.equals(Files.readAllBytes(rebuilt.toPath()), Files.readAllBytes(exported.toPath()));
             assert PluginPackageAccess.files(store.packageDir(store.plugins().getAsJsonObject(manifest.id()))).contains("main.py");
+            Files.writeString(content.toPath().resolve("example.plugin"), "from base_plugin import BasePlugin\n");
+            assert PluginPackageAccess.isPreviewable("example.plugin");
+            assert !PluginPackageAccess.isPreviewable("main.pyc");
+            assert PluginPackageAccess.source(content, "example.plugin", "truncated").equals("from base_plugin import BasePlugin\n");
             try {
                 PluginPackageAccess.source(content, "../main.py", "truncated");
                 throw new AssertionError("source preview accepted traversal");

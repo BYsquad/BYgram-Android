@@ -7,8 +7,9 @@ import logoUrl from '../assets/bygram-logo.png';
 import settingsUrl from '../assets/settings-current.png';
 import ghostUrl from '../assets/ghost.png';
 import spyUrl from '../assets/spy-current.png';
-import customizationUrl from '../assets/customization-current.png';
 import profileUrl from '../assets/profile-current.png';
+import pluginCatalogUrl from '../assets/plugin-catalog-beta.jpg';
+import pluginAuthorUrl from '../assets/plugin-author-beta.jpg';
 import fallbackRelease from '../../activity-api/release.json';
 
 const pagePath = location.pathname.split('/').pop() || 'index.html';
@@ -66,6 +67,7 @@ function Footer() {
         <a href="https://t.me/BYgram_community">Канал</a>
         <a href="https://t.me/BYgram_official">Чат поддержки</a>
         <a href="docs/">Документация для разработчиков</a>
+        <a href="docs/purchases.html">Покупка плагинов</a>
       </nav>
     </div>
   </footer>;
@@ -74,7 +76,7 @@ function Footer() {
 const highlights = [
   { id: 'flame', title: 'Пламя в личных чатах', icon: Flame, text: 'В бете огонёк показывает, сколько дней подряд вы оба писали друг другу.' },
   { id: 'privacy', title: 'Приватность', icon: Shield, text: 'Настройте отметки о прочтении, скройте чаты или защитите их паролем.' },
-  { id: 'plugins', title: 'Плагины', icon: Blocks, text: 'Добавляйте возможности из каталога или устанавливайте пакеты из файла.' },
+  { id: 'plugins', title: 'Каталог плагинов', icon: Blocks, text: 'Устанавливайте плагины из каталога или файла. В бете авторы могут отправлять подписанные платные версии на модерацию.' },
 ];
 
 function HomePage() {
@@ -86,7 +88,7 @@ function HomePage() {
       <div className="hero-copy">
         <p className="platform"><Smartphone aria-hidden="true" /> Для Android · {beta?.version ? `бета ${beta.version}` : `BYgram ${release.version}`}</p>
         <h1>Telegram<br />по вашим правилам.</h1>
-        <p className="lead">«Пламя» в личных чатах, свой дизайн, настройки приватности и плагины для Android.</p>
+        <p className="lead">«Пламя» в личных чатах, оформление, настройки приватности и официальный каталог плагинов для Android.</p>
         <div className="actions">
           <a className="button" href="download.html"><ArrowDownToLine aria-hidden="true" /> Скачать BYgram</a>
           {downloadPath(beta) && <a className="text-link" href="download.html#beta">Попробовать бета-версию <ArrowRight aria-hidden="true" /></a>}
@@ -94,7 +96,7 @@ function HomePage() {
         {Number.isInteger(users?.count) && <p className="usage"><strong>{numbers.format(users.count)}</strong> <span>{userLabels[userPlural.select(users.count)]} BYgram</span></p>}
       </div>
       <div className="hero-visual">
-        <div className="device device--back"><img src={customizationUrl} width="1080" height="2400" alt="" fetchPriority="low" /></div>
+        <div className="device device--back"><img src={pluginCatalogUrl} width="540" height="900" alt="" fetchPriority="low" /></div>
         <div className="device device--front"><img src={settingsUrl} width="1080" height="2400" alt="Экран настроек BYgram на Android" fetchPriority="high" /></div>
         <div className="flame-preview" aria-hidden="true"><Flame /><strong>12</strong><span>дней подряд</span></div>
       </div>
@@ -170,22 +172,31 @@ const features = [
     ['Профиль', 'Добавьте музыку, опубликуйте фон и настройте форму аватаров.'],
     ['Список чатов', 'Настройте заголовки, папки, навигацию и зимние эффекты.'],
   ] },
-  { id: 'plugins', icon: Blocks, title: 'Плагины', items: [
+  { id: 'plugins', icon: Blocks, title: 'Официальный каталог плагинов', image: pluginCatalogUrl, alt: 'Веб-витрина платных плагинов с тестовыми карточками', caption: 'Витрина с тестовыми карточками', items: [
     ['Установка', 'Выберите пакет из каталога или установите его из файла. Для плагина можно выбрать аккаунты, включить его, обновить или откатить.'],
     ['Разработка', 'SDK поддерживает Python 3.11 и формат .byplugin. Менеджер ведёт журнал, а безопасный режим помогает восстановить клиент после сбоя плагина.'],
+    ['Платные релизы в бете', 'Автор отправляет подписанный пакет на модерацию и подтверждает свой TON-кошелёк. Если в карточке доступна оплата TON, перевод получает автор, а BYgram проверяет покупку.'],
   ], link: 'docs/' },
+  { id: 'authors', icon: Blocks, title: 'Публикация для авторов', image: pluginAuthorUrl, alt: 'Веб-касса BYgram с адресом автора и условиями оплаты', caption: 'Тестовый заказ TON', items: [
+    ['Отправка версии', 'Укажите цену и приложите подписанный .byplugin. Для обновлений используйте тот же ID и ключ подписи.'],
+    ['Кошелёк автора', 'Подтвердите владение кошельком через TON Connect. Покупатель принимает условия и видит адрес получателя перед переводом.'],
+  ], link: 'docs/#publish-paid' },
 ];
 function FeaturesPage() {
   return <main id="content" className="container standard">
     <header className="page-heading"><h1>Возможности BYgram</h1><p className="lead">Дополнительные настройки чатов, приватности и оформления.</p></header>
     <div className="feature-list">
-      {features.map(({ id, title, icon: Icon, image, alt, items, link }) => <section id={id} className={image ? 'feature feature--split' : 'feature'} key={id}>
+      {features.map(({ id, title, icon: Icon, image, alt, caption, items, link }) => <section id={id} className={image ? 'feature feature--split' : 'feature'} key={id}>
         <div>
           <Icon className="feature-icon" aria-hidden="true" /><h2>{title}</h2>
           <dl>{items.map(([label, text]) => <div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
           {link && <a className="text-link" href={link}>Документация SDK <ArrowRight aria-hidden="true" /></a>}
+          {id === 'plugins' && <p><a className="text-link" href="docs/purchases.html">Руководство покупателя <ArrowRight aria-hidden="true" /></a></p>}
         </div>
-        {image && <figure><img src={image} width="1080" height="2400" alt={alt} loading="lazy" /></figure>}
+        {image && <figure>
+          <img src={image} width={caption ? 540 : 1080} height={caption ? 900 : 2400} alt={alt} loading="lazy" />
+          {caption && <figcaption>{caption}</figcaption>}
+        </figure>}
       </section>)}
     </div>
   </main>;
@@ -198,6 +209,8 @@ function ChangelogPage() {
     <article className="news">
       <h2>BYgram {beta?.version || '13.2.2'} · бета</h2>
       <ul>
+        <li>Официальный каталог поддерживает платные релизы, личные TON-кошельки авторов и восстановление доступа в разделе «Мои покупки».</li>
+        <li>Добавлены файловые хуки и расширенные Java-прокси для плагинов.</li>
         <li>«Пламя» считает общие дни переписки и отмечает юбилеи анимацией на весь чат.</li>
         <li>BYgram работает без регистрации устройства. Для доступа к сериям «Пламени» достаточно войти в свой аккаунт Telegram.</li>
         <li>Кастомизация разделена на темы, включая отдельный раздел зимних эффектов.</li>

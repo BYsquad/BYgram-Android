@@ -40,15 +40,23 @@ public final class PluginMvel {
         }
 
         Object run(Object proxy, PyObject peer, Object[] args, Class<?> resultType) throws IllegalAccessException {
+            return run(proxy.getClass(), proxy, peer, args, resultType);
+        }
+
+        public Object runStatic(Class<?> proxy, Object[] args, Class<?> resultType) throws IllegalAccessException {
+            return run(proxy, null, null, args, resultType);
+        }
+
+        private Object run(Class<?> type, Object proxy, PyObject peer, Object[] args, Class<?> resultType) throws IllegalAccessException {
             Map<String, Object> variables = new HashMap<>();
             Map<String, java.lang.reflect.Field> fields = new HashMap<>();
-            for (java.lang.reflect.Field field : proxy.getClass().getFields()) {
+            for (java.lang.reflect.Field field : type.getFields()) {
                 int flags = field.getModifiers();
-                if (java.lang.reflect.Modifier.isStatic(flags) || java.lang.reflect.Modifier.isFinal(flags)) continue;
-                fields.put(field.getName(), field);
+                if (java.lang.reflect.Modifier.isStatic(flags) != (proxy == null)) continue;
+                if (!java.lang.reflect.Modifier.isFinal(flags)) fields.put(field.getName(), field);
                 variables.put(field.getName(), field.get(proxy));
             }
-            variables.put("java", proxy);
+            variables.put("java", proxy == null ? type : proxy);
             variables.put("python", peer);
             variables.put("py", peer);
             variables.put("self", peer);

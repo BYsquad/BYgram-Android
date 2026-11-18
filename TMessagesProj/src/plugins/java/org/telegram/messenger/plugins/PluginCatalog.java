@@ -10,6 +10,9 @@ import java.util.concurrent.*;
 /** Curated HTTPS index; downloaded code still passes the local installer and explicit consent. */
 public final class PluginCatalog {
     public static final String BASE = "https://byxarek.site/TEST-PROJECT/BYgram/plugins/";
+    public static final String STORE = "https://byxarek.site/TEST-PROJECT/BYgram/api/plugin-store-catalog.php";
+    public static final String STORE_WEB = "https://byxarek.site/TEST-PROJECT/BYgram/api/plugin-store-web.php";
+    public static final String TON_CHECKOUT = STORE_WEB + "?order=";
     private static final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "BYgramCatalogTimeout"); thread.setDaemon(true); return thread;
     });
@@ -86,6 +89,11 @@ public final class PluginCatalog {
             JsonObject item = new JsonObject(), manifest = new JsonObject();
             manifest.addProperty("name", name);
             manifest.addProperty("version", version);
+            JsonElement icon = entry.get("icon");
+            if (icon != null && icon.isJsonPrimitive() && icon.getAsJsonPrimitive().isString()
+                    && PluginManifest.isStickerIcon(icon.getAsString())) {
+                manifest.add("sticker_icon", icon);
+            }
             JsonArray categories = new JsonArray();
             JsonElement category = entry.get("category");
             if (category != null) {
@@ -155,7 +163,7 @@ public final class PluginCatalog {
         PluginPackage pkg = PluginPackage.stage(new ByteArrayInputStream(bytes), directory, 1, host, base);
         PluginPackage.check(pkg.sha256.equals(entry.get("sha256").getAsString())
                 && pkg.manifest.metadata().equals(entry.getAsJsonObject("manifest")), "CatalogPackageMismatch");
-        if (approved) pkg.source = "catalog";
+        if (approved) pkg.source = entry.has("purchase") ? "paid_catalog" : "catalog";
         if (entry.has("author_key")) {
             PluginPackage.check(entry.get("author_key").getAsString().equals(pkg.signer), "InvalidAuthorSignature");
         }
@@ -165,7 +173,63 @@ public final class PluginCatalog {
     static Set<String> fetchRevocations(Request request) throws IOException {
         int limit = 1024 * 1024;
         byte[] bytes = fetch("revoked.json", limit, request);
-        return PluginStore.parseRevocations(PluginSettingsFile.parseJson(bytes, limit, 3, limit));
+        Set<String> revoked = new HashSet<>(PluginStore.parseRevocations(PluginSettingsFile.parseJson(bytes, limit, 3, limit)));
+        try {
+            JsonObject index = fetchStore(request);
+            JsonObject list = new JsonObject();
+            list.add("sha256", index.get("revoked"));
+            revoked.addAll(PluginStore.parseRevocations(list));
+        } catch (IOException | RuntimeException unavailable) {
+            request.check();
+        }
+        return revoked;
+    }
+
+    private static JsonObject fetchStore(Request request) throws IOException {
+        int limit = 1024 * 1024;
+        byte[] bytes = fetch(new URL(STORE), limit, request, false);
+        JsonObject index = PluginSettingsFile.parseJson(bytes, limit, 14, limit);
+        PluginPackage.check(index.has("format") && index.get("format").getAsInt() == 2, "InvalidCatalog");
+        return index;
+    }
+
+    static JsonArray fetchPaidEntries(Request request, int host, int base) throws Exception {
+        return parsePaidEntries(fetchStore(request), host, base);
+    }
+    static JsonArray parsePaidEntries(JsonObject index, int host, int base) throws Exception {
+        PluginPackage.check(index.get("format").getAsInt() == 2, "InvalidCatalog");
+        JsonArray entries = index.getAsJsonArray("plugins");
+        if (entries.isEmpty()) return entries;
+        String terms = index.get("terms").getAsString();
+        PluginPackage.check(terms.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-r[0-9]{1,3})?"), "InvalidCatalog");
+        JsonArray v1 = new JsonArray();
+        Map<String, JsonObject> purchase = new HashMap<>();
+        for (JsonElement value : entries) {
+            JsonObject entry = value.getAsJsonObject().deepCopy();
+            PluginPackage.check(!entry.has("file") && entry.has("author_key"), "InvalidCatalog");
+            String hash = entry.get("sha256").getAsString();
+            JsonObject prices = entry.remove("purchase").getAsJsonObject();
+            long stars = prices.get("stars").getAsBigDecimal().longValueExact();
+            String nano = prices.get("nano").getAsString();
+            PluginPackage.check(stars >= 0 && stars <= 10000 && nano.matches("0|[1-9][0-9]{0,14}"), "InvalidCatalog");
+            prices.addProperty("terms", terms);
+            prices.addProperty("stars_test", index.get("stars_test").getAsBoolean());
+            prices.addProperty("ton_test", index.get("ton_test").getAsBoolean());
+            purchase.put(hash, prices);
+            entry.addProperty("file", hash + ".byplugin");
+            v1.add(entry);
+        }
+        JsonObject compat = new JsonObject();
+        compat.addProperty("format", 1);
+        compat.add("plugins", v1);
+        JsonArray verified = parse(compat.toString().getBytes(StandardCharsets.UTF_8), host, base);
+        for (JsonElement value : verified) {
+            JsonObject entry = value.getAsJsonObject();
+            PluginPackage.check(entry.has("author_key"), "InvalidAuthorSignature");
+            entry.remove("file");
+            entry.add("purchase", purchase.get(entry.get("sha256").getAsString()));
+        }
+        return verified;
     }
 
     static byte[] fetch(String file, int limit) throws IOException {

@@ -17,7 +17,10 @@ final class PluginRuntime {
             synchronized (Python.class) {
                 if (!Python.isStarted()) Python.start(new AndroidPlatform(ApplicationLoader.applicationContext));
             }
-            python = Python.getInstance(); loader = python.getModule("bygram._loader");
+            Python running = Python.getInstance();
+            running.getModule("extera_utils._java_access").callAttr("install");
+            loader = running.getModule("bygram._loader");
+            python = running;
         }
         return python;
     }

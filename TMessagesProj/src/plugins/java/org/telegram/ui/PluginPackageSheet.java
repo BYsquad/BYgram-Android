@@ -23,6 +23,7 @@ import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.BackupImageView;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 final class PluginPackageSheet {
@@ -174,22 +175,36 @@ final class PluginPackageSheet {
         manager.sourceFiles(id, token, (files, error) -> {
             if (!open.getAsBoolean()) return;
             if (error != null) { showError(context, error); return; }
-            new AlertDialog.Builder(context).setTitle(id + ".byplugin")
-                    .setItems(files.toArray(new String[0]), (dialog, which) -> {
-                        String path = files.get(which);
-                        manager.sourceFile(id, token, path, getString(R.string.BygramPluginSourceTruncated), (source, failure) -> {
-                            if (!open.getAsBoolean()) return;
-                            if (failure != null) { showError(context, failure); return; }
-                            TextView code = text(context, source, 13, TEXT);
-                            code.setTypeface(Typeface.MONOSPACE);
-                            code.setPadding(dp(16), dp(8), dp(16), dp(8));
-                            code.setTextIsSelectable(true);
-                            ScrollView scroll = new ScrollView(context);
-                            scroll.addView(code, LayoutHelper.createScroll(-1, -2, Gravity.TOP));
-                            new AlertDialog.Builder(context).setTitle(path).setView(scroll)
-                                    .setPositiveButton(getString(R.string.Close), null).show();
-                        });
-                    }).setNegativeButton(getString(R.string.Cancel), null).show();
+            if (id.startsWith("extera.") && files.contains("main.py")) {
+                showSource(context, id, token, "main.py", open, files);
+            } else {
+                showSourceList(context, id, token, open, files);
+            }
+        });
+    }
+
+    private static void showSourceList(Context context, String id, String token, BooleanSupplier open, List<String> files) {
+        new AlertDialog.Builder(context).setTitle(id + ".byplugin")
+                .setItems(files.toArray(new String[0]), (dialog, which) ->
+                        showSource(context, id, token, files.get(which), open, null))
+                .setNegativeButton(getString(R.string.Cancel), null).show();
+    }
+
+    private static void showSource(Context context, String id, String token, String path, BooleanSupplier open, List<String> files) {
+        PluginManager.get().sourceFile(id, token, path, getString(R.string.BygramPluginSourceTruncated), (source, failure) -> {
+            if (!open.getAsBoolean()) return;
+            if (failure != null) { showError(context, failure); return; }
+            TextView code = text(context, source, 13, TEXT);
+            code.setTypeface(Typeface.MONOSPACE);
+            code.setPadding(dp(16), dp(8), dp(16), dp(8));
+            code.setTextIsSelectable(true);
+            ScrollView scroll = new ScrollView(context);
+            scroll.addView(code, LayoutHelper.createScroll(-1, -2, Gravity.TOP));
+            AlertDialog.Builder dialog = new AlertDialog.Builder(context).setTitle(path).setView(scroll)
+                    .setPositiveButton(getString(R.string.Close), null);
+            if (files != null) dialog.setNeutralButton(getString(R.string.Files), (d, which) ->
+                    showSourceList(context, id, token, open, files));
+            dialog.show();
         });
     }
 

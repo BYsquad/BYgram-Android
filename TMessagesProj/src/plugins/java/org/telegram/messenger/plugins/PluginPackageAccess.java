@@ -33,11 +33,16 @@ final class PluginPackageAccess {
         }
     }
 
+    static boolean isPreviewable(String name) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".py") || lower.endsWith(".plugin") || name.equals("manifest.json");
+    }
+
     static String source(File directory, String name, String truncated) throws IOException {
         File root = directory.getCanonicalFile();
         File file = new File(root, name);
         PluginPackage.check(file.getCanonicalFile().equals(file) && file.getPath().startsWith(root.getPath() + File.separator)
-                && (name.endsWith(".py") || name.equals("manifest.json")), "InvalidPackagePath");
+                && isPreviewable(name), "InvalidPackagePath");
         try (InputStream input = new FileInputStream(file); ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
             transfer(input, buffer, PREVIEW_BYTES);
             String text = new String(buffer.toByteArray(), StandardCharsets.UTF_8);

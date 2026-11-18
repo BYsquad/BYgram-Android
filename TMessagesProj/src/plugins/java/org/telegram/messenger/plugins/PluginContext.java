@@ -14,6 +14,9 @@ import java.util.concurrent.Future;
 
 /** The SDK boundary. This is not a sandbox for code which can use the Java bridge directly. */
 public final class PluginContext {
+    public boolean awaitStop(long timeoutMillis) throws InterruptedException {
+        return scope.awaitStop(timeoutMillis);
+    }
     public final PluginScope scope;
     public final PluginManifest manifest;
     private final File packageDirectory, dataDirectory;
@@ -324,6 +327,16 @@ public final class PluginContext {
     public AutoCloseable intentHandler(boolean before, int priority, PyObject callback) throws Exception {
         capability("hooks.telegram");
         return scope.own(PluginHost.intentHandler(this, before, priority, callback));
+    }
+
+    public String registerFileHook(String extension, int allow, int deny, PyObject open, PyObject icon) throws Exception {
+        capability("ui");
+        capability("messages.observe");
+        return PluginFileHooks.register(this, extension, allow, deny, open, icon);
+    }
+
+    public String unregisterFileHook(String extension, String secret) throws Exception {
+        return PluginFileHooks.unregister(this, extension, secret);
     }
     public AutoCloseable intercept(String kind, String filter, boolean substring, int priority, PyObject callback) throws Exception {
         capability("hooks.telegram");

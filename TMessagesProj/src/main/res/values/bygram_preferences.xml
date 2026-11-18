@@ -304,6 +304,8 @@
     <string name="BygramPluginCatalogInvalid">Catalog verification failed. Nothing was installed.</string>
     <string name="BygramPluginCatalogCancelled">Download cancelled or timed out.</string>
     <string name="BygramPluginSubmit">Submit a plugin</string>
+    <string name="BygramPluginCatalogCategory">Category</string>
+    <string name="BygramPluginCatalogSource">Catalog source</string>
     <string name="BygramPluginRepository">Public GitHub repository URL</string>
     <string name="BygramPluginSubmissionHelp">Submit a public GitHub repository for moderation. Attach one .byplugin file to a stable Release tagged v1.2.3; its manifest version must match. An administrator reviews each version before publication. Submit again for a new Release. Review does not sandbox the plugin or guarantee its safety.</string>
     <string name="BygramPluginApproved">Approved by catalog moderation</string>
@@ -316,4 +318,22 @@
     <string name="BygramPluginLocalWarning">This plugin is not from the BYgram catalog. It runs inside the client and can access your account data, messages, files, network and Java/raw hooks. A signature does not make the code safe. Install only if you trust its author and have checked the source. The plugin will remain disabled until you enable it separately.</string>
     <string name="BygramPluginAuthorSignature">Package signature verified. Author key SHA-256:</string>
     <string name="BygramPluginSignatureError">The package signature is invalid or the author key has changed. The installed version has been kept.</string>
+    <string name="BygramPluginPurchases">My purchases</string>
+    <string name="BygramPluginShopUnavailable">Purchases are currently unavailable</string>
+    <string name="BygramPluginStoreLogin">Confirm your Telegram account to continue. Return to BYgram and tap Retry after signing in.</string>
+    <string name="BygramPluginNoRefund">After payment is confirmed and access to the plugin is granted, refunds for a change of mind are unavailable. Contact BYgram support if there is a payment problem. Mandatory refunds follow applicable law and payment platform rules.</string>
+    <string name="BygramPluginAgreeAndPay">Agree and pay</string>
+    <string name="BygramPluginPaymentPending">Waiting for payment confirmation. Open the plugin again to check.</string>
+    <string name="BygramPluginPriceStars">Price in Stars</string>
+    <string name="BygramPluginPriceTon">Price in TON</string>
+    <string name="BygramPluginSubmitPaid">Submit signed paid .byplugin</string>
+    <string name="BygramPluginInvalidPrice">Enter a valid price for at least one payment method.</string>
+    <string name="BygramPluginOrderPending">Awaiting confirmation</string>
+    <string name="BygramPluginOrderExpired">Expired</string>
+    <string name="BygramPluginOrderRefunded">Refunded</string>
+    <string name="BygramPluginOrderPaid">Paid</string>
+    <string name="BygramPluginPurchaseSupport">Support</string>
+    <string name="BygramPluginAuthorBalance">Author balance</string>
+    <string name="BygramPluginAuthorWallet">Author’s TON wallet</string>
+    <string name="BygramPluginTonAuthorRefund">TON payments go directly to the plugin author. The BYgram team does not issue these refunds and is not responsible for refunds of TON received by the author, to the extent permitted by law. Contact BYgram support to forward a mandatory refund request to the author.</string>
 </resources>

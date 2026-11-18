@@ -9,6 +9,24 @@ import org.telegram.messenger.plugins.PluginInterceptors;
 
 /** Edition boundary: common Telegram code never references Python or hook classes. */
 public final class PluginEntry {
+    public enum FilePlace { UNKNOWN, ChatActivity, FilteredSearchView, SharedMediaLayout, SearchDownloadsContainer, ChannelAdminLogActivity }
+
+    public static FilePlace filePlace(BaseFragment parent) {
+        if (parent instanceof ChatActivity) return FilePlace.ChatActivity;
+        if (parent instanceof org.telegram.ui.ProfileActivity) return FilePlace.SharedMediaLayout;
+        if (parent instanceof org.telegram.ui.ChannelAdminLogActivity) return FilePlace.ChannelAdminLogActivity;
+        return FilePlace.UNKNOWN;
+    }
+
+    public static boolean openFileHook(MessageObject message, java.io.File file, String name, android.app.Activity activity,
+                                       BaseFragment parent, FilePlace place) {
+        return !org.telegram.ui.PluginFileActivity.supports(name)
+                && org.telegram.messenger.plugins.PluginFileHooks.open(message, file, name, activity, parent, place);
+    }
+
+    public static android.graphics.drawable.Drawable fileHookIcon(MessageObject message, String name, FilePlace place) {
+        return org.telegram.messenger.plugins.PluginFileHooks.icon(message, name, place);
+    }
     private static final java.util.Map<Integer, String> accounts = new java.util.HashMap<>();
     private static boolean observingTheme;
     public static BaseFragment page() { return new BygramPluginsActivity(); }

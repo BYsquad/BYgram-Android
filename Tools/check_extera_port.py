@@ -376,10 +376,114 @@ def check_compat_helpers(root):
     print("PASS: compatibility helpers, UTF-16 entities, dependencies, file operations and settings callbacks")
 
 
+def check_extended_compatibility():
+    from base_plugin import BasePlugin
+    from client_utils import AccountClient, _current, account_scope, get_hook_account
+    from extera_utils.classes import Base, JHelper
+    from file_utils import FilesController
+
+    observed, hooks = [], {}
+    def register(ext, allow, deny, open_file, icon):
+        if ext in hooks:
+            return None
+        hooks[ext] = (allow, deny, open_file, icon)
+        return "secret"
+
+    def unregister(ext, token):
+        if ext not in hooks:
+            return "ExtensionNotRegistered"
+        if token != "secret":
+            return "SecretInvalid"
+        hooks.pop(ext)
+
+    bridge = SimpleNamespace(active=lambda: True, awaitStop=lambda timeout: timeout == 250,
+                             accountIdentity=lambda slot: f"id-{slot}", account=lambda slot, identity: None,
+                             sendRequest=lambda slot, identity, request, callback: callback("reply", None),
+                             registerFileHook=register, unregisterFileHook=unregister,
+                             editText=lambda slot, identity, message, text: observed.append((slot, message, text)))
+    plugin = BasePlugin()
+    plugin.context = SimpleNamespace(_bridge=bridge)
+    plugin.on_load()
+    token = _current.set((plugin.context, 2))
+    try:
+        assert plugin.stop_event.wait(.25) and not plugin.stop_event.is_set()
+        with account_scope(1):
+            assert get_hook_account() == 1
+            client = AccountClient(1)
+            client.send_request("sample", lambda reply, error: observed.append((reply, get_hook_account())))
+            client.edit_message(SimpleNamespace(currentAccount=1), "edited")
+        assert observed[0] == ("reply", 1) and observed[1][0::2] == (1, "edited")
+        assert get_hook_account() == 2
+
+        info = FilesController.FileInfo(".EXAMPLE", lambda args: observed.append((args.place, args.file_name, get_hook_account())),
+                                        whitelist_places=[FilesController.Place.ChatActivity], get_icon=lambda: get_hook_account())
+        secret = plugin.add_file_hook(info)
+        allow, deny, callback, icon = hooks["example"]
+        assert (allow, deny) == (2, 0)
+        callback(2, object(), "demo.example", SimpleNamespace(currentAccount=1), None, None)
+        assert observed[-1] == (FilesController.Place.ChatActivity, "demo.example", 1) and icon(1) == 1
+        for operation, error in ((lambda: plugin.add_file_hook(info), FilesController.ExtensionAlreadyRegistered),
+                                 (lambda: plugin.remove_file_hook("example", "wrong"), FilesController.SecretInvalid)):
+            try:
+                operation()
+            except error:
+                pass
+            else:
+                raise AssertionError("File hook registration or ownership check failed")
+        plugin.remove_file_hook(".example", secret)
+        assert not hooks
+    finally:
+        _current.reset(token)
+
+    cleanup = []
+    plugin.register_cleanup(lambda: cleanup.append("first"))
+    plugin.register_cleanup(lambda: cleanup.append("second"))
+    def failing_unload():
+        raise ValueError("on_plugin_unload")
+    plugin.on_plugin_unload = failing_unload
+    try:
+        plugin.on_unload()
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Unloading error was swallowed")
+    assert cleanup == ["second", "first"]
+
+    @Base.extends("java.util.ArrayList")
+    class Peer(Base):
+        @JHelper.Override("size", [])
+        def size(self):
+            return super().size()
+        @JHelper.Method("describe", "java.lang.String", ["int"], modifiers="private final",
+                        throws=["java.io.IOException"])
+        def description(self, count):
+            return str(count)
+        @JHelper.Method("int", [])
+        def value(self):
+            return 1
+        @staticmethod
+        @JHelper.Method(modifiers="PUBLIC | STATIC")
+        def twice(number: "int") -> "int":
+            return number * 2
+        @JHelper.Constructor(arg_types=["int"])
+        def initialize(self, count):
+            pass
+        counter = JHelper.Field("int", modifiers="private", methods=[JHelper.GetMethod()])
+    assert Peer._java_base == "java.util.ArrayList" and Peer.size._java_override == ("size", [])
+    assert Peer.description._java_method == ("describe", "java.lang.String", ["int"])
+    assert Peer.description._java_options == ("private final", ["java.io.IOException"])
+    assert Peer.value._java_method == ("value", "int", [])
+    assert Peer.twice._java_method == ("twice", "int", ["int"]) and Peer.twice(7) == 14
+    assert Peer.initialize._java_constructor == ("int",)
+    assert Peer.counter.modifiers == "private" and Peer.counter.methods == ((None, True, "public"),)
+    print("PASS: account scope, bound callbacks/editing, file hooks and ownership, reverse cleanup and proxy decorators")
+
+
 def main():
     python = Path(__file__).resolve().parents[1] / "TMessagesProj/src/main/python"
     sys.path.insert(0, str(python))
     from bygram import _loader
+    check_extended_compatibility()
 
     class Bridge:
         def id(self):

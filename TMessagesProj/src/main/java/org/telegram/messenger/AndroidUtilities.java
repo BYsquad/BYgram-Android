@@ -4278,6 +4278,10 @@ public class AndroidUtilities {
     }
 
     public static void openDocument(MessageObject message, Activity activity, BaseFragment parentFragment) {
+        openDocument(message, activity, parentFragment, PluginEntry.filePlace(parentFragment));
+    }
+
+    public static void openDocument(MessageObject message, Activity activity, BaseFragment parentFragment, PluginEntry.FilePlace place) {
         if (message == null) {
             return;
         }
@@ -4291,10 +4295,11 @@ public class AndroidUtilities {
             f = new File(message.messageOwner.attachPath);
         }
         if (f == null || f != null && !f.exists()) {
-            f = FileLoader.getInstance(UserConfig.selectedAccount).getPathToMessage(message.messageOwner);
+            f = FileLoader.getInstance(message.currentAccount).getPathToMessage(message.messageOwner);
         }
         if (f != null && f.exists()) {
             if (PluginEntry.openFile(activity, f, message.getDocumentName())) return;
+            if (PluginEntry.openFileHook(message, f, message.getDocumentName(), activity, parentFragment, place)) return;
             if (parentFragment != null && f.getName().toLowerCase().endsWith("attheme")) {
                 Theme.ThemeInfo themeInfo = Theme.applyThemeFile(f, message.getDocumentName(), null, true);
                 if (themeInfo != null) {
@@ -4421,6 +4426,10 @@ public class AndroidUtilities {
     }
 
     public static boolean openForView(MessageObject message, Activity activity, Theme.ResourcesProvider resourcesProvider, boolean restrict) {
+        return openForView(message, activity, resourcesProvider, restrict, LaunchActivity.getLastFragment());
+    }
+
+    public static boolean openForView(MessageObject message, Activity activity, Theme.ResourcesProvider resourcesProvider, boolean restrict, BaseFragment parent) {
         File f = null;
         if (message.messageOwner.attachPath != null && message.messageOwner.attachPath.length() != 0) {
             f = new File(message.messageOwner.attachPath);
@@ -4429,6 +4438,10 @@ public class AndroidUtilities {
             f = FileLoader.getInstance(message.currentAccount).getPathToMessage(message.messageOwner);
         }
         String mimeType = message.type == MessageObject.TYPE_FILE || message.type == MessageObject.TYPE_TEXT ? message.getMimeType() : null;
+        String name = message.getDocumentName();
+        if (TextUtils.isEmpty(name)) name = message.getFileName();
+        if (!restrict && f != null && f.isFile()
+                && PluginEntry.openFileHook(message, f, name, activity, parent, PluginEntry.filePlace(parent))) return true;
         return openForView(f, message.getFileName(), mimeType, activity, resourcesProvider, restrict);
     }
 

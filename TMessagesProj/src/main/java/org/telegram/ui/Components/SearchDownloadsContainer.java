@@ -164,7 +164,8 @@ public class SearchDownloadsContainer extends FrameLayout implements Notificatio
                         PhotoViewer.getInstance().openPhoto(documents, 0, 0, 0, 0, new PhotoViewer.EmptyPhotoViewerProvider());
                         return;
                     }
-                    AndroidUtilities.openDocument(message, parentActivity, parentFragment);
+                    AndroidUtilities.openDocument(message, parentActivity, parentFragment,
+                            org.telegram.messenger.PluginEntry.FilePlace.SearchDownloadsContainer);
                 } else if (!cell.isLoading()) {
                     messageObject.putInDownloadsStore = true;
                     AccountInstance.getInstance(UserConfig.selectedAccount).getFileLoader().loadFile(document, messageObject, FileLoader.PRIORITY_LOW, 0);
@@ -667,6 +668,7 @@ public class SearchDownloadsContainer extends FrameLayout implements Notificatio
         public Cell(@NonNull Context context) {
             super(context);
             sharedDocumentCell = new SharedDocumentCell(context, SharedDocumentCell.VIEW_TYPE_GLOBAL_SEARCH);
+            sharedDocumentCell.setPluginFilePlace(org.telegram.messenger.PluginEntry.FilePlace.SearchDownloadsContainer);
             sharedDocumentCell.rightDateTextView.setVisibility(View.GONE);
             addView(sharedDocumentCell);
         }

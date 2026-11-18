@@ -232,7 +232,7 @@ function PluginReview({ row, close, save }) {
     setBusy(true);
     setError('');
     try {
-      await save({ id: row.id, action, reviewed, note: note.trim(), hash: candidate?.sha256 });
+      await save({ id: row.id, action, reviewed, note: note.trim(), hash: candidate?.sha256, paid: row.paid === true });
     } catch (failure) {
       setError(failure.message);
       setBusy(false);
@@ -244,9 +244,10 @@ function PluginReview({ row, close, save }) {
         {error && <Banner status="error" title={error} />}
         <HStack gap={2} wrap="wrap" vAlign="center">
           <Badge {...(pluginStatuses[row.status] || { label: row.status })} />
-          <Button label="Репозиторий" href={row.repository + '/releases'} target="_blank" rel="noopener noreferrer"
-            icon={<Icon icon={ExternalLink} />} />
-          {row.status === 'review' && candidate && <Button label="Скачать кандидат" href={`plugins.php?download=${row.id}`}
+          {row.paid ? <Text>{row.stars} Stars · {row.nano} наноTON</Text> :
+            <Button label="Репозиторий" href={row.repository + '/releases'} target="_blank" rel="noopener noreferrer"
+              icon={<Icon icon={ExternalLink} />} />}
+          {row.status === 'review' && candidate && <Button label="Скачать кандидат" href={`plugins.php?${row.paid ? 'paid_download' : 'download'}=${row.id}`}
             icon={<Icon icon={ArrowDownToLine} />} />}
         </HStack>
         {candidate && <TextArea label="Метаданные пакета" value={JSON.stringify(candidate, null, 2)} isReadOnly rows={6} />}
@@ -258,10 +259,12 @@ function PluginReview({ row, close, save }) {
       footer={<LayoutFooter><HStack gap={2} hAlign="end" wrap="wrap">
         <Button label="Закрыть" onClick={close} isDisabled={busy} />
         {pending && <Button label="Отклонить" variant="destructive" isDisabled={!note.trim() || busy} onClick={() => submit('reject')} />}
-        {pending && <Button label={row.status === 'pending' ? 'Подготовить' : 'Обновить кандидат'}
+        {pending && !row.paid && <Button label={row.status === 'pending' ? 'Подготовить' : 'Обновить кандидат'}
           isLoading={busy} onClick={() => submit('prepare')} />}
         {row.status === 'review' && candidate && <Button label="Опубликовать" variant="primary"
           isDisabled={!reviewed || busy} onClick={() => submit('approve')} />}
+        {row.paid && row.current_hash === row.id && <Button label={Number(row.listed) ? 'Приостановить продажи' : 'Возобновить продажи'}
+          isDisabled={busy} onClick={() => submit(Number(row.listed) ? 'pause' : 'resume')} />}
         {row.status === 'approved' && candidate && <Button label="Отозвать" variant="destructive"
           isDisabled={!note.trim() || busy} onClick={() => submit('revoke')} />}
       </HStack></LayoutFooter>} />
@@ -285,6 +288,7 @@ export function PluginsPage({ revision, notify }) {
     endContent={<Button label="Повторить" onClick={() => setChanges(value => value + 1)} />} />;
   if (!data) return <Text role="status">Загрузка заявок…</Text>;
   return <VStack gap={4}>
+    {data.some(row => row.paid) && <Button label="Выгрузить платежи (CSV)" href="plugins.php?view=payment-report" />}
     <Records title="Заявки на публикацию" description="Последние 100 заявок." rows={data} columns={columns} rowKey="id" empty="Заявок пока нет." />
     {active && <PluginReview row={active} close={() => setActive(null)} save={async body => {
       await adminRequest('plugins.php', { body });

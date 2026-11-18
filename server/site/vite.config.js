@@ -1,10 +1,11 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { englishPages } from './docs/english-pages.js';
 
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), englishPages()],
   build: {
     manifest: true,
     rollupOptions: {
@@ -16,6 +17,7 @@ export default defineConfig({
         editions: resolve('editions.html'),
         thanks: resolve('thanks.html'),
         docs: resolve('docs/index.html'),
+        purchases: resolve('docs/purchases.html'),
         'admin-console': resolve('src/admin.jsx'),
       },
       output: {

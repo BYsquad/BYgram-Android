@@ -156,6 +156,8 @@
     <string name="BygramPluginCatalogInvalid">Перевірку каталогу не пройдено. Нічого не встановлено.</string>
     <string name="BygramPluginCatalogCancelled">Завантаження скасовано або час очікування вичерпано.</string>
     <string name="BygramPluginSubmit">Додати плагін до каталогу</string>
+    <string name="BygramPluginCatalogCategory">Категорія</string>
+    <string name="BygramPluginCatalogSource">Джерело каталогу</string>
     <string name="BygramPluginRepository">Посилання на публічний GitHub-репозиторій</string>
     <string name="BygramPluginSubmissionHelp">Надішліть публічний GitHub-репозиторій на модерацію. Додайте один файл .byplugin до стабільного Release з тегом v1.2.3; version у manifest має збігатися. Адміністратор перевіряє кожну версію перед публікацією. Для нового Release подайте заявку повторно. Модерація не ізолює код і не гарантує його безпеку.</string>
     <string name="BygramPluginApproved">Схвалено модерацією каталогу</string>
@@ -168,4 +170,22 @@
     <string name="BygramPluginLocalWarning">Цей плагін установлюється не з каталогу BYgram. Він працює всередині клієнта й може отримати доступ до даних облікових записів, повідомлень, файлів, мережі та Java/raw hooks. Підпис не гарантує безпечності коду. Установлюйте його, лише якщо довіряєте автору та перевірили джерельний код. Після встановлення плагін залишиться вимкненим до окремого ввімкнення.</string>
     <string name="BygramPluginAuthorSignature">Підпис пакета перевірено. SHA-256 ключа автора:</string>
     <string name="BygramPluginSignatureError">Підпис пакета недійсний або ключ автора змінився. Установлену версію збережено.</string>
+    <string name="BygramPluginPurchases">Мої покупки</string>
+    <string name="BygramPluginShopUnavailable">Покупки зараз недоступні</string>
+    <string name="BygramPluginStoreLogin">Підтвердьте обліковий запис Telegram. Після входу поверніться в BYgram і натисніть «Повторити».</string>
+    <string name="BygramPluginNoRefund">Після підтвердження оплати й надання доступу до плагіна повернення коштів за бажанням покупця неможливе. У разі проблеми з оплатою зверніться до підтримки BYgram. Обов’язкові повернення розглядаються за законом і правилами платіжної платформи.</string>
+    <string name="BygramPluginAgreeAndPay">Погоджуюсь, сплатити</string>
+    <string name="BygramPluginPaymentPending">Очікуємо підтвердження платежу. Відкрийте картку плагіна ще раз для перевірки.</string>
+    <string name="BygramPluginPriceStars">Ціна в Stars</string>
+    <string name="BygramPluginPriceTon">Ціна в TON</string>
+    <string name="BygramPluginSubmitPaid">Надіслати підписаний платний .byplugin</string>
+    <string name="BygramPluginInvalidPrice">Укажіть допустиму ціну хоча б для одного способу оплати.</string>
+    <string name="BygramPluginOrderPending">Очікує підтвердження</string>
+    <string name="BygramPluginOrderExpired">Термін минув</string>
+    <string name="BygramPluginOrderRefunded">Повернено</string>
+    <string name="BygramPluginOrderPaid">Сплачено</string>
+    <string name="BygramPluginPurchaseSupport">Підтримка</string>
+    <string name="BygramPluginAuthorBalance">Баланс автора</string>
+    <string name="BygramPluginAuthorWallet">TON-гаманець автора</string>
+    <string name="BygramPluginTonAuthorRefund">При оплаті TON кошти надходять безпосередньо автору плагіна. Команда BYgram не здійснює повернення таких платежів і не несе відповідальності за повернення коштів, отриманих автором, у межах, дозволених законом. Питання обов’язкового повернення можна передати автору через підтримку BYgram.</string>
 </resources>

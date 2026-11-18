@@ -9,11 +9,12 @@ set_exception_handler(static function (Throwable $error): never {
 });
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') jsonResponse(['ok' => false], 405);
-if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 6000000) jsonResponse(['ok' => false], 413);
-$raw = (string) file_get_contents('php://input');
-if (strlen($raw) > 6000000 || !is_array($request = json_decode($raw, true))) jsonResponse(['ok' => false], 400);
+if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 14000000) jsonResponse(['ok' => false], 413);
+$raw = (string) file_get_contents('php://input', false, null, 0, 14000001);
+if (strlen($raw) > 14000000 || !is_array($request = json_decode($raw, true, 32))) jsonResponse(['ok' => false], 400);
 $action = (string) ($request['action'] ?? '');
-if ($action !== 'profile_background_put' && strlen($raw) > 16384) jsonResponse(['ok' => false], 413);
+if (strlen($raw) > match ($action) { 'store_submit' => 14000000, 'profile_background_put' => 6000000, default => 16384 })
+    jsonResponse(['ok' => false], 413);
 $GLOBALS['bygram_action'] = $action;
 $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 $pdo = db();
@@ -338,6 +339,87 @@ if (in_array($action, ['flame_get', 'flame_sync', 'flame_restore'], true)) {
         jsonResponse(chatFlameRequest($pdo, $userId, $peerId, $action, $request));
     } catch (InvalidArgumentException) {
         jsonResponse(['ok' => false], 400);
+    }
+}
+
+if (str_starts_with($action, 'store_')) {
+    require __DIR__ . '/plugin-store.php';
+    require __DIR__ . '/plugin-store-providers.php';
+    $config = appConfig();
+    header('Cache-Control: private, no-store');
+    if (($config['plugin_store_enabled'] ?? false) !== true) jsonResponse(['ok' => false], 404);
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1,'max_range'=>0xfffffffffffff]]);
+    if (!$userId || !validAccountSession(bearer(), $userId))
+        jsonResponse(['ok' => false, 'needs_registration' => true], 401);
+    rateLimit($pdo, 'plugin-store:' . $userId, 60);
+    try {
+        $hash = $request['hash'] ?? '';
+        if (!is_string($hash) || ($hash !== '' && !preg_match('/^[a-f0-9]{64}$/D', $hash)))
+            throw new InvalidArgumentException('Некорректная версия');
+        if ($action === 'store_submit') {
+            $authors = $config['plugin_store_authors'] ?? [];
+            if ($authors !== [] && !in_array($userId, $authors, true))
+                throw new InvalidArgumentException('Подача платных плагинов пока доступна участникам пилота');
+            require __DIR__ . '/plugin-catalog.php';
+            $bytes = is_string($request['archive'] ?? null) ? base64_decode(strtr($request['archive'],'-_','+/'), true) : false;
+            $stars = filter_var($request['stars'] ?? 0, FILTER_VALIDATE_INT);
+            $nano = filter_var($request['nano'] ?? 0, FILTER_VALIDATE_INT);
+            if (!$bytes || $stars === false || $nano === false) throw new InvalidArgumentException('Некорректный пакет или цена');
+            storeSubmit($pdo, $userId, $bytes, $stars, $nano);
+            jsonResponse(['ok' => true]);
+        }
+        if ($action === 'store_status') {
+            $pending = storeRow($pdo, "SELECT method,status,merchant,expires_at FROM plugin_store_orders
+                WHERE buyer=? AND method='ton' AND status='pending' AND expires_at>=? ORDER BY created_at DESC LIMIT 1",
+                [$userId,time()-3600]);
+            if ($pending) storePollTonOrder($pdo,$pending,$config);
+            $q = $pdo->prepare('SELECT r.plugin_id,r.version,r.status,r.review_note FROM plugin_store_releases r
+                JOIN plugin_store_products p USING (plugin_id) WHERE p.author_id=? ORDER BY r.created_at DESC LIMIT 30');
+            $q->execute([$userId]);
+            $submissions = $q->fetchAll();
+            $q = $pdo->prepare('SELECT plugin_id FROM plugin_store_entitlements WHERE buyer=? ORDER BY plugin_id');
+            $q->execute([$userId]);
+            $owned = $q->fetchAll(PDO::FETCH_COLUMN);
+            $q = $pdo->prepare("SELECT id,plugin_id,method,amount,IF(status='pending' AND expires_at<=?,'expired',status) AS status,expires_at
+                FROM plugin_store_orders WHERE buyer=?
+                ORDER BY created_at DESC LIMIT 40");
+            $q->execute([time(),$userId]);
+            $balances = [];
+            if ($submissions !== []) {
+                $balances['stars'] = (string) storeAuthorBalance($pdo, $userId, 'stars', storeMerchant($config, 'stars'));
+                $legacyTon = storeMerchant($config, 'ton');
+                if (storeTonRecipient($legacyTon) !== null)
+                    $balances['ton'] = (string) storeAuthorBalance($pdo, $userId, 'ton', $legacyTon);
+            }
+            $response = ['ok'=>true,'owned'=>$owned,'orders'=>$q->fetchAll(),'submissions'=>$submissions,'balances'=>$balances];
+            if (($request['library'] ?? false) === true) {
+                $q = $pdo->prepare("SELECT r.candidate FROM plugin_store_entitlements e JOIN plugin_store_orders o ON e.order_id=o.id
+                    JOIN plugin_store_releases r ON o.release_hash=r.sha256 WHERE e.buyer=? AND r.status='published' LIMIT 100");
+                $q->execute([$userId]);
+                $library = [];
+                foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $json) {
+                    $entry = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+                    unset($entry['file']);
+                    $entry['purchase'] = ['stars'=>0,'nano'=>'0'];
+                    $library[] = $entry;
+                }
+                $response['library'] = ['format'=>2,'terms'=>PLUGIN_STORE_TERMS,'stars_test'=>true,'ton_test'=>true,'plugins'=>$library];
+            }
+            jsonResponse($response);
+        }
+        if ($action === 'store_order') {
+            $order = storeCreateOrder($pdo, $userId, $hash, (string) ($request['method'] ?? ''), (string) ($request['key'] ?? ''),
+                (string) ($request['terms'] ?? ''), $config);
+            jsonResponse(['ok'=>true,'url'=>storeCheckoutUrl($pdo, $order, $config)]);
+        }
+        if ($action === 'store_download') {
+            $archive = storeDownload($pdo, $userId, $hash);
+            if ($archive === null) jsonResponse(['ok'=>false], 403);
+            jsonResponse(['ok'=>true,'archive'=>base64_encode($archive)]);
+        }
+        jsonResponse(['ok'=>false], 404);
+    } catch (InvalidArgumentException | JsonException $error) {
+        jsonResponse(['ok'=>false,'error'=>$error->getMessage()], 422);
     }
 }
 

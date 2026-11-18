@@ -62,6 +62,11 @@ import java.util.Date;
 import java.util.Locale;
 
 public class SharedDocumentCell extends FrameLayout implements Theme.Colorable, DownloadController.FileDownloadProgressListener {
+    private org.telegram.messenger.PluginEntry.FilePlace pluginFilePlace = org.telegram.messenger.PluginEntry.FilePlace.UNKNOWN;
+
+    public void setPluginFilePlace(org.telegram.messenger.PluginEntry.FilePlace place) {
+        pluginFilePlace = place;
+    }
 
     private ImageView placeholderImageView;
     private BackupImageView thumbImageView;
@@ -445,7 +450,9 @@ public class SharedDocumentCell extends FrameLayout implements Theme.Colorable, 
             placeholderImageView.setVisibility(VISIBLE);
             extTextView.setVisibility(VISIBLE);
             placeholderImageView.setImageResource(AndroidUtilities.getThumbForNameOrMime(fileName, document.mime_type, false));
-            extTextView.setText((idx = fileName.lastIndexOf('.')) == -1 ? "" : fileName.substring(idx + 1).toLowerCase());
+            Drawable pluginIcon = org.telegram.messenger.PluginEntry.fileHookIcon(messageObject, fileName, pluginFilePlace);
+            if (pluginIcon != null) placeholderImageView.setImageDrawable(pluginIcon);
+            extTextView.setText(pluginIcon != null || (idx = fileName.lastIndexOf('.')) == -1 ? "" : fileName.substring(idx + 1).toLowerCase());
             TLRPC.PhotoSize bigthumb = FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 320);
             TLRPC.PhotoSize thumb = FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 40);
             if (thumb == bigthumb) {

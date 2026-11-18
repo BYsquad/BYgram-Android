@@ -312,6 +312,21 @@ public final class BygramTypingController {
         request(userId, data, true, callback::run);
     }
 
+    public static void pluginStoreLogin(int account, Utilities.Callback<String> callback) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId == 0) { callback.run(""); return; }
+        register(userId, (ok, url) -> callback.run(UserConfig.getInstance(account).getClientUserId() == userId ? url : ""));
+    }
+
+    public static void pluginStoreRequest(int account, Utilities.Callback<JSONObject> callback, Object... fields) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId == 0) { callback.run(null); return; }
+        JSONObject data = json(fields);
+        try { data.put("user_id", userId); }
+        catch (org.json.JSONException error) { callback.run(null); return; }
+        request(userId, data, true, result -> callback.run(UserConfig.getInstance(account).getClientUserId() == userId ? result : null));
+    }
+
     static void reportDevice(String deviceId, String model, String version, int androidApi, Utilities.Callback<Boolean> callback) {
         request(0, json("action", "device_seen", "device_id", deviceId, "model", model,
                 "version", version, "android_api", androidApi), false,
@@ -362,8 +377,10 @@ public final class BygramTypingController {
             try {
                 URL url = new URL(ENDPOINT);
                 connection = (HttpURLConnection) url.openConnection();
+                boolean store = data.optString("action").startsWith("store_");
+                if (store) connection.setInstanceFollowRedirects(false);
                 connection.setRequestMethod("POST");
-                connection.setConnectTimeout(7000); connection.setReadTimeout(7000);
+                connection.setConnectTimeout(7000); connection.setReadTimeout(store ? 25000 : 7000);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 byte[] body = data.toString().getBytes(StandardCharsets.UTF_8);
                 if (useAccount) {
@@ -374,8 +391,13 @@ public final class BygramTypingController {
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }
                 InputStream stream = connection.getResponseCode() < 400 ? connection.getInputStream() : connection.getErrorStream();
                 if (stream != null) try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-                    StringBuilder response = new StringBuilder(); String line;
-                    while ((line = reader.readLine()) != null) response.append(line);
+                    StringBuilder response = new StringBuilder();
+                    char[] buffer = new char[8192];
+                    int count;
+                    while ((count = reader.read(buffer)) != -1) {
+                        if (store && response.length() + count > 14_000_000) throw new java.io.IOException("Store response exceeds limit");
+                        response.append(buffer, 0, count);
+                    }
                     if (response.length() > 0) result = new JSONObject(response.toString());
                 }
             } catch (Exception e) { FileLog.e(e); }

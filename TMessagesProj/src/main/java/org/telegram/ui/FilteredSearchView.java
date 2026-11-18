@@ -1159,7 +1159,8 @@ public class FilteredSearchView extends FrameLayout implements Theme.Colorable, 
                         }
                         return;
                     }
-                    AndroidUtilities.openDocument(message, parentActivity, parentFragment);
+                    AndroidUtilities.openDocument(message, parentActivity, parentFragment,
+                            org.telegram.messenger.PluginEntry.FilePlace.FilteredSearchView);
                 } else if (!cell.isLoading()) {
                     MessageObject messageObject = cell.getMessage();
                     messageObject.putInDownloadsStore = true;
@@ -1445,7 +1446,9 @@ public class FilteredSearchView extends FrameLayout implements Theme.Colorable, 
                     view = new GraySectionCell(mContext);
                     break;
                 case 1:
-                    view = new SharedDocumentCell(mContext, SharedDocumentCell.VIEW_TYPE_GLOBAL_SEARCH);
+                    SharedDocumentCell file = new SharedDocumentCell(mContext, SharedDocumentCell.VIEW_TYPE_GLOBAL_SEARCH);
+                    file.setPluginFilePlace(org.telegram.messenger.PluginEntry.FilePlace.FilteredSearchView);
+                    view = file;
                     break;
                 case 2:
                     FlickerLoadingView flickerLoadingView = new FlickerLoadingView(mContext);

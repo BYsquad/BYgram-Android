@@ -591,7 +591,11 @@ public class ProfileMusicView extends View implements NotificationCenter.Notific
 
     protected void drawCardBackground(Canvas canvas, RectF bounds) {
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
-        backgroundPaint.setAlpha(255);
+        backgroundPaint.setAlpha(getCardBackgroundAlpha());
         canvas.drawRoundRect(bounds, dp(22), dp(22), backgroundPaint);
+    }
+
+    protected int getCardBackgroundAlpha() {
+        return 255;
     }
 }

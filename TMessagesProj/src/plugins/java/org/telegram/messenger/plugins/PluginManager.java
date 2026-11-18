@@ -319,6 +319,12 @@ public final class PluginManager {
                         : PluginCatalog.fetchRepository(repository, null, 1024 * 1024, request);
                 JsonArray entries = repository == null ? PluginCatalog.parse(bytes, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD)
                         : PluginCatalog.parseRepository(bytes, repository, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+                if (repository == null) try {
+                    Set<String> ids = new HashSet<>();
+                    for (JsonElement value : entries) ids.add(value.getAsJsonObject().getAsJsonObject("manifest").get("id").getAsString());
+                    for (JsonElement value : PluginCatalog.fetchPaidEntries(request, hostBuild(), BuildConfig.BYGRAM_BASE_BUILD))
+                        if (ids.add(value.getAsJsonObject().getAsJsonObject("manifest").get("id").getAsString())) entries.add(value);
+                } catch (Exception unavailable) { request.check(); }
                 AndroidUtilities.runOnUIThread(() -> callback.done(entries, null));
             } catch (Exception e) { String error = error(e); AndroidUtilities.runOnUIThread(() -> callback.done(null, error)); }
         }, callback);
@@ -328,14 +334,24 @@ public final class PluginManager {
         try { downloads.execute(task); }
         catch (RejectedExecutionException busy) { AndroidUtilities.runOnUIThread(() -> callback.done(null, "CatalogBusy")); }
     }
+    public JsonArray purchasedEntries(String library) throws Exception {
+        return PluginCatalog.parsePaidEntries(JsonParser.parseString(library).getAsJsonObject(), hostBuild(), BuildConfig.BYGRAM_BASE_BUILD);
+    }
     public PluginCatalog.Request stageCatalog(String repository, int account, JsonObject entry, Result<String> callback) {
+        return stageCatalog(repository, account, entry, null, callback);
+    }
+    public PluginCatalog.Request stageCatalog(String repository, int account, JsonObject entry, String paidArchive, Result<String> callback) {
         PluginCatalog.Request request = new PluginCatalog.Request();
         catalogWork(() -> {
             final byte[] bytes;
             boolean extera = repository != null && entry.has("extera_id");
             String channel = PluginCatalog.channelName(repository);
             try {
-                if (channel != null) {
+                if (entry.has("purchase")) {
+                    PluginPackage.check(repository == null && paidArchive != null && paidArchive.length() <= 14_000_000, "InvalidCatalog");
+                    bytes = android.util.Base64.decode(paidArchive, android.util.Base64.NO_WRAP);
+                    PluginPackage.check(bytes.length <= PluginPackage.MAX_ZIP, "CatalogLimitExceeded");
+                } else if (channel != null) {
                     byte[] original = PluginChannelCatalog.download(channel, account, entry, request);
                     String format = entry.get("format").getAsString();
                     request.check();
@@ -801,7 +817,7 @@ public final class PluginManager {
     public void sourceFiles(String id, String token, Result<List<String>> callback) {
         readPackage(id, token, directory -> {
             List<String> files = PluginPackageAccess.files(directory);
-            files.removeIf(name -> !name.endsWith(".py") && !name.equals("manifest.json"));
+            files.removeIf(name -> !PluginPackageAccess.isPreviewable(name));
             return files;
         }, callback);
     }

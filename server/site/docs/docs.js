@@ -26,7 +26,7 @@ for (const figure of document.querySelectorAll('main figure')) {
 }
 
 const navigation = document.querySelector('#navigation');
-const navigationLinks = [...navigation.querySelectorAll('a')];
+const navigationLinks = [...navigation.querySelectorAll('a[href^="#"]')];
 const sections = navigationLinks.map((link) => document.getElementById(link.hash.slice(1)));
 const outline = document.querySelector('#outline');
 const pagination = document.querySelector('#pagination');

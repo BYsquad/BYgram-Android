@@ -94,6 +94,7 @@
 -keep class org.telegram.messenger.plugins.HookBridge$Probe { *; }
 -keep class org.telegram.messenger.plugins.PluginInterceptors$Result { public *; }
 -keep class org.telegram.messenger.plugins.PluginClassProxy { public *; }
+-keepclassmembers class com.android.dx.DexMaker { java.util.Map types; }
 -keep class org.telegram.messenger.plugins.PluginMvel { public *; }
 -keep class org.telegram.messenger.plugins.PluginMvel$Body { public *; }
 -keep class org.telegram.messenger.plugins.PluginAssets { public *; }

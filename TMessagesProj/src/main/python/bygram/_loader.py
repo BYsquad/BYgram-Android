@@ -107,6 +107,13 @@ def unload(plugin, plugin_id):
     try:
         if plugin is not None: plugin.on_unload()
     finally:
+        if plugin is not None:
+            for peer in tuple(getattr(plugin.context, "_proxy_peers", {}).values()):
+                try:
+                    peer.jrelease()
+                except Exception:
+                    import traceback
+                    traceback.print_exc()
         namespace = _namespaces.pop(plugin_id, None)
         if namespace: _remove(namespace)
         if plugin is not None: plugin.context = None

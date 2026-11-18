@@ -24,11 +24,11 @@ function adminAttribute(string $value): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Управление BYgram</title>
-<link rel="stylesheet" href="../assets/admin-console.css?v=20261117-account">
+<link rel="stylesheet" href="../assets/admin-console.css?v=20261118-plugin-store">
 </head>
 <body>
 <section id="admin-root" data-csrf="<?= adminAttribute($token) ?>" data-bot="<?= adminAttribute($botUsername) ?>"
     data-auth-url="<?= adminAttribute($loginUrl) ?>"></section>
-<script type="module" src="../assets/admin-console.js?v=20261117-account"></script>
+<script type="module" src="../assets/admin-console.js?v=20261118-plugin-store"></script>
 </body>
 </html>

@@ -60,6 +60,8 @@
             <a href="#compatibility"><span class="nav-icon" aria-hidden="true">↔</span>Перенос с exteraGram</a>
             <a href="#catalog"><span class="nav-icon" aria-hidden="true">▦</span>Каталог BYgram</a>
             <a href="#publish"><span class="nav-icon" aria-hidden="true">↥</span>Публикация</a>
+            <a href="#publish-paid"><span class="nav-icon" aria-hidden="true">↥</span>Платные плагины</a>
+            <a href="purchases.html"><span class="nav-icon" aria-hidden="true">▤</span>Покупка плагинов</a>
             <a href="#recovery"><span class="nav-icon" aria-hidden="true">◈</span>Восстановление</a></div>
 </nav>
     </aside>
@@ -67,6 +69,7 @@
       <button id="sidebar-open" class="icon-button" type="button" aria-label="Открыть оглавление" aria-controls="sidebar" aria-expanded="false" hidden></button>
       <button id="search-open" type="button" aria-haspopup="dialog" hidden><span aria-hidden="true">⌕</span> Поиск <kbd>Ctrl</kbd><kbd>K</kbd></button>
       <div class="tools">
+        <a href="./en/" lang="en" hreflang="en">English</a>
         <button id="theme" class="icon-button" type="button" aria-label="Сменить тему" hidden><span aria-hidden="true">☀</span><span aria-hidden="true">☾</span></button>
         <a class="icon-button" href="https://github.com/BYxarek/BYgram-mobile" aria-label="BYgram на GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.76-.24.76-.54v-2.07c-3.12.68-3.78-1.32-3.78-1.32-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1 1.7 1.1 3.28.62.1-.72.39-1.2.71-1.48-2.49-.28-5.1-1.25-5.1-5.54 0-1.23.44-2.23 1.15-3.02-.12-.28-.5-1.43.11-2.98 0 0 .94-.3 3.08 1.15a10.7 10.7 0 0 1 5.6 0c2.14-1.45 3.08-1.15 3.08-1.15.61 1.55.23 2.7.11 2.98.72.79 1.15 1.79 1.15 3.02 0 4.3-2.62 5.25-5.12 5.53.4.35.76 1.03.76 2.08v3.36c0 .3.2.64.77.53A11.2 11.2 0 0 0 12 .8Z"/></svg></a>
       </div>
@@ -199,6 +202,7 @@ python Tools/check_plugins.py</code></pre></figure>
         <h2>Каталог плагинов</h2>
         <p>Опубликованные пакеты из каталога BYgram. Скачайте <code>.byplugin</code> и откройте его в BYgram или найдите плагин в менеджере приложения.</p>
         <p id="catalog-status" role="status"><a href="../plugins/index.json">Открыть индекс каталога</a></p>
+        <p><a href="../api/plugin-store-web.php">Открыть витрину платных плагинов</a> · <a href="purchases.html">Руководство покупателя</a></p>
         <ul class="packages" id="packages" aria-label="Опубликованные плагины"></ul>
       </section>
 
@@ -452,6 +456,21 @@ python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></s
         <p>Часто используемые классы: <code>org.telegram.messenger.MessagesController</code>, <code>SendMessagesHelper</code>, <code>UserConfig</code>, <code>NotificationCenter</code>, <code>org.telegram.tgnet.TLRPC</code> и <code>org.telegram.ui.ActionBar.BaseFragment</code>.</p>
         <h3 id="telegram-classes-details">Получение экземпляров</h3>
         <p>Для объектов конкретного аккаунта используйте <a href="#client-utils">утилиты клиента</a>. Для сигнатур и закрытых полей используйте <a href="#hook-utils">рефлексию</a>.</p>
+      </section>
+      <section id="publish-paid">
+        <h2>Публикация платного плагина</h2>
+        <p class="lead">Оплата и выдача файла работают в официальном каталоге BYgram.</p>
+        <ol>
+          <li>Задайте уникальный <code>id</code> и версию в <code>manifest.json</code>. Для обновлений оставляйте прежний <code>id</code> и повышайте версию.</li>
+          <li>Упакуйте и подпишите релиз RSA-ключом. Храните ключ вне исходников и архива. Подписывайте обновления тем же ключом.</li>
+          <li>В актуальной бете откройте «Настройки BYgram → Плагины → Официальный каталог → Добавить плагин». Укажите цену и выберите подписанный архив.</li>
+          <li>Для оплаты TON подтвердите владение активным кошельком V3R2, V4R2 или V5R1 на <a href="../api/plugin-store-web.php?wallet=1">странице кошелька автора</a>. Используйте тот же Telegram-аккаунт, под которым отправили заявку.</li>
+          <li>Дождитесь модерации конкретного SHA-256. Цена в TON появится для одобренного релиза, когда привязан кошелёк в сети продаж.</li>
+        </ol>
+        <figure><figcaption>Создание ключа и подпись пакета</figcaption><pre><code>openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out author.pem
+python Tools/package_plugin.py ./my-plugin ./release.byplugin --signing-key ./author.pem</code></pre></figure>
+        <p>Один подтверждённый кошелёк в каждой сети используется для всех ваших плагинов. Его замена влияет только на новые заказы. Вопрос обязательного возврата TON рассматривает автор, получивший перевод.</p>
+        <p><a href="purchases.html#conditions">Условия оплаты и возврата</a></p>
       </section>
       <nav id="pagination" aria-label="Соседние статьи"></nav>
     </main>

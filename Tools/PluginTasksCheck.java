@@ -14,9 +14,10 @@ public final class PluginTasksCheck {
             }, 100);
             throw new AssertionError("hung callback accepted");
         } catch (IOException expected) { assert expected.getMessage().equals("PluginRestartRequired"); }
-        assert !stuck.isActive() && !stuck.awaitIdle(0);
+        assert !stuck.isActive() && !stuck.awaitIdle(0) && stuck.awaitStop(0);
         assert (System.nanoTime() - start) / 1000000 < 1500 : "manager blocked";
         PluginScope healthy = new PluginScope("test.healthy", 2);
+        assert !healthy.awaitStop(0);
         assert PluginTasks.call(healthy, () -> 42, 1000) == 42 : "other plugin blocked";
         release.countDown(); assert stuck.awaitIdle(1000);
         try { PluginTasks.call(healthy, () -> { throw new IOException("original"); }, 1000); }
@@ -65,5 +66,7 @@ public final class PluginTasksCheck {
         } finally { releaseLifecycle.countDown(); }
         System.out.println("PASS: four hung lifecycle generations do not starve a healthy plugin");
         System.out.println("PASS: stuck lifecycle bounded, scope invalidated, other plugin usable, original exception preserved");
+        healthy.close();
+        assert healthy.awaitStop(0);
     }
 }

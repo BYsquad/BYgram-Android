@@ -7622,7 +7622,8 @@ public class SharedMediaLayout extends FrameLayout implements Theme.Colorable, N
                             }
                             return;
                         }
-                        AndroidUtilities.openDocument(message, profileActivity.getParentActivity(), profileActivity);
+                        AndroidUtilities.openDocument(message, profileActivity.getParentActivity(), profileActivity,
+                                org.telegram.messenger.PluginEntry.FilePlace.SharedMediaLayout);
                     } else if (!cell.isLoading()) {
                         MessageObject messageObject = cell.getMessage();
                         messageObject.putInDownloadsStore = true;
@@ -7947,6 +7948,7 @@ public class SharedMediaLayout extends FrameLayout implements Theme.Colorable, N
             switch (viewType) {
                 case VIEW_TYPE_DOCUMENT:
                     SharedDocumentCell cell = new SharedDocumentCell(mContext, SharedDocumentCell.VIEW_TYPE_DEFAULT, resourcesProvider);
+                    cell.setPluginFilePlace(org.telegram.messenger.PluginEntry.FilePlace.SharedMediaLayout);
                     cell.setGlobalGradientView(globalGradientView);
                     view = cell;
                     break;
@@ -9288,7 +9290,9 @@ public class SharedMediaLayout extends FrameLayout implements Theme.Colorable, N
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             View view;
             if (currentType == 1) {
-                view = new SharedDocumentCell(mContext, SharedDocumentCell.VIEW_TYPE_DEFAULT, resourcesProvider);
+                SharedDocumentCell file = new SharedDocumentCell(mContext, SharedDocumentCell.VIEW_TYPE_DEFAULT, resourcesProvider);
+                file.setPluginFilePlace(org.telegram.messenger.PluginEntry.FilePlace.SharedMediaLayout);
+                view = file;
             } else if (currentType == 4) {
                 view = new SharedAudioCell(mContext, SharedAudioCell.VIEW_TYPE_DEFAULT, resourcesProvider) {
                     @Override
@@ -11724,6 +11728,15 @@ public class SharedMediaLayout extends FrameLayout implements Theme.Colorable, N
 
     /** The host draws its glass over the pages: they draw their own background and their lists overscan this layout. */
     private boolean pagesFullscreen;
+    private boolean transparentProfilePages;
+
+    public void setTransparentProfilePages(boolean transparent) {
+        if (transparentProfilePages == transparent) return;
+        transparentProfilePages = transparent;
+        for (MediaPage page : mediaPages) {
+            if (page != null) updatePageBackground(page);
+        }
+    }
     private int pagesTabsTop;
     private int pagesOverscanTop;
     private int pagesOverscanBottom;
@@ -11878,10 +11891,10 @@ public class SharedMediaLayout extends FrameLayout implements Theme.Colorable, N
     private void updatePageBackground(MediaPage page) {
         final boolean sections = page.listView.hasSections();
         if (sections) {
-            page.listView.setSectionsDrawBackground(pagesFullscreen);
+            page.listView.setSectionsDrawBackground(pagesFullscreen && !transparentProfilePages);
         }
-        page.setDrawPageBackground(pagesFullscreen && !sections && page.selectedType != TAB_POLL);
-        if (page.selectedType == TAB_POLL) {
+        page.setDrawPageBackground(pagesFullscreen && !transparentProfilePages && !sections && page.selectedType != TAB_POLL);
+        if (page.selectedType == TAB_POLL && !transparentProfilePages) {
             final Drawable wallpaper = PreviewView.getBackgroundDrawable(
                 page.wallpaper != null ? page.wallpaper : page.getBackground(),
                 profileActivity.getCurrentAccount(),

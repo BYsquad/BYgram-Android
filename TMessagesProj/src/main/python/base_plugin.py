@@ -44,7 +44,39 @@ class MenuItemData:
     condition: object = None
 
 
+class _StopEvent:
+    def __init__(self, bridge):
+        self._bridge = bridge
+
+    def is_set(self):
+        return not self._bridge.active()
+
+    def wait(self, timeout=None):
+        return self._bridge.awaitStop(-1 if timeout is None else max(0, int(timeout * 1000)))
+
+
 class BasePlugin(Plugin):
+    @property
+    def stop_event(self):
+        return _StopEvent(self.context._bridge)
+
+    def register_cleanup(self, cleanup):
+        if not callable(cleanup):
+            raise TypeError("Expected a cleanup callback")
+        callbacks = self.__dict__.setdefault("_cleanup_callbacks", [])
+        context = getattr(self, "context", None)
+        if len(callbacks) >= 1024 or context is not None and not context._bridge.active():
+            raise RuntimeError("Cannot register plugin cleanup")
+        callbacks.append(cleanup)
+
+    def add_file_hook(self, file_info):
+        from file_utils import FilesController
+        return _invoke(self.context, None, FilesController.register, file_info)
+
+    def remove_file_hook(self, ext, secret):
+        from file_utils import FilesController
+        return _invoke(self.context, None, FilesController.unregister, ext, secret)
+
     @property
     def logger(self):
         from log_utils import get_logger
@@ -57,15 +89,22 @@ class BasePlugin(Plugin):
         _invoke(self.context, None, self.on_plugin_load)
 
     def on_unload(self):
-        if "_registered_hooks" in self.__dict__:
-            self._registered_hooks.clear()
-            self._menu_items.clear()
-            _invoke(self.context, None, self.on_plugin_unload)
+        try:
+            if "_registered_hooks" in self.__dict__:
+                self._registered_hooks.clear()
+                self._menu_items.clear()
+                _invoke(self.context, None, self.on_plugin_unload)
+        finally:
+            for cleanup in reversed(self.__dict__.pop("_cleanup_callbacks", [])):
+                try:
+                    _invoke(self.context, None, cleanup)
+                except Exception as error:
+                    self.log(f"Cleanup failed: {error}")
 
     def client(self, account=None):
         if account is None:
             account = get_hook_account()
-        return AccountClient(self.context._bridge, get_selected_account() if account is None else account)
+        return AccountClient(get_selected_account() if account is None else account, _bridge=self.context._bridge)
 
     def on_plugin_load(self):
         pass

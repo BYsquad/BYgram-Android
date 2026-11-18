@@ -69,6 +69,14 @@ function pluginReleaseCandidate(string $repository, array $repo, array $release,
             || strlen($bytes) === 0 || strlen($bytes) > 10 * 1024 * 1024) throw new InvalidArgumentException('Release должен содержать один .byplugin размером до 10 MiB');
     $hash = hash('sha256', $bytes);
     if (!empty($assets[0]['digest']) && !hash_equals('sha256:' . $hash, $assets[0]['digest'])) throw new InvalidArgumentException('SHA-256 GitHub asset не совпал');
+    return pluginSignedCandidate($bytes, $version[1]) + ['release' => [
+        'repository' => $repository, 'repository_id' => $repo['id'], 'tag' => $tag,
+        'release_id' => $release['id'], 'asset_id' => $assets[0]['id']
+    ]];
+}
+function pluginSignedCandidate(string $bytes, ?string $version = null): array {
+    if ($bytes === '' || strlen($bytes) > 10 * 1024 * 1024) throw new InvalidArgumentException('Размер пакета должен быть от 1 байта до 10 MiB');
+    $hash = hash('sha256', $bytes);
     $file = tempnam(sys_get_temp_dir(), 'bygram-plugin-');
     try {
         if (file_put_contents($file, $bytes) !== strlen($bytes)) throw new RuntimeException('Не удалось сохранить пакет');
@@ -103,7 +111,7 @@ function pluginReleaseCandidate(string $repository, array $repo, array $release,
             $manifest = pluginManifest($manifestJson);
             if (!is_array($manifest) || !is_string($manifest['id'] ?? null) || strlen($manifest['id']) > 120
                     || !preg_match('/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/D', $manifest['id'])
-                    || ($manifest['version'] ?? '') !== $version[1]) throw new InvalidArgumentException('ID некорректен или version в manifest не совпадает с тегом Release');
+                    || ($version !== null && $manifest['version'] !== $version)) throw new InvalidArgumentException('ID некорректен или version в manifest не совпадает с тегом Release');
             $entry = explode(':', (string) ($manifest['entrypoint'] ?? ''));
             if (count($entry) !== 2 || $zip->locateName($entry[0]) === false) throw new InvalidArgumentException('Нет entrypoint');
             if (isset($manifest['icon'])) {
@@ -116,9 +124,7 @@ function pluginReleaseCandidate(string $repository, array $repo, array $release,
             if ($authorKey === null) throw new InvalidArgumentException('Для публикации нужен пакет с подписью автора');
         } finally { $zip->close(); }
     } finally { @unlink($file); }
-    return ['manifest' => $manifest, 'sha256' => $hash, 'size' => strlen($bytes), 'file' => $hash . '.byplugin', 'author_key' => $authorKey,
-        'release' => ['repository' => $repository, 'repository_id' => $repo['id'], 'tag' => $tag,
-            'release_id' => $release['id'], 'asset_id' => $assets[0]['id']]];
+    return ['manifest' => $manifest, 'sha256' => $hash, 'size' => strlen($bytes), 'file' => $hash . '.byplugin', 'author_key' => $authorKey];
 }
 function pluginJson(string $json): array {
     if (strlen($json) > 65536) throw new InvalidArgumentException('Слишком большой manifest');

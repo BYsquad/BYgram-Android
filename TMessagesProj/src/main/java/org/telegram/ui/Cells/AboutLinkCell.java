@@ -281,13 +281,13 @@ public class AboutLinkCell extends FrameLayout implements Theme.Colorable {
         if (viewAlpha > 0) {
             canvas.save();
             canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
-            showMoreBackgroundDrawable.setAlpha((int) (alpha * 255));
+            showMoreBackgroundDrawable.setAlpha(hasTransparentBackground() ? 0 : (int) (alpha * 255));
             canvas.translate(showMoreTextBackgroundView.getLeft(), showMoreTextBackgroundView.getTop());
             showMoreTextBackgroundView.draw(canvas);
             canvas.restore();
         }
         viewAlpha = bottomShadow.getAlpha();
-        if (viewAlpha > 0) {
+        if (viewAlpha > 0 && !hasTransparentBackground()) {
             canvas.save();
             canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
             canvas.translate(bottomShadow.getLeft(), bottomShadow.getTop());
@@ -296,6 +296,10 @@ public class AboutLinkCell extends FrameLayout implements Theme.Colorable {
         }
 
         container.draw(canvas);
+    }
+
+    protected boolean hasTransparentBackground() {
+        return false;
     }
 
     final float SPACE = dp(3f);

@@ -1,12 +1,12 @@
 {
   "version": "13.2.2",
-  "version_code": "73039",
+  "version_code": "73049",
   "status": "Бета-версия (Debug)",
   "requirements": "Android 7.0+",
   "package": "com.bygram.mobile",
-  "apk_name": "BYgram-beta-13.2.2-73039-3b8e6d3f.apk",
-  "size_bytes": 191288602,
-  "sha256": "3b8e6d3f447df8e580fa786a830f9c08efb4c910477e890c5f38902092a9eb01",
-  "size": "182,4 МиБ",
-  "date": "2026-11-17"
+  "apk_name": "BYgram-beta-13.2.2-73049-8de88347.apk",
+  "size_bytes": 183703722,
+  "sha256": "8de8834746966e39a2e8288b0dc05a4b4ab0b5a750374e348cc5a4a2b21196c5",
+  "size": "175,2 МиБ",
+  "date": "2026-11-18"
 }

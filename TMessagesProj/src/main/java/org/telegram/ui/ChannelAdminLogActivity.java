@@ -3223,7 +3223,7 @@ public class ChannelAdminLogActivity extends BaseFragment implements Notificatio
                                 }
                             }
                             try {
-                                AndroidUtilities.openForView(message, getParentActivity(), null, false);
+                                AndroidUtilities.openForView(message, getParentActivity(), null, false, ChannelAdminLogActivity.this);
                             } catch (Exception e) {
                                 alertUserOpenError(message);
                             }

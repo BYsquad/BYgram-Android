@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lifecycle and cleanup | BYgram</title>
+  <meta name="description" content="Handle enablement, disablement and cooperative background shutdown.">
+  <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/en/lifecycle/">
+  <link rel="stylesheet" href="../guide-b8548225feef.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <article class="layout">
+    <aside class="sidebar">
+      <header class="sidebar-top"><a class="brand" href="../">BYgram</a></header>
+      <nav id="navigation" aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/">Build and install a package</a><a href="../lifecycle/" aria-current="page">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav>
+    </aside>
+    <header class="top">
+      <details class="english-menu"><summary>Guides</summary><nav aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/">Build and install a package</a><a href="../lifecycle/" aria-current="page">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav></details>
+      <strong>Plugin documentation</strong>
+      <a class="tools" href="../../" lang="ru" hreflang="ru">Русский</a>
+    </header>
+    <main id="content"><section>
+      <h1>Lifecycle and cleanup</h1>
+      <p class="lead">Handle enablement, disablement and cooperative background shutdown.</p>
+      <h2 id="lifecycle-callbacks">Lifecycle callbacks</h2><p>The native class has <code>on_load</code>, <code>on_enable</code>, <code>on_disable</code> and <code>on_unload</code>. Compatibility plugins implement <code>on_plugin_load</code> and <code>on_plugin_unload</code> and can receive app events through <code>on_app_event</code>.</p><h2 id="cleanup-and-stop-signal">Cleanup and stop signal</h2><p><code>register_cleanup(callback)</code> runs registered zero-argument callbacks in reverse order on unload, including when <code>on_plugin_unload</code> throws. <code>stop_event.is_set()</code> and <code>stop_event.wait(timeout)</code> let workers observe generation invalidation. Use finite waits and keep cleanup short.</p><figure><figcaption>Close a resource</figcaption><pre><code>self.register_cleanup(resource.close)
+if self.stop_event.is_set():
+    return</code></pre></figure>
+      <nav id="pagination" aria-label="Adjacent guides">
+        <a href="../package/">← Build and install a package</a>
+        <a class="next" href="../catalog/paid/">Publish a paid plugin →</a>
+      </nav>
+    </section></main>
+    <aside class="outline" aria-label="On this page"><p>On this page</p>
+      <a href="#lifecycle-callbacks">Lifecycle callbacks</a><a href="#cleanup-and-stop-signal">Cleanup and stop signal</a>
+    </aside>
+  </article>
+</body>
+</html>

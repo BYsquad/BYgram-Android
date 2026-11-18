@@ -8,23 +8,15 @@ JAVA = ROOT / "TMessagesProj/src/main/java/org/telegram"
 profile = (JAVA / "ui/ProfileActivity.java").read_text(encoding="utf-8")
 dialogs = (JAVA / "ui/DialogsActivity.java").read_text(encoding="utf-8")
 scroll = dialogs.split("public void onScrolled(RecyclerView recyclerView, int dx, int dy) {", 1)[1].split("                    if (contentView != null)", 1)[0]
-method = "    private boolean drawBygramPageBackground(" + profile.split("    private boolean drawBygramPageBackground(", 1)[1].split("    private Drawable bygramPageBackground", 1)[0]
+method = "    private boolean hasBygramPageBackground(" + profile.split("    private boolean hasBygramPageBackground(", 1)[1].split("    private Drawable bygramPageBackground", 1)[0]
 config = (JAVA / "messenger/BygramConfig.java").read_text(encoding="utf-8")
 active = "    private static boolean isActiveSetting(" + config.split("    private static boolean isActiveSetting(", 1)[1].split("    public static void clearRemovedCustomizationSettings", 1)[0]
 constants = "\n".join(line for line in config.splitlines() if 'static final String' in line)
 harness = r"""
 public class ProfileScrollCheck {
     static class Canvas {
-        int saves, draws; float dx, dy;
-        void save() { saves++; }
-        void restore() { saves--; }
-        void translate(float x, float y) { dx=x; dy=y; }
-        void drawColor(int color) { draws++; }
     }
     static class View {
-        final int x, y;
-        View(int x, int y) { this.x=x; this.y=y; }
-        void getLocationInWindow(int[] p) { p[0]=x; p[1]=y; }
         int getWidth() { return 400; }
         int getHeight() { return 800; }
     }
@@ -34,7 +26,7 @@ public class ProfileScrollCheck {
         void setImageCoords(float x, float y, float w, float h) { this.x=x; this.y=y; width=w; height=h; }
         void draw(Canvas c) { draws++; }
     }
-    static class TopView extends View { TopView() { super(20,30); } ImageReceiver bygramBackground = new ImageReceiver(); }
+    static class TopView extends View { ImageReceiver bygramBackground = new ImageReceiver(); }
     static class BygramConfig {
         static final String FULL_PROFILE_BACKGROUND="full", COLLAPSE_FOLDERS_ON_SCROLL="folders", COLLAPSE_NAVIGATION_ON_SCROLL="navigation";
         static boolean enabled, folders, navigation;
@@ -48,28 +40,24 @@ public class ProfileScrollCheck {
     boolean onlySelect, searching, bygramNavigationHidden, scrollingManually=true; int folderId, communityId;
     void checkUi_mainTabsVisible() {}
     void scroll(Object viewPage, RecyclerView recyclerView, int dy) { @@SCROLL@@ }
-    static class Theme { static final int key_windowBackgroundGray=1; static int multAlpha(int color, float alpha) { return color; } }
-    int getThemedColor(int key) { return key; }
-    TopView topView = new TopView(); View fragmentView = new View(20, 30);
-    final int[] bygramBackgroundRootPosition = new int[2], bygramBackgroundTargetPosition = new int[2];
+    TopView topView = new TopView(); View fragmentView = new View();
     METHOD
     CONSTANTS
     ACTIVE
     public static void main(String[] args) {
-        ProfileScrollCheck test = new ProfileScrollCheck(); Canvas canvas = new Canvas(); View row=new View(20, 230);
-        assert !test.drawBygramPageBackground(canvas,row) && canvas.draws==0;
+        ProfileScrollCheck test = new ProfileScrollCheck(); Canvas canvas = new Canvas();
+        assert !test.drawBygramPageBackground(canvas) && test.topView.bygramBackground.draws==0;
         BygramConfig.enabled=true;
         test.topView.bygramBackground.loaded=false;
-        assert !test.drawBygramPageBackground(canvas,row) && canvas.draws==0;
+        assert !test.drawBygramPageBackground(canvas) && test.topView.bygramBackground.draws==0;
         test.topView.bygramBackground.loaded=true;
-        assert test.drawBygramPageBackground(canvas,row);
-        assert canvas.saves==0 && canvas.dx==0 && canvas.dy==-200 && canvas.draws==1;
+        assert test.drawBygramPageBackground(canvas);
         ImageReceiver image=test.topView.bygramBackground;
         assert image.x==0 && image.y==0 && image.width==400 && image.height==800 && image.draws==1;
-        assert test.drawBygramPageBackground(canvas,new View(70,430));
-        assert canvas.dx==-50 && canvas.dy==-400 && image.height==800;
+        test.fragmentView = new View() { @Override int getWidth() { return 800; } @Override int getHeight() { return 400; } };
+        assert test.drawBygramPageBackground(canvas) && image.width==800 && image.height==400 && image.draws==2;
         test.topView=null;
-        assert !test.drawBygramPageBackground(canvas,row);
+        assert !test.drawBygramPageBackground(canvas);
         for (String key : new String[]{FULL_PROFILE_BACKGROUND,COLLAPSE_FOLDERS_ON_SCROLL,COLLAPSE_NAVIGATION_ON_SCROLL}) assert isActiveSetting(key);
         assert !isActiveSetting("bygram_unknown");
         System.out.println("PASS: real backdrop viewport alignment, missing-image fallback and active setting keys");

@@ -1,4 +1,5 @@
 """Account-scoped client helpers for plugins ported from exteraGram."""
+from contextlib import contextmanager
 from contextvars import ContextVar
 from bygram import Client
 
@@ -25,6 +26,18 @@ def get_hook_account():
     return _current.get()[1]
 
 
+@contextmanager
+def account_scope(account):
+    context = _context()
+    if account is not None:
+        AccountClient(account, _bridge=context._bridge)
+    token = _current.set((context, account))
+    try:
+        yield
+    finally:
+        _current.reset(token)
+
+
 def get_selected_account():
     from java import jclass
     return int(jclass("org.telegram.messenger.UserConfig").selectedAccount)
@@ -38,15 +51,11 @@ def get_client(account=None):
     callback_account = get_hook_account()
     if account is None:
         account = callback_account if callback_account is not None else get_selected_account()
-    return AccountClient(_context()._bridge, account)
+    return AccountClient(account)
 
 
 def send_request(request, fn, account=None):
-    if not callable(fn):
-        raise TypeError("InvalidTelegramRequest")
-    context = _context()
-    client = get_client(account)
-    return client.send_request(request, lambda response, error: _invoke(context, client.account, fn, response, error))
+    return get_client(account).send_request(request, fn)
 
 
 def _entities(values):
@@ -130,19 +139,20 @@ def send_audio(peer, path, caption="", account=None, **options):
     return _send_media("audio", peer, path, caption, account, **options)
 
 
-def edit_message(message, text=None, account=None, *, parse_mode=None, file_path=None, spoiler=False, with_spoiler=None):
+def edit_message(message, text=None, account=None, *, parse_mode=None, file_path=None, spoiler=False, with_spoiler=None,
+                 _client=None, **options):
     if with_spoiler is not None:
         spoiler = with_spoiler
     if account is None:
         account = int(message.currentAccount)
-    client = get_client(account)
+    client = get_client(account) if _client is None else _client
     if file_path is not None:
         from pathlib import Path
         suffix = Path(file_path).suffix.lower()
         kind = "photo" if suffix in (".jpg", ".jpeg", ".png", ".webp") else "video" if suffix in (".mp4", ".mov") else "document"
         caption = str(message.messageOwner.message or "") if text is None else text
-        return _send_media(kind, message.getDialogId(), file_path, caption, account,
-                           parse_mode=parse_mode, hasMediaSpoilers=spoiler, edit=message)
+        return _send_media(kind, message.getDialogId(), file_path, caption, client.account,
+                           parse_mode=parse_mode, hasMediaSpoilers=spoiler, edit=message, _client=client, **options)
     if parse_mode is None:
         return client.edit_text(message, text)
     from extera_utils.text_formatting import parse_text
@@ -226,6 +236,17 @@ get_user_config = _controller("getUserConfig")
 
 
 class AccountClient(Client):
+    def __init__(self, account, legacy_account=None, *, _bridge=None):
+        if legacy_account is not None:
+            _bridge, account = account, legacy_account
+        super().__init__(_context()._bridge if _bridge is None else _bridge, account)
+
+    def send_request(self, request, fn):
+        if not callable(fn):
+            raise TypeError("InvalidTelegramRequest")
+        context = _context()
+        return super().send_request(request, lambda response, error: _invoke(context, self.account, fn, response, error))
+
     def send_text(self, peer, text, *, parse_mode=None, **options):
         if parse_mode is None and not options:
             return super().send_text(peer, text)
@@ -237,17 +258,21 @@ class AccountClient(Client):
     def send_media(self, peer, kind, path, caption="", **options):
         return _send_media(kind, peer, path, caption, self.account, _client=self, **options)
 
-    def send_photo(self, peer, path, caption="", **options):
-        return self.send_media(peer, "photo", path, caption, **options)
+    def send_photo(self, peer, file_path=None, caption="", high_quality=False, **options):
+        return self.send_media(peer, "photo", options.pop("path", file_path), caption, high_quality=high_quality, **options)
 
-    def send_document(self, peer, path, caption="", **options):
-        return self.send_media(peer, "document", path, caption, **options)
+    def send_document(self, peer, file_path=None, caption="", **options):
+        return self.send_media(peer, "document", options.pop("path", file_path), caption, **options)
 
-    def send_video(self, peer, path, caption="", **options):
-        return self.send_media(peer, "video", path, caption, **options)
+    def send_video(self, peer, file_path=None, caption="", **options):
+        return self.send_media(peer, "video", options.pop("path", file_path), caption, **options)
 
-    def send_audio(self, peer, path, caption="", **options):
-        return self.send_media(peer, "audio", path, caption, **options)
+    def send_audio(self, peer, file_path=None, caption="", **options):
+        return self.send_media(peer, "audio", options.pop("path", file_path), caption, **options)
+
+    def edit_message(self, message_obj, text=None, file_path=None, with_spoiler=False, *, parse_mode=None, **options):
+        return edit_message(message_obj, text, file_path=file_path, with_spoiler=with_spoiler,
+                            parse_mode=parse_mode, _client=self, **options)
 
     def get_account_instance(self):
         from java import jclass

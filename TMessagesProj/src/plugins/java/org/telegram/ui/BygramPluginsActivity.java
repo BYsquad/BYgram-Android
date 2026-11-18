@@ -11,31 +11,47 @@ import android.widget.Switch;
 import com.google.gson.*;
 import org.telegram.messenger.*;
 import org.telegram.messenger.plugins.*;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.utils.glass.BaseFragmentSimpleGlass;
 import org.telegram.ui.ActionBar.*;
 import org.telegram.ui.Components.*;
 import java.util.*;
 
 public final class BygramPluginsActivity extends BygramSettingsPage {
+    private static final int CATALOG_SUBMIT = 9, CATALOG_FILTER = 21, CATALOG_RETRY = 22,
+            CATALOG_SOURCE = 23, CATALOG_PURCHASES = 24, CATALOG_ENTRY = 100;
     private final PluginManager manager = PluginManager.get();
     private final String pluginId;
+    private final boolean catalogPage;
+    private String repository;
+    private JsonArray catalogEntries;
+    private final TreeSet<String> catalogCategories = new TreeSet<>();
+    private String catalogError;
+    private String catalogCategory;
+    private String catalogQuery = "";
+    private final Map<String, TLRPC.TL_messages_stickerSet> catalogStickers = new HashMap<>();
     private UniversalRecyclerView list;
     private TextView catalogButton;
     private boolean busy;
     private boolean destroyed;
     private String stagedToken;
+    private long stagedBuyer;
     private BottomSheet installSheet;
     private PluginCatalog.Request catalogRequest;
     private long catalogGeneration;
     private AutoCloseable fileRequest;
     private long fileGeneration;
     private final Runnable changed = () -> { if (list != null) list.adapter.update(true); };
-    public BygramPluginsActivity() { this(null); }
-    private BygramPluginsActivity(String id) { pluginId = id; }
+    public BygramPluginsActivity() { this(null, false); }
+    private BygramPluginsActivity(String id, boolean catalogPage) {
+        pluginId = id;
+        this.catalogPage = catalogPage;
+    }
 
     @Override public boolean onFragmentCreate() {
         if (!super.onFragmentCreate()) return false;
-        manager.listen(changed); manager.refresh(); return true;
+        if (!catalogPage) { manager.listen(changed); manager.refresh(); }
+        return true;
     }
     @Override public void onFragmentDestroy() {
         destroyed = true; manager.unlisten(changed);
@@ -46,11 +62,25 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         catalogButton = null;
         list = null; super.onFragmentDestroy();
     }
-    @Override public void onResume() { super.onResume(); manager.refresh(); }
+    @Override public void onResume() { super.onResume(); if (!catalogPage) manager.refresh(); }
     @Override public View createView(Context context) {
         simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        simpleActionBar.setTitle(getString(R.string.BygramPluginsBeta));
-        if (pluginId == null) simpleActionBar.createMenu().addItem(3, R.drawable.msg_info)
+        simpleActionBar.setTitle(getString(catalogPage ? R.string.BygramPluginCatalog : R.string.BygramPluginsBeta));
+        if (catalogPage) {
+            ActionBarMenuItem search = simpleActionBar.createMenu().addItem(0, R.drawable.outline_header_search)
+                    .setIsSearchField(true).setActionBarMenuItemSearchListener(new ActionBarMenuItem.ActionBarMenuItemSearchListener() {
+                        @Override public void onTextChanged(EditText input) {
+                            catalogQuery = input.getText().toString().trim().toLowerCase(Locale.ROOT);
+                            changed.run();
+                        }
+                        @Override public void onSearchCollapse() {
+                            catalogQuery = "";
+                            changed.run();
+                        }
+                    });
+            search.setContentDescription(getString(R.string.Search));
+            search.setSearchFieldHint(getString(R.string.Search));
+        } else if (pluginId == null) simpleActionBar.createMenu().addItem(3, R.drawable.msg_info)
                 .setContentDescription(getString(R.string.BygramPluginHelp));
         simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) {
@@ -61,14 +91,18 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         FrameLayout content = createSettingsContent(context);
         content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
         list = new UniversalRecyclerView(this, this::fill, this::click, (item, view, position, x, y) ->
-                BygramSettingsActivity.showLinkMenu(this, view, list, "plugins"));
+                !catalogPage && BygramSettingsActivity.showLinkMenu(this, view, list, "plugins"));
         list.setSections(); list.adapter.setApplyBackground(false);
         content.addView(list, LayoutHelper.createFrame(-1, -1));
-        if (pluginId == null) {
+        if (catalogPage) {
+            if (catalogEntries == null && catalogError == null && catalogRequest == null) openCatalog(repository);
+        } else if (pluginId == null) {
             catalogButton = PluginPackageSheet.primaryButton(context, getString(R.string.BygramPluginCatalog));
             catalogButton.setPadding(dp(24), 0, dp(24), 0);
             catalogButton.setOnClickListener(view -> {
-                if (!busy && state().has("plugins")) openRepositories();
+                BygramPluginsActivity page = new BygramPluginsActivity(null, true);
+                page.setCurrentAccount(currentAccount);
+                presentFragment(page);
             });
             content.addView(catalogButton, LayoutHelper.createFrame(-2, 48, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 12, 0, 12, 10));
         }
@@ -88,17 +122,21 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         return state.has("plugins") && pluginId != null ? state.getAsJsonObject("plugins").getAsJsonObject(pluginId) : null;
     }
     private void fill(ArrayList<UItem> items, UniversalAdapter adapter) {
+        if (catalogPage) {
+            fillCatalog(items);
+            return;
+        }
         JsonObject state = state();
         if (!state.has("plugins")) {
             items.add(UItem.asShadow(manager.failure().isEmpty() ? getString(R.string.Loading) : errorText(manager.failure())));
             if (pluginId == null) {
-                items.add(UItem.asButton(5, getString(R.string.BygramPluginRecoveryTitle)));
                 if (!manager.failure().isEmpty()) items.add(UItem.asButton(6, getString(R.string.BygramPluginResetRegistry)));
             }
             return;
         }
         if (pluginId == null) {
-            items.add(UItem.asCustomShadow(1, engineCard(state.get("engine").getAsBoolean())));
+            items.add(UItem.asCheck(1, getString(R.string.BygramPluginEngine))
+                    .setChecked(state.get("engine").getAsBoolean()).setEnabled(!busy));
             if (state.has("recovery_error")) items.add(UItem.asShadow(getString(R.string.BygramPluginErrorRecovery) + "\n" + state.get("recovery_error").getAsString()));
             if (state.has("recovered") && state.get("recovered").getAsBoolean()) items.add(UItem.asShadow(getString(R.string.BygramPluginRegistryRecovered)));
             if (!HookBridge.available()) items.add(UItem.asShadow(getString(R.string.BygramPluginHooksUnavailable)));
@@ -111,9 +149,7 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
                 items.add(UItem.asCustomShadow(100 + i, pluginCard(id, plugins.getAsJsonObject(id))));
             }
             items.add(UItem.asButton(2, getString(R.string.BygramPluginInstall)));
-            items.add(UItem.asButton(9, getString(R.string.BygramPluginSubmit)));
             items.add(UItem.asCheck(4, getString(R.string.BygramPluginSafeMode)).setChecked(state.get("safe").getAsBoolean()));
-            items.add(UItem.asButton(5, getString(R.string.BygramPluginRecoveryTitle)));
         } else {
             JsonObject record = record();
             if (record == null) { items.add(UItem.asShadow(getString(R.string.BygramPluginEmpty))); return; }
@@ -147,31 +183,11 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             items.add(UItem.asButton(14, getString(R.string.Delete)));
         }
         if (busy) items.add(UItem.asShadow(getString(R.string.Loading)));
-        if (catalogRequest != null) items.add(0, UItem.asButton(8, getString(R.string.Cancel)));
         if (fileRequest != null) items.add(0, UItem.asButton(20, getString(R.string.Cancel)));
     }
 
     private static boolean isPinned(JsonObject record) {
         return record.has("pinned") && record.get("pinned").getAsBoolean();
-    }
-
-    private View engineCard(boolean enabled) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(4), dp(12), dp(4));
-        row.setBackground(Theme.createRoundRectDrawable(dp(24), Theme.getColor(enabled
-                ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhite)));
-        Switch toggle = new Switch(getContext());
-        toggle.setText(getString(R.string.BygramPluginEngine));
-        toggle.setTextColor(Theme.getColor(enabled ? Theme.key_featuredStickers_buttonText : Theme.key_windowBackgroundWhiteBlackText));
-        toggle.setChecked(enabled);
-        toggle.setEnabled(!busy);
-        toggle.setOnClickListener(view -> {
-            toggle.setChecked(enabled);
-            click(UItem.asCustom(1, row), view, 0, 0, 0);
-        });
-        row.addView(toggle, LayoutHelper.createLinear(-1, 48));
-        return insetCard(row);
     }
 
     private View pluginCard(String id, JsonObject record) {
@@ -252,12 +268,21 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
     }
 
     private void openDetails(String id) {
-        BygramPluginsActivity page = new BygramPluginsActivity(id);
+        BygramPluginsActivity page = new BygramPluginsActivity(id, false);
         page.setCurrentAccount(currentAccount);
         presentFragment(page);
     }
 
     private void sharePackage(String id) {
+        JsonObject plugins = manager.snapshot().getAsJsonObject("plugins");
+        JsonObject installed = plugins == null ? null : plugins.getAsJsonObject(id);
+        if (installed != null && installed.has("source") && "paid_catalog".equals(installed.get("source").getAsString())) {
+            Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, PluginCatalog.STORE_WEB + "?plugin=" + android.net.Uri.encode(id));
+            try { getContext().startActivity(Intent.createChooser(send, getString(R.string.ShareLink))); }
+            catch (ActivityNotFoundException failure) { message(getString(R.string.ErrorOccurred)); }
+            return;
+        }
         busy = true;
         changed.run();
         manager.exportPackage(id, (uri, error) -> {
@@ -283,16 +308,21 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
     }
 
     private void removePlugin(String id) {
-        showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.Delete))
+        if (busy) return;
+        showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.Delete) + " " + id + "?")
                 .setItems(new CharSequence[]{getString(R.string.BygramPluginKeepData), getString(R.string.BygramPluginDeleteData)},
-                        (dialog, which) -> confirm(getString(R.string.Delete) + " " + id + "?", () -> {
+                        (dialog, which) -> {
                             busy = true;
                             changed.run();
+                            AlertDialog progress = new AlertDialog(getContext(), AlertDialog.ALERT_TYPE_SPINNER);
+                            progress.setCanCancel(false);
+                            showDialog(progress);
                             manager.remove(id, which == 1, (value, error) -> {
+                                progress.dismiss();
                                 completed(value, error);
                                 if (error == null && id.equals(pluginId) && !destroyed) finishFragment();
                             });
-                        })).create());
+                        }).setNegativeButton(getString(R.string.Cancel), null).create());
     }
     private String status(JsonObject record) {
         String status = activeStatus(record);
@@ -398,8 +428,8 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
     private void click(UItem item, View view, int position, float x, float y) {
         if (item.id == 20) { cancelFile(); return; }
         if (item.id == 8) { cancelCatalog(); return; }
-        if (pluginId == null && item.id == 5) { getContext().startActivity(new Intent(getContext(), PluginRecovery.class)); return; }
         if (busy) return;
+        if (catalogPage) { clickCatalog(item.id); return; }
         if (pluginId == null) {
             if (item.id == 6) {
                 confirm(getString(R.string.BygramPluginResetRegistryConfirm), () -> { busy = true; changed.run(); manager.resetRegistry(this::completed); });
@@ -412,8 +442,7 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             } else if (item.id == 2) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
                 try { startActivityForResult(intent, 5092); } catch (Exception e) { message(getString(R.string.ErrorOccurred)); }
-            } else if (item.id == 9) { PluginSubmissionPage page = new PluginSubmissionPage(); page.setCurrentAccount(currentAccount); presentFragment(page); }
-            else if (item.id == 4) manager.safeMode(!state().get("safe").getAsBoolean(), this::completed);
+            } else if (item.id == 4) manager.safeMode(!state().get("safe").getAsBoolean(), this::completed);
         } else {
             JsonObject record = record(); if (record == null) return;
             if (item.id == 10) togglePlugin(pluginId, record);
@@ -485,10 +514,14 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         changed.run();
     }
     private void staged(String token, String error) {
+        staged(token, error, 0);
+    }
+    private void staged(String token, String error, long buyer) {
             busy = false; changed.run();
             if (destroyed) { if (token != null) manager.commit(token, false, null); return; }
             if (error != null) { message(errorText(error)); return; }
             stagedToken = token;
+            stagedBuyer = buyer;
             if (getParentActivity() == null) { finishStage(token, false); return; }
             manager.preview(token, (manifest, previewError) -> {
                 if (destroyed || !token.equals(stagedToken)) return;
@@ -496,7 +529,7 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
                 if (previewError != null) { finishStage(token, false); message(errorText(previewError)); return; }
                 installSheet = PluginPackageSheet.show(getContext(), manifest, token, accept -> {
                     installSheet = null;
-                    finishStage(token, accept);
+                    finishStage(token, accept && (stagedBuyer == 0 || getUserConfig().getClientUserId() == stagedBuyer));
                 });
             });
     }
@@ -554,72 +587,281 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         preferences.edit().putStringSet("urls", urls).apply();
     }
     private void openCatalog(String repository) {
-        busy = true; changed.run();
+        this.repository = repository;
+        catalogEntries = null;
+        catalogCategories.clear();
+        catalogError = null;
+        catalogCategory = null;
+        busy = true;
         long generation = ++catalogGeneration;
         catalogRequest = manager.catalog(repository, currentAccount, (entries, error) -> {
-            if (generation != catalogGeneration) return;
+            if (generation != catalogGeneration || destroyed) return;
             catalogRequest = null;
-            busy = false; changed.run();
-            if (destroyed || getParentActivity() == null) return;
-            if (error != null) { message(errorText(error)); return; }
-            if (entries.size() == 0) { message(getString(R.string.BygramPluginEmpty)); return; }
-            TreeSet<String> categories = new TreeSet<>();
-            for (JsonElement entry : entries) {
-                JsonArray values = entry.getAsJsonObject().getAsJsonObject("manifest").getAsJsonArray("category");
-                if (values != null) for (JsonElement value : values) categories.add(value.getAsString());
+            catalogEntries = entries;
+            if (entries != null) {
+                for (JsonElement entry : entries) {
+                    JsonObject manifest = entry.getAsJsonObject().getAsJsonObject("manifest");
+                    JsonArray values = manifest.getAsJsonArray("category");
+                    if (values != null) for (JsonElement value : values) catalogCategories.add(value.getAsString());
+                    if (manifest.has("sticker_icon")) loadCatalogStickerSet(manifest.get("sticker_icon").getAsString());
+                }
             }
-            if (categories.isEmpty()) {
-                showCatalogEntries(repository, entries);
-            } else {
-                String[] filters = new String[categories.size() + 1];
-                filters[0] = getString(R.string.FilterAllChatsShort);
-                int row = 1;
-                for (String category : categories) filters[row++] = category;
-                showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalog))
-                        .setItems(filters, (dialog, index) -> {
-                            JsonArray filtered = new JsonArray();
-                            JsonPrimitive category = new JsonPrimitive(filters[index]);
-                            for (JsonElement entry : entries) {
-                                JsonArray values = entry.getAsJsonObject().getAsJsonObject("manifest").getAsJsonArray("category");
-                                if (index == 0 || values != null && values.contains(category)) filtered.add(entry);
-                            }
-                            AndroidUtilities.runOnUIThread(() -> {
-                                if (!destroyed && getParentActivity() != null && generation == catalogGeneration)
-                                    showCatalogEntries(repository, filtered);
-                            });
-                        })
-                        .setNegativeButton(getString(R.string.Cancel), null).create());
-            }
+            catalogError = error;
+            busy = false;
+            changed.run();
         });
         changed.run();
     }
 
-    private void showCatalogEntries(String repository, JsonArray entries) {
-        CharSequence[] titles = new CharSequence[entries.size()];
-        for (int i = 0; i < titles.length; i++) {
-            JsonObject manifest = entries.get(i).getAsJsonObject().getAsJsonObject("manifest");
+    private void fillCatalog(ArrayList<UItem> items) {
+        items.add(UItem.asButton(CATALOG_SUBMIT, getString(R.string.BygramPluginSubmit)).setEnabled(!busy));
+        items.add(UItem.asButton(CATALOG_SOURCE, getString(R.string.BygramPluginCatalogSource),
+                repository == null ? getString(R.string.BygramPluginOfficialCatalog) : repository).setEnabled(!busy));
+        if (repository == null && catalogEntries != null)
+            items.add(UItem.asButton(CATALOG_PURCHASES, getString(R.string.BygramPluginPurchases)).setEnabled(!busy));
+        if (catalogRequest != null) items.add(UItem.asButton(8, getString(R.string.Cancel)));
+        if (busy) items.add(UItem.asShadow(getString(R.string.Loading)));
+        if (catalogEntries == null) {
+            if (!busy) {
+                if (catalogError != null) items.add(UItem.asShadow(errorText(catalogError)));
+                items.add(UItem.asButton(CATALOG_RETRY, getString(R.string.Retry)));
+            }
+            return;
+        }
+        if (catalogEntries.size() == 0) items.add(UItem.asShadow(getString(R.string.BygramPluginEmpty)));
+        if (!catalogCategories.isEmpty()) {
+            items.add(UItem.asButton(CATALOG_FILTER, getString(R.string.BygramPluginCatalogCategory),
+                    catalogCategory == null ? getString(R.string.FilterAllChatsShort) : catalogCategory).setEnabled(!busy));
+        }
+        int firstResult = items.size();
+        for (int i = 0; i < catalogEntries.size(); i++) {
+            JsonObject entry = catalogEntries.get(i).getAsJsonObject();
+            JsonObject manifest = entry.getAsJsonObject("manifest");
+            JsonArray values = manifest.getAsJsonArray("category");
+            if (catalogCategory != null && (values == null || !values.contains(new JsonPrimitive(catalogCategory)))) continue;
+            String name = manifest.get("name").getAsString();
+            String id = entry.has("extera_id") ? entry.get("extera_id").getAsString()
+                    : manifest.has("id") ? manifest.get("id").getAsString() : "";
+            if (!name.toLowerCase(Locale.ROOT).contains(catalogQuery) && !id.toLowerCase(Locale.ROOT).contains(catalogQuery)) continue;
             String version = manifest.get("version").getAsString();
-            titles[i] = manifest.get("name").getAsString() + (version.isEmpty() ? "" : " · " + version);
-            JsonArray categories = manifest.getAsJsonArray("category");
-            if (categories != null) {
-                StringBuilder title = new StringBuilder(titles[i]);
-                for (JsonElement category : categories) title.append(" · ").append(category.getAsString());
-                titles[i] = title.toString();
+            if (entry.has("purchase")) {
+                JsonObject price = entry.getAsJsonObject("purchase");
+                ArrayList<String> prices = new ArrayList<>();
+                if (price.get("stars").getAsLong() > 0) prices.add(price.get("stars").getAsString() + " ★");
+                if (price.get("nano").getAsLong() > 0) prices.add(tonPrice(price.get("nano").getAsString()));
+                if (!prices.isEmpty()) version += " · " + String.join(" / ", prices);
+            }
+            TLRPC.Document sticker = manifest.has("sticker_icon") ? catalogSticker(manifest.get("sticker_icon").getAsString()) : null;
+            items.add((sticker == null ? UItem.asButton(CATALOG_ENTRY + i, R.drawable.settings_account, name, version)
+                    : UItem.asStickerButton(CATALOG_ENTRY + i, version.isEmpty() ? name : name + " · " + version, sticker)).setEnabled(!busy));
+        }
+        if (items.size() == firstResult && !catalogQuery.isEmpty()) items.add(UItem.asShadow(getString(R.string.NoResult)));
+    }
+
+    private void loadCatalogStickerSet(String reference) {
+        String name = reference.substring(0, reference.indexOf('/'));
+        if (catalogStickers.containsKey(name)) return;
+        catalogStickers.put(name, null);
+        TLRPC.TL_inputStickerSetShortName input = new TLRPC.TL_inputStickerSetShortName();
+        input.short_name = name;
+        MediaDataController.getInstance(currentAccount).getStickerSet(input, 0, false, set -> {
+            if (!destroyed && set != null) {
+                catalogStickers.put(name, set);
+                changed.run();
+            }
+        });
+    }
+
+    private TLRPC.Document catalogSticker(String reference) {
+        int slash = reference.indexOf('/');
+        TLRPC.TL_messages_stickerSet set = catalogStickers.get(reference.substring(0, slash));
+        int index = Integer.parseInt(reference.substring(slash + 1));
+        return set != null && index < set.documents.size() ? set.documents.get(index) : null;
+    }
+
+    private void clickCatalog(int id) {
+        if (id == CATALOG_SUBMIT) {
+            PluginSubmissionPage page = new PluginSubmissionPage();
+            page.setCurrentAccount(currentAccount);
+            presentFragment(page);
+        } else if (id == CATALOG_SOURCE) {
+            openRepositories();
+        } else if (id == CATALOG_RETRY) {
+            openCatalog(repository);
+        } else if (id == CATALOG_PURCHASES) {
+            storeRequest(this::showPurchases, "action", "store_status", "library", true);
+        } else if (id == CATALOG_FILTER) {
+            ArrayList<String> filters = new ArrayList<>(catalogCategories);
+            filters.add(0, getString(R.string.FilterAllChatsShort));
+            showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalogCategory))
+                    .setItems(filters.toArray(new String[0]), (dialog, index) -> {
+                        catalogCategory = index == 0 ? null : filters.get(index);
+                        changed.run();
+                    }).setNegativeButton(getString(R.string.Cancel), null).create());
+        } else if (id >= CATALOG_ENTRY && catalogEntries != null && id - CATALOG_ENTRY < catalogEntries.size()) {
+            JsonObject entry = catalogEntries.get(id - CATALOG_ENTRY).getAsJsonObject();
+            if (repository == null && entry.has("purchase")) requestStoreStatus(status -> openPaidEntry(entry, status));
+            else downloadEntry(entry, null, 0);
+        }
+    }
+    private static String tonPrice(String nano) {
+        return new java.math.BigDecimal(nano).movePointLeft(9).stripTrailingZeros().toPlainString() + " TON";
+    }
+    private void downloadEntry(JsonObject entry, String archive, long buyer) {
+        busy = true;
+        long generation = ++catalogGeneration;
+        catalogRequest = manager.stageCatalog(repository, currentAccount, entry, archive, (token, error) -> {
+            if (generation != catalogGeneration || destroyed || (buyer != 0 && buyer != getUserConfig().getClientUserId())) {
+                if (token != null) manager.commit(token, false, null);
+                if (!destroyed && generation == catalogGeneration) { catalogRequest = null; busy = false; changed.run(); }
+                return;
+            }
+            catalogRequest = null;
+            staged(token, error, buyer);
+        });
+        changed.run();
+    }
+    private void storeRequest(Utilities.Callback<org.json.JSONObject> success, Object... fields) {
+        busy = true;
+        changed.run();
+        long generation = ++catalogGeneration;
+        BygramTypingController.pluginStoreRequest(currentAccount, response -> {
+            if (destroyed || generation != catalogGeneration) return;
+            busy = false;
+            changed.run();
+            if (response != null && response.optBoolean("ok")) { success.run(response); return; }
+            if (response != null && response.optBoolean("needs_registration")) {
+                confirmStoreLogin(this, () -> storeRequest(success, fields));
+                return;
+            }
+            message(response == null ? getString(R.string.ErrorOccurred) : response.optString("error", getString(R.string.ErrorOccurred)));
+        }, fields);
+    }
+    private static void confirmStoreLogin(BygramSettingsPage page, Runnable retry) {
+        if (page.getParentActivity() == null) return;
+        page.showDialog(new AlertDialog.Builder(page.getParentActivity()).setMessage(getString(R.string.BygramPluginStoreLogin))
+                .setPositiveButton(getString(R.string.Open), (d, w) -> BygramTypingController.pluginStoreLogin(page.getCurrentAccount(), url -> {
+                    if (!url.isEmpty()) BygramTypingController.openAccountLogin(page.getParentActivity(), url);
+                }))
+                .setNeutralButton(getString(R.string.Retry), (d, w) -> retry.run())
+                .setNegativeButton(getString(R.string.Cancel), null).create());
+    }
+    private void requestStoreStatus(Utilities.Callback<org.json.JSONObject> success) {
+        storeRequest(success, "action", "store_status");
+    }
+    private boolean owns(org.json.JSONObject status, String id) {
+        org.json.JSONArray owned = status.optJSONArray("owned");
+        if (owned != null) for (int i = 0; i < owned.length(); i++) if (id.equals(owned.optString(i))) return true;
+        return false;
+    }
+    private void showPurchases(org.json.JSONObject status) {
+        ArrayList<JsonObject> entries = new ArrayList<>();
+        ArrayList<String> names = new ArrayList<>();
+        Map<String, JsonObject> listed = new HashMap<>();
+        for (JsonElement value : catalogEntries) {
+            JsonObject entry = value.getAsJsonObject();
+            JsonObject manifest = entry.getAsJsonObject("manifest");
+            if (!entry.has("purchase")) continue;
+            String id = manifest.get("id").getAsString();
+            listed.put(id, entry);
+            if (owns(status, id)) {
+                entries.add(entry);
+                names.add(manifest.get("name").getAsString());
             }
         }
-        showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginCatalog))
-                .setItems(titles, (d, index) -> {
-                    busy = true; changed.run();
-                    long download = ++catalogGeneration;
-                    catalogRequest = manager.stageCatalog(repository, currentAccount, entries.get(index).getAsJsonObject(), (token, failure) -> {
-                        if (download != catalogGeneration || destroyed) {
-                            if (token != null) manager.commit(token, false, null);
-                            return;
-                        }
-                        catalogRequest = null; staged(token, failure);
-                    });
-                    changed.run();
-                }).setNegativeButton(getString(R.string.Cancel), null).create());
+        org.json.JSONObject library = status.optJSONObject("library");
+        if (library != null) try {
+            for (JsonElement value : manager.purchasedEntries(library.toString())) {
+                JsonObject entry = value.getAsJsonObject();
+                JsonObject manifest = entry.getAsJsonObject("manifest");
+                String id = manifest.get("id").getAsString();
+                if (listed.containsKey(id) || !owns(status, id)) continue;
+                listed.put(id, entry);
+                entries.add(entry);
+                names.add(manifest.get("name").getAsString() + " · " + manifest.get("version").getAsString());
+            }
+        } catch (Exception invalid) { FileLog.e(invalid); }
+        org.json.JSONArray orders = status.optJSONArray("orders");
+        if (orders != null) for (int i = 0; i < orders.length(); i++) {
+            org.json.JSONObject order = orders.optJSONObject(i);
+            if (order == null) continue;
+            String id = order.optString("plugin_id");
+            String state = order.optString("status");
+            if ("paid".equals(state) && listed.containsKey(id) && owns(status, id)) continue;
+            int label;
+            switch (state) {
+                case "pending": label = R.string.BygramPluginOrderPending; break;
+                case "refunded": label = R.string.BygramPluginOrderRefunded; break;
+                case "paid": label = R.string.BygramPluginOrderPaid; break;
+                default: label = R.string.BygramPluginOrderExpired;
+            }
+            entries.add("pending".equals(state) ? listed.get(id) : null);
+            names.add(id + " · " + getString(label));
+        }
+        if (names.isEmpty()) { message(getString(R.string.BygramPluginEmpty)); return; }
+        showDialog(new AlertDialog.Builder(getContext()).setTitle(getString(R.string.BygramPluginPurchases))
+                .setItems(names.toArray(new String[0]), (dialog, index) -> {
+                    JsonObject entry = entries.get(index);
+                    if (entry != null) openPaidEntry(entry, status);
+                    else message(names.get(index));
+                }).create());
+    }
+    private void openPaidEntry(JsonObject entry, org.json.JSONObject status) {
+        if (getParentActivity() == null) return;
+        JsonObject manifest = entry.getAsJsonObject("manifest");
+        String hash = entry.get("sha256").getAsString();
+        if (owns(status, manifest.get("id").getAsString())) {
+            long buyer = getUserConfig().getClientUserId();
+            storeRequest(download -> downloadEntry(entry, download.optString("archive"), buyer), "action", "store_download", "hash", hash);
+            return;
+        }
+        JsonObject purchase = entry.getAsJsonObject("purchase");
+        ArrayList<String> methods = new ArrayList<>();
+        ArrayList<String> labels = new ArrayList<>();
+        if (purchase.get("stars").getAsLong() > 0) {
+            methods.add("stars");
+            labels.add(purchase.get("stars").getAsString() + " ★" + (purchase.get("stars_test").getAsBoolean() ? " · Test" : ""));
+        }
+        if (purchase.get("nano").getAsLong() > 0) {
+            methods.add("ton");
+            labels.add(tonPrice(purchase.get("nano").getAsString()) + (purchase.get("ton_test").getAsBoolean() ? " · Testnet" : ""));
+        }
+        if (methods.isEmpty()) { message(getString(R.string.BygramPluginShopUnavailable)); return; }
+        showDialog(new AlertDialog.Builder(getContext()).setTitle(manifest.get("name").getAsString())
+                .setItems(labels.toArray(new String[0]), (dialog, index) -> showDialog(new AlertDialog.Builder(getContext())
+                        .setTitle(labels.get(index)).setMessage(getString(R.string.BygramPluginNoRefund)
+                                + ("ton".equals(methods.get(index)) ? "\n\n" + getString(R.string.BygramPluginTonAuthorRefund) : ""))
+                        .setNegativeButton(getString(R.string.Cancel), null)
+                        .setNeutralButton(getString(R.string.BygramPluginPurchaseSupport), (d, w) ->
+                                org.telegram.messenger.browser.Browser.openUrlInSystemBrowser(getContext(),
+                                        "https://byxarek.site/TEST-PROJECT/BYgram/api/manager.php"))
+                        .setPositiveButton(getString(R.string.BygramPluginAgreeAndPay), (d, w) -> storeRequest(
+                                order -> openCheckout(methods.get(index), order.optString("url")),
+                                "action", "store_order", "hash", hash, "method", methods.get(index),
+                                "key", UUID.randomUUID().toString().replace("-", ""), "terms", purchase.get("terms").getAsString()))
+                        .create())).setNegativeButton(getString(R.string.Cancel), null).create());
+    }
+    private void openCheckout(String method, String url) {
+        if (destroyed || getParentActivity() == null) return;
+        if (method.equals("ton") && url.startsWith(PluginCatalog.TON_CHECKOUT)
+                && url.substring(PluginCatalog.TON_CHECKOUT.length()).matches("[0-9a-f]{32}")) {
+            org.telegram.messenger.browser.Browser.openUrlInSystemBrowser(getContext(), url);
+        } else if (method.equals("stars") && url.matches("https://t\\.me/(?:\\$|invoice/)[A-Za-z0-9_-]+")) {
+            long buyer = getUserConfig().getClientUserId();
+            TLRPC.TL_inputInvoiceSlug invoice = new TLRPC.TL_inputInvoiceSlug();
+            invoice.slug = url.substring(url.lastIndexOf('/') + 1).replaceFirst("^\\$", "");
+            TLRPC.TL_payments_getPaymentForm request = new TLRPC.TL_payments_getPaymentForm();
+            request.invoice = invoice;
+            getConnectionsManager().sendRequest(request, (result, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (destroyed || buyer != getUserConfig().getClientUserId() || getParentActivity() == null) return;
+                if (result instanceof TLRPC.TL_payments_paymentFormStars) {
+                    org.telegram.ui.Stars.StarsController.getInstance(currentAccount).openPaymentForm(null, invoice,
+                            (TLRPC.TL_payments_paymentFormStars) result, null, resultStatus -> {
+                                if (!destroyed && "paid".equals(resultStatus)) message(getString(R.string.BygramPluginPaymentPending));
+                            });
+                } else message(getString(R.string.ErrorOccurred));
+            }));
+        } else message(getString(R.string.ErrorOccurred));
     }
     private void cancelCatalog() {
         ++catalogGeneration;
@@ -637,6 +879,9 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
         private android.widget.EditText repository;
         private android.widget.TextView status;
         private android.widget.Button submit;
+        private android.widget.Button paidSubmit;
+        private android.widget.EditText starsPrice;
+        private android.widget.EditText tonPrice;
         private boolean closed;
         private android.widget.TextView help;
         @Override protected int settingsBackgroundKey() { return Theme.key_windowBackgroundWhite; }
@@ -668,6 +913,22 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             repository.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteHintText));
             repository.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)}); form.addView(repository);
             submit = new android.widget.Button(context); submit.setText(getString(R.string.Send)); form.addView(submit);
+            starsPrice = priceInput(context, R.string.BygramPluginPriceStars);
+            tonPrice = priceInput(context, R.string.BygramPluginPriceTon);
+            form.addView(starsPrice);
+            form.addView(tonPrice);
+            android.widget.Button wallet = new android.widget.Button(context);
+            wallet.setText(getString(R.string.BygramPluginAuthorWallet));
+            wallet.setOnClickListener(view -> org.telegram.messenger.browser.Browser.openUrlInSystemBrowser(context,
+                    PluginCatalog.STORE_WEB + "?wallet=1"));
+            form.addView(wallet);
+            paidSubmit = new android.widget.Button(context);
+            paidSubmit.setText(getString(R.string.BygramPluginSubmitPaid));
+            form.addView(paidSubmit);
+            paidSubmit.setOnClickListener(view -> {
+                Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult(picker, 5095);
+            });
             status = new android.widget.TextView(context); status.setTextSize(16);
             status.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)); form.addView(status);
             submit.setOnClickListener(view -> {
@@ -686,6 +947,78 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
             scroll.addView(form); content.addView(scroll, LayoutHelper.createFrame(-1, -1));
             content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             loadStatus(); return fragmentView = content;
+        }
+        private android.widget.EditText priceInput(Context context, int label) {
+            android.widget.EditText field = new org.telegram.ui.Components.EditTextBoldCursor(context);
+            field.setSingleLine(true);
+            field.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | (label == R.string.BygramPluginPriceTon
+                    ? android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL : 0));
+            field.setHint(getString(label));
+            field.setContentDescription(getString(label));
+            field.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            field.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteHintText));
+            field.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(20)});
+            return field;
+        }
+        @Override public void onActivityResultFragment(int request, int result, Intent intent) {
+            super.onActivityResultFragment(request, result, intent);
+            if (request != 5095 || result != Activity.RESULT_OK || intent == null || intent.getData() == null || closed) return;
+            sendPaid(intent.getData());
+        }
+        private void sendPaid(android.net.Uri uri) {
+            if (closed || getParentActivity() == null) return;
+            String stars = starsPrice.getText().toString().trim();
+            String ton = tonPrice.getText().toString().trim().replace(',', '.');
+            long starsAmount;
+            long nano;
+            try {
+                starsAmount = stars.isEmpty() ? 0 : Long.parseLong(stars);
+                nano = ton.isEmpty() ? 0 : new java.math.BigDecimal(ton).movePointRight(9).longValueExact();
+                if (starsAmount < 0 || starsAmount > 10_000 || nano < 0 || nano > 100_000_000_000_000L
+                        || (starsAmount == 0 && nano == 0)) throw new NumberFormatException();
+            } catch (ArithmeticException | NumberFormatException error) {
+                status.setText(getString(R.string.BygramPluginInvalidPrice));
+                return;
+            }
+            paidSubmit.setEnabled(false);
+            status.setText(getString(R.string.Loading));
+            long author = getUserConfig().getClientUserId();
+            ContentResolver resolver = getParentActivity().getContentResolver();
+            Utilities.globalQueue.postRunnable(() -> {
+                String encoded = null;
+                try (java.io.InputStream in = resolver.openInputStream(uri);
+                     java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                    if (in == null) throw new java.io.IOException("No archive");
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        if (out.size() + count > 10 * 1024 * 1024) throw new java.io.IOException("Archive too large");
+                        out.write(buffer, 0, count);
+                    }
+                    encoded = android.util.Base64.encodeToString(out.toByteArray(),
+                            android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP | android.util.Base64.NO_PADDING);
+                } catch (java.io.IOException | SecurityException error) { FileLog.e(error); }
+                String archive = encoded;
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (closed) return;
+                    if (archive == null || author != getUserConfig().getClientUserId()) {
+                        paidSubmit.setEnabled(true);
+                        status.setText(getString(R.string.ErrorOccurred));
+                        return;
+                    }
+                    BygramTypingController.pluginStoreRequest(currentAccount, response -> {
+                        if (closed) return;
+                        paidSubmit.setEnabled(true);
+                        if (response != null && response.optBoolean("ok")) {
+                            status.setText(getString(R.string.BygramPluginReview));
+                            loadStatus();
+                        } else if (response != null && response.optBoolean("needs_registration")) {
+                            confirmStoreLogin(this, () -> sendPaid(uri));
+                        } else status.setText(response == null ? getString(R.string.ErrorOccurred)
+                                : response.optString("error", getString(R.string.ErrorOccurred)));
+                    }, "action", "store_submit", "archive", archive, "stars", starsAmount, "nano", nano);
+                });
+            });
         }
         private void loadStatus() {
             BygramActivityController.pluginCatalogRequest(currentAccount, null, response -> {
@@ -709,6 +1042,30 @@ public final class BygramPluginsActivity extends BygramSettingsPage {
                     text.append("\n\n");
                 }
                 status.setText(text.length() == 0 ? getString(R.string.BygramPluginNoSubmissions) : text);
+                BygramTypingController.pluginStoreRequest(currentAccount, paid -> {
+                    if (closed || paid == null || !paid.optBoolean("ok")) return;
+                    org.json.JSONArray submissions = paid.optJSONArray("submissions");
+                    if (submissions == null) return;
+                    for (int i = 0; i < submissions.length(); i++) {
+                        org.json.JSONObject row = submissions.optJSONObject(i);
+                        if (row == null) continue;
+                        int label;
+                        switch (row.optString("status")) {
+                            case "published": label = R.string.BygramPluginApproved; break;
+                            case "revoked": label = R.string.BygramPluginRevoked; break;
+                            case "rejected": label = R.string.BygramPluginRejected; break;
+                            default: label = R.string.BygramPluginReview;
+                        }
+                        text.append(row.optString("plugin_id")).append(" · ").append(row.optString("version"))
+                                .append("\n").append(getString(label)).append("\n").append(row.optString("review_note")).append("\n\n");
+                    }
+                    org.json.JSONObject balances = paid.optJSONObject("balances");
+                    if (balances != null && balances.has("stars"))
+                        text.append(getString(R.string.BygramPluginAuthorBalance)).append("\n")
+                                .append(balances.optString("stars")).append(" ★")
+                                .append(balances.has("ton") ? " · " + tonPrice(balances.optString("ton")) : "").append("\n");
+                    if (text.length() > 0) status.setText(text);
+                }, "action", "store_status");
             });
         }
     }

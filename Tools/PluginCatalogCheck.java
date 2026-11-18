@@ -8,6 +8,21 @@ public final class PluginCatalogCheck {
         byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
         JsonArray entries = PluginCatalog.parse(bytes, 72379, 7237);
         assert entries.size() == 6;
+        JsonObject paid = entries.get(0).getAsJsonObject().deepCopy();
+        paid.remove("file");
+        paid.addProperty("author_key", "a".repeat(64));
+        paid.add("purchase", JsonParser.parseString("{\"stars\":120,\"nano\":\"400000000\"}"));
+        JsonObject paidIndex = JsonParser.parseString("{\"format\":2,\"terms\":\"2026-11-18-r2\",\"stars_test\":true,\"ton_test\":true}").getAsJsonObject();
+        JsonArray paidItems = new JsonArray();
+        paidItems.add(paid);
+        paidIndex.add("plugins", paidItems);
+        JsonObject paidEntry = PluginCatalog.parsePaidEntries(paidIndex, 72379, 7237).get(0).getAsJsonObject();
+        assert !paidEntry.has("file");
+        assert paidEntry.getAsJsonObject("purchase").get("stars").getAsLong() == 120;
+        assert paidEntry.getAsJsonObject("purchase").get("ton_test").getAsBoolean();
+        paid.addProperty("file", "https://example.invalid/public.byplugin");
+        try { PluginCatalog.parsePaidEntries(paidIndex, 72379, 7237); throw new AssertionError("public paid archive accepted"); }
+        catch (java.io.IOException expected) { }
         checkExtera();
         assert PluginCatalog.repository("https://example.org/repository/index.json").getHost().equals("example.org");
         for (String url : new String[]{"http://example.org/index.json", "https://user@example.org/index.json",
@@ -95,12 +110,13 @@ public final class PluginCatalogCheck {
     private static void checkExtera() throws Exception {
         String hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
         String json = "{\"schema\":1,\"name\":\"Example\",\"plugins\":[{\"id\":\"example\",\"name\":\"Example\","
-                + "\"version\":\"1.2\",\"category\":[\"tools\",\"invalid\",\"tools\",\"media\"],"
+                + "\"version\":\"1.2\",\"icon\":\"exteraPlugins/1\",\"category\":[\"tools\",\"invalid\",\"tools\",\"media\"],"
                 + "\"file\":\"packages/example.elyx\",\"sha256\":\"" + hash + "\",\"size\":3}]}";
         String url = "https://example.org/plugins/extera-plugins.json";
         JsonArray parsed = PluginCatalog.parseRepository(json.getBytes(java.nio.charset.StandardCharsets.UTF_8), url, 72379, 7237);
         JsonObject entry = parsed.get(0).getAsJsonObject();
         assert entry.getAsJsonObject("manifest").getAsJsonArray("category").toString().equals("[\"tools\",\"media\"]");
+        assert entry.getAsJsonObject("manifest").get("sticker_icon").getAsString().equals("exteraPlugins/1");
         assert entry.get("file").getAsString().equals("https://example.org/plugins/packages/example.elyx");
         assert entry.get("archive").getAsBoolean();
         PluginCatalog.verifyExtera(entry, new byte[]{'a', 'b', 'c'});

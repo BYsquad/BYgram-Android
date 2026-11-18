@@ -6,6 +6,7 @@ public final class PluginScope {
     public final String id;
     public final long generation;
     private volatile boolean active = true;
+    private final java.util.concurrent.CountDownLatch stopped = new java.util.concurrent.CountDownLatch(1);
     private final ArrayList<AutoCloseable> handles = new ArrayList<>();
     private int callbacks;
 
@@ -32,7 +33,14 @@ public final class PluginScope {
         }
         handle.close(); throw new IllegalStateException(error);
     }
-    public void invalidate() { active = false; }
+    public void invalidate() { active = false; stopped.countDown(); }
+    boolean awaitStop(long timeoutMillis) throws InterruptedException {
+        if (timeoutMillis < 0) {
+            stopped.await();
+            return true;
+        }
+        return stopped.await(timeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
     public synchronized boolean beginCallback() {
         if (!active) return false;
         callbacks++; return true;
@@ -50,7 +58,7 @@ public final class PluginScope {
     }
     public void close() {
         ArrayList<AutoCloseable> closing;
-        synchronized (this) { active = false; closing = new ArrayList<>(handles); handles.clear(); }
+        synchronized (this) { invalidate(); closing = new ArrayList<>(handles); handles.clear(); }
         for (int i = closing.size() - 1; i >= 0; i--) {
             try { closing.get(i).close(); } catch (Exception ignored) { /* Remaining handles must still close. */ }
         }
