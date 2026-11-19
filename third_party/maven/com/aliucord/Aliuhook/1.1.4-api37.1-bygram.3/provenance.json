@@ -1,0 +1,24 @@
+{
+  "version": "1.1.4-api37.1-bygram.3",
+  "hook": "43b0d8d01b580b8d4caa4aae7ed528ed80a35078",
+  "dobby": "edb2af1216313cf6c0d6771be2b279c1db573faf",
+  "submodules": {
+    "lsplant": "06bd3412d639d6b0d76fe6c7388066fe44e8963d",
+    "lsplant/lsplant/src/main/jni/external/dex_builder": "ac7fb2230954ee311808bad469b0db501f31bfb8",
+    "lsplant/lsplant/src/main/jni/external/dex_builder/external/parallel_hashmap": "0cd57d29a959256ed66b2afdd1009928fc625d09",
+    "xz": "1b6defd544914bfb4065e343296e5db64ef400e6"
+  },
+  "aar_sha256": "78827e37214b11b5ec4aa3e2e4afaabd28a9f1503c47c18294f2060b6c9d33f3",
+  "java_sha256": "c185a7a392a7f117cd38ecfaf02e93f9fb9de4a1fb58b14af1a494d76d2977f1",
+  "patch_sha256": {
+    "dobby-1.2-preserve-mappings.patch": "bb79267545218a1388ef9a8c1466ad4de9c5cd7f20994c4143a872122afcc2e3",
+    "lsplant-restore-access-flags.patch": "082e98500dbc45a1136626a599a21bbcb644f5a0e51db999d9793fa5ae93feae",
+    "aliuhook-backup-publication.patch": "cebf591449496c92e6ac76512b51b4307500d538f617e0fd59eedb9163ec9af7"
+  },
+  "native_sha256": {
+    "jni/arm64-v8a/libaliuhook.so": "a26ce82750eeada8cf98a3c8ef4f9a7137cd3588ec2707a9c824065511fac063",
+    "jni/armeabi-v7a/libaliuhook.so": "b752711cbae2436b0b7063d49b6939a535e6c01f1b47b3c29be3036df912fa35",
+    "jni/x86/libaliuhook.so": "a962d38131a122e2bea8ff35f43008c04beb555d4fd7dadf0fb18858f3df760b",
+    "jni/x86_64/libaliuhook.so": "65c88d116e19e6da9420a43ad054f8f8da2e58755fab218b4ebbdb1e207d81a5"
+  }
+}

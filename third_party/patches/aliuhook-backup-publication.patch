@@ -1,0 +1,64 @@
+--- a/core/src/main/java/de/robv/android/xposed/XposedBridge.java
++++ b/core/src/main/java/de/robv/android/xposed/XposedBridge.java
+@@ -136,9 +136,8 @@
+                 hookRecord.backup = backup;
+                 hookRecords.put(method, hookRecord);
+             }
+-        }
+-
+-        hookRecord.callbacks.add(callback);
++            hookRecord.callbacks.add(callback);
++        }
+ 
+         return callback.new Unhook(method);
+     }
+@@ -192,12 +191,15 @@
+             var record = hookRecords.get(method);
+             if (record != null) {
+                 record.callbacks.remove(callback);
+-                if (record.callbacks.size() == 0) {
+-                    hookRecords.remove(method);
+-                    unhook0(method);
+-                }
+-            }
+-        }
++                retire(method, record);
++            }
++        }
++    }
++
++    private static void retire(Member method, HookInfo record) {
++        if (record.activeCalls != 0 || record.callbacks.size() != 0 || hookRecords.get(method) != record) return;
++        if (!unhook0(method)) throw new IllegalStateException("NativeUnhookFailed");
++        hookRecords.remove(method);
+     }
+ 
+     /**
+@@ -334,7 +336,8 @@
+ 
+     // Aliucord changed: public, so that it can be passed as lsplant context object
+     public static class HookInfo {
+-        Member backup;
++        volatile Member backup;
++        private int activeCalls;
+         private final Member method;
+         final CopyOnWriteSortedSet<XC_MethodHook> callbacks = new CopyOnWriteSortedSet<>();
+         private final boolean isStatic;
+@@ -354,6 +357,17 @@
+         }
+ 
+         public Object callback(Object[] args) throws Throwable {
++            synchronized (hookRecords) {
++                if (backup == null) throw new IllegalStateException("HookInitializationInProgress");
++                activeCalls++;
++            }
++            try { return dispatch(args); }
++            finally {
++                synchronized (hookRecords) { activeCalls--; retire(method, this); }
++            }
++        }
++
++        private Object dispatch(Object[] args) throws Throwable {
+             var param = new XC_MethodHook.MethodHookParam();
+             param.method = method;
+ 

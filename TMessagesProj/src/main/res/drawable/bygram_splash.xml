@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep the logo inside the system splash screen's circular safe area. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/bygram_logo_no_fon"
+    android:insetLeft="25%"
+    android:insetTop="25%"
+    android:insetRight="25%"
+    android:insetBottom="25%" />

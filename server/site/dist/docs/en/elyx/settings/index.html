@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elyx settings storage | BYgram</title>
+  <meta name="description" content="Read and update persistent configuration through the Elyx settings controller.">
+  <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/en/elyx/settings/">
+  <link rel="stylesheet" href="../../guide-b8548225feef.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <article class="layout">
+    <aside class="sidebar">
+      <header class="sidebar-top"><a class="brand" href="../../">BYgram</a></header>
+      <nav id="navigation" aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../../">Overview</a><a href="../../package/">Build and install a package</a><a href="../../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../../elyx/">Elyx overview</a><a href="../../elyx/project-structure/">Elyx project structure</a><a href="../../elyx/metadata/">Elyx metadata</a><a href="../../elyx/assets/">Elyx assets and data imports</a><a href="../../elyx/localization/">Elyx localization and settings</a><a href="../../elyx/settings/" aria-current="page">Elyx settings storage</a><a href="../../elyx/runtime/">Elyx runtime API</a><a href="../../elyx/dependencies/">Elyx dependencies</a><a href="../../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../../api/accounts/">AccountClient and account scope</a><a href="../../api/file-hooks/">File utilities and extension hooks</a><a href="../../api/java-proxy/">Managed Java proxies</a><a href="../../api/intents/">Android Intent handlers</a><a href="../../api/settings/">Settings and custom rows</a><a href="../../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../../api/text-formatting/">Text formatting</a><a href="../../api/reflection/">Java reflection and hooks</a></section></nav>
+    </aside>
+    <header class="top">
+      <details class="english-menu"><summary>Guides</summary><nav aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../../">Overview</a><a href="../../package/">Build and install a package</a><a href="../../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../../elyx/">Elyx overview</a><a href="../../elyx/project-structure/">Elyx project structure</a><a href="../../elyx/metadata/">Elyx metadata</a><a href="../../elyx/assets/">Elyx assets and data imports</a><a href="../../elyx/localization/">Elyx localization and settings</a><a href="../../elyx/settings/" aria-current="page">Elyx settings storage</a><a href="../../elyx/runtime/">Elyx runtime API</a><a href="../../elyx/dependencies/">Elyx dependencies</a><a href="../../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../../api/accounts/">AccountClient and account scope</a><a href="../../api/file-hooks/">File utilities and extension hooks</a><a href="../../api/java-proxy/">Managed Java proxies</a><a href="../../api/intents/">Android Intent handlers</a><a href="../../api/settings/">Settings and custom rows</a><a href="../../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../../api/text-formatting/">Text formatting</a><a href="../../api/reflection/">Java reflection and hooks</a></section></nav></details>
+      <strong>Plugin documentation</strong>
+      <a class="tools" href="../../../" lang="ru" hreflang="ru">Русский</a>
+    </header>
+    <main id="content"><section>
+      <h1>Elyx settings storage</h1>
+      <p class="lead">Read and update persistent configuration through the Elyx settings controller.</p>
+      <h2 id="per-plugin-values">Per-plugin values</h2><p><code>elyx.settings</code> provides key reads and writes plus <code>get_settings()</code> and <code>clear_settings()</code>. Use <code>context.account_settings(account)</code> for native settings allocated to an authorized account.</p><h2 id="update-the-interface">Update the interface</h2><figure><figcaption>Read and update a setting</figcaption><pre><code>from elyx import settings
+
+units = settings.get_setting("units", "metric")
+settings.set_setting("units", units, reload_settings=True)</code></pre></figure>
+      <nav id="pagination" aria-label="Adjacent guides">
+        <a href="../../elyx/localization/">← Elyx localization and settings</a>
+        <a class="next" href="../../elyx/runtime/">Elyx runtime API →</a>
+      </nav>
+    </section></main>
+    <aside class="outline" aria-label="On this page"><p>On this page</p>
+      <a href="#per-plugin-values">Per-plugin values</a><a href="#update-the-interface">Update the interface</a>
+    </aside>
+  </article>
+</body>
+</html>

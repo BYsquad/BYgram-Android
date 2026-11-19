@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elyx localization and settings | BYgram</title>
+  <meta name="description" content="Keep translatable strings and persistent settings separate from source.">
+  <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/en/elyx/localization/">
+  <link rel="stylesheet" href="../../guide-b8548225feef.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <article class="layout">
+    <aside class="sidebar">
+      <header class="sidebar-top"><a class="brand" href="../../">BYgram</a></header>
+      <nav id="navigation" aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../../">Overview</a><a href="../../package/">Build and install a package</a><a href="../../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../../elyx/">Elyx overview</a><a href="../../elyx/project-structure/">Elyx project structure</a><a href="../../elyx/metadata/">Elyx metadata</a><a href="../../elyx/assets/">Elyx assets and data imports</a><a href="../../elyx/localization/" aria-current="page">Elyx localization and settings</a><a href="../../elyx/settings/">Elyx settings storage</a><a href="../../elyx/runtime/">Elyx runtime API</a><a href="../../elyx/dependencies/">Elyx dependencies</a><a href="../../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../../api/accounts/">AccountClient and account scope</a><a href="../../api/file-hooks/">File utilities and extension hooks</a><a href="../../api/java-proxy/">Managed Java proxies</a><a href="../../api/intents/">Android Intent handlers</a><a href="../../api/settings/">Settings and custom rows</a><a href="../../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../../api/text-formatting/">Text formatting</a><a href="../../api/reflection/">Java reflection and hooks</a></section></nav>
+    </aside>
+    <header class="top">
+      <details class="english-menu"><summary>Guides</summary><nav aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../../">Overview</a><a href="../../package/">Build and install a package</a><a href="../../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../../elyx/">Elyx overview</a><a href="../../elyx/project-structure/">Elyx project structure</a><a href="../../elyx/metadata/">Elyx metadata</a><a href="../../elyx/assets/">Elyx assets and data imports</a><a href="../../elyx/localization/" aria-current="page">Elyx localization and settings</a><a href="../../elyx/settings/">Elyx settings storage</a><a href="../../elyx/runtime/">Elyx runtime API</a><a href="../../elyx/dependencies/">Elyx dependencies</a><a href="../../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../../api/accounts/">AccountClient and account scope</a><a href="../../api/file-hooks/">File utilities and extension hooks</a><a href="../../api/java-proxy/">Managed Java proxies</a><a href="../../api/intents/">Android Intent handlers</a><a href="../../api/settings/">Settings and custom rows</a><a href="../../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../../api/text-formatting/">Text formatting</a><a href="../../api/reflection/">Java reflection and hooks</a></section></nav></details>
+      <strong>Plugin documentation</strong>
+      <a class="tools" href="../../../" lang="ru" hreflang="ru">Русский</a>
+    </header>
+    <main id="content"><section>
+      <h1>Elyx localization and settings</h1>
+      <p class="lead">Keep translatable strings and persistent settings separate from source.</p>
+      <h2 id="localized-strings">Localized strings</h2><p>Put language files at the localization path specified by the project. BYgram reads JSON, YAML and literal Python localization declarations. Use <code>elyx.strings.get(...)</code> or pass an explicit locale where needed.</p><h2 id="fallbacks">Fallbacks</h2><p>Strings use the app locale and can fall back to English. The converted catalog card has its own manifest metadata. Change string resources for runtime labels and regenerate the package when catalog metadata changes.</p>
+      <nav id="pagination" aria-label="Adjacent guides">
+        <a href="../../elyx/assets/">← Elyx assets and data imports</a>
+        <a class="next" href="../../elyx/settings/">Elyx settings storage →</a>
+      </nav>
+    </section></main>
+    <aside class="outline" aria-label="On this page"><p>On this page</p>
+      <a href="#localized-strings">Localized strings</a><a href="#fallbacks">Fallbacks</a>
+    </aside>
+  </article>
+</body>
+</html>

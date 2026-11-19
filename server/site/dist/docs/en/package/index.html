@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build and install a package | BYgram</title>
+  <meta name="description" content="Create a manifest, package your source and enable it in BYgram.">
+  <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/en/package/">
+  <link rel="stylesheet" href="../guide-b8548225feef.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <article class="layout">
+    <aside class="sidebar">
+      <header class="sidebar-top"><a class="brand" href="../">BYgram</a></header>
+      <nav id="navigation" aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/" aria-current="page">Build and install a package</a><a href="../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav>
+    </aside>
+    <header class="top">
+      <details class="english-menu"><summary>Guides</summary><nav aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/" aria-current="page">Build and install a package</a><a href="../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav></details>
+      <strong>Plugin documentation</strong>
+      <a class="tools" href="../../" lang="ru" hreflang="ru">Русский</a>
+    </header>
+    <main id="content"><section>
+      <h1>Build and install a package</h1>
+      <p class="lead">Create a manifest, package your source and enable it in BYgram.</p>
+      <h2 id="package-layout">Package layout</h2><p>A <code>.byplugin</code> contains <code>manifest.json</code> and a Python entry module such as <code>main.py</code>. Use a dotted identifier, a numeric three-component version and an <code>entrypoint</code> in <code>path.py:ClassName</code> form.</p><p>See the <a href="../../#manifest">manifest reference</a> for SDK bounds, capabilities and account scope.</p><h2 id="build-and-install">Build and install</h2><figure><figcaption>From the repository root</figcaption><pre><code>python Tools/package_plugin.py path/to/project example.byplugin</code></pre></figure><p>Open the package through Settings → BYgram settings → Plugins → Install from file. Review the manifest, enable the engine and approve execution for the package. Grant only the accounts the plugin needs.</p>
+      <nav id="pagination" aria-label="Adjacent guides">
+        <a href="../">← BYgram plugin documentation</a>
+        <a class="next" href="../lifecycle/">Lifecycle and cleanup →</a>
+      </nav>
+    </section></main>
+    <aside class="outline" aria-label="On this page"><p>On this page</p>
+      <a href="#package-layout">Package layout</a><a href="#build-and-install">Build and install</a>
+    </aside>
+  </article>
+</body>
+</html>
