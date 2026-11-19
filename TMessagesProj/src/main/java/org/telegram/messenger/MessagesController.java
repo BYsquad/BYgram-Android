@@ -16365,7 +16365,8 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         getConnectionsManager().sendRequest(req, (response, error) -> {
-            if (response instanceof TLRPC.TL_boolTrue) {
+            boolean registered = response instanceof TLRPC.TL_boolTrue;
+            if (registered) {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d("account " + currentAccount + " registered for push, push type: " + pushType);
                 }
@@ -16374,7 +16375,16 @@ public class MessagesController extends BaseController implements NotificationCe
                 SharedConfig.pushType = pushType;
                 getUserConfig().saveConfig(false);
             }
-            AndroidUtilities.runOnUIThread(() -> registeringForPush = false);
+            AndroidUtilities.runOnUIThread(() -> {
+                registeringForPush = false;
+                if (pushType == PushListenerController.PUSH_TYPE_FIREBASE) {
+                    if (registered) {
+                        ConnectionsManager.setFcmUnavailable(false);
+                    } else if (error != null && "APP_PUSH_APIKEY_MISSING".equals(error.text)) {
+                        ConnectionsManager.setFcmUnavailable(true);
+                    }
+                }
+            });
         });
     }
 

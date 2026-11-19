@@ -22,6 +22,8 @@ android sdk list --all
 
 Для входа в Telegram укажите собственные `TELEGRAM_API_ID` и `TELEGRAM_API_HASH` в `local.properties`. Для Huawei-варианта положите свой `agconnect-services.json` в `TMessagesProj_AppHuawei/`.
 
+Для FCM настройте данные отправки push для этого Telegram API ID на стороне Telegram. Если сервер отклоняет регистрацию с `APP_PUSH_APIKEY_MISSING`, BYgram по умолчанию использует встроенное фоновое соединение MTProto. Явный выбор в настройках уведомлений имеет приоритет. После успешной регистрации FCM восстанавливается обычное значение по умолчанию.
+
 ## Важные ограничения
 
 - Для Telegram 13.2.2 и новее выполните `git submodule update --init --recursive` после обновления исходников. Вложенный QuickJS нужен для сборки `libtwidget.so`: он находится внутри подмодуля widget-sandbox.
