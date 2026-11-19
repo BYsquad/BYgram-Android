@@ -184,6 +184,7 @@ android {
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
         targetSdkVersion 36
         buildConfigField "int", "BYGRAM_BASE_BUILD", APP_VERSION_CODE
+        buildConfigField "int", "BYGRAM_RELEASE_NUMBER", Integer.parseInt(BYGRAM_RELEASE_NUMBER).toString()
         def telegramApiId = getProps('TELEGRAM_API_ID') ?: '0'
         def telegramApiHash = getProps('TELEGRAM_API_HASH') ?: ''
         if (!(telegramApiId ==~ /\d+/) || !(telegramApiHash ==~ /(?:[0-9a-fA-F]{32})?/)) {

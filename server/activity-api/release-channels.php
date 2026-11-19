@@ -36,11 +36,25 @@ function saveReleaseMetadata(array $input): void {
         || $release['package'] !== 'com.bygram.mobile') {
         throw new InvalidArgumentException('Проверьте версию, код версии и имя файла для выбранного канала');
     }
+    if ($channel === 'beta') {
+        $number = filter_var($input['bygram_release'] ?? '', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 2147483647],
+        ]);
+        if ($number === false) throw new InvalidArgumentException('Укажите номер релиза BYgram из APK');
+        $release['bygram_release'] = $number;
+    }
     $apk = dirname(__DIR__) . '/' . $release['apk_name'];
     if (!is_file($apk)) throw new InvalidArgumentException('Сначала загрузите APK для этого релиза');
     $size = filesize($apk);
     $hash = hash_file('sha256', $apk);
     if ($size === false || $hash === false) throw new RuntimeException('Не удалось прочитать опубликованный APK');
+    if ($channel === 'beta') {
+        $previous = releaseMetadata($channel);
+        $previousNumber = (int) ($previous['bygram_release'] ?? 0);
+        if ($number < $previousNumber || ($number === $previousNumber && $hash !== ($previous['sha256'] ?? null))) {
+            throw new InvalidArgumentException('Для нового APK увеличьте номер релиза BYgram');
+        }
+    }
     $release['size_bytes'] = $size;
     $release['sha256'] = $hash;
     $release['size'] = number_format($size / 1048576, 1, ',', ' ') . ' МиБ';

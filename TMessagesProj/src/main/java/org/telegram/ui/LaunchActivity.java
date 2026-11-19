@@ -141,6 +141,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.browser.Browser;
+import org.telegram.messenger.BygramUpdates;
 import org.telegram.utils.pip.PipCoordinator;
 import org.telegram.messenger.utils.FrameMetricsOverlayView;
 import org.telegram.messenger.utils.LeakDetector;
@@ -6147,6 +6148,20 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     private boolean firstAppUpdateCheck = true;
+    private boolean bygramUpdateRequested;
+    private boolean bygramUpdateBulletinPending;
+
+    private void showBygramUpdateBulletin() {
+        if (!bygramUpdateBulletinPending || !isResumed || isFinishing() || isDestroyed()) return;
+        BaseFragment fragment = getLastFragment();
+        if (fragment == null || fragment.getFragmentView() == null) return;
+        bygramUpdateBulletinPending = false;
+        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.download_arrow,
+                LocaleController.getString(R.string.BygramUpdateAvailable),
+                LocaleController.getString(R.string.BygramUpdateOpen), Bulletin.DURATION_LONG,
+                () -> Browser.openUrl(this, BygramUpdates.DOWNLOAD_URL)).show();
+    }
+
     public void checkAppUpdate(boolean force, Browser.Progress progress) {
         if (!ApplicationLoader.isStandaloneBuild() && !ApplicationLoader.isBetaBuild()) {
             return;
@@ -7320,6 +7335,14 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             showUpdateActivity(UserConfig.selectedAccount, SharedConfig.pendingAppUpdate, true);
         }
         checkAppUpdate(false, null);
+        if (!bygramUpdateRequested) {
+            bygramUpdateRequested = true;
+            BygramUpdates.check(() -> {
+                bygramUpdateBulletinPending = BygramUpdates.isAvailable();
+                showBygramUpdateBulletin();
+            });
+        }
+        showBygramUpdateBulletin();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             ApplicationLoader.canDrawOverlays = Settings.canDrawOverlays(this);

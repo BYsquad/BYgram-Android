@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="BygramReleaseNumber">Реліз BYgram №%1$d</string>
+    <string name="BygramUpdateAvailable">Є оновлення</string>
+    <string name="BygramUpdateOpen">Відкрити</string>
+    <string name="BygramUpdateDownload">Завантажити оновлення</string>
     <string name="BygramFlameEnable">Підключити «Полум’я»</string>
     <string name="BygramFlameEnableMessage">Увійдіть через Telegram, щоб відкрити свої серії «Полум’я». Зараховуються дні, коли ви обоє надсилали повідомлення в цьому чаті.</string>
     <string name="BygramFlameOpenLogin">Увійти через Telegram</string>

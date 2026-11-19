@@ -165,14 +165,19 @@ export function PublicationPage({ release, channel = 'stable', run, notify }) {
     const file = data.apk;
     delete data.apk;
     if (!/^[0-9]+(?:\.[0-9]+){1,3}$/.test(data.version) || !/^\d{1,12}$/.test(data.version_code)
+      || (beta && (!/^[1-9]\d{0,9}$/.test(data.bygram_release) || Number(data.bygram_release) > 2147483647))
       || !/^BYgram-[0-9A-Za-z._-]{1,60}\.apk$/.test(data.apk_name)
       || data.apk_name.toLowerCase().startsWith('bygram-beta-') !== beta
       || ['status', 'requirements'].some(key => data[key].length > 120)) {
-      notify('Проверьте версию, имя APK и выбранный канал', true);
+      notify('Проверьте версию, номер релиза BYgram, имя APK и выбранный канал', true);
       return;
     }
     if (file?.name && (file.size < 1024 || file.size > 536870912 || !file.name.toLowerCase().endsWith('.apk'))) {
       notify('Выберите APK размером от 1 КБ до 512 МБ', true);
+      return;
+    }
+    if (beta && file?.name && (Number(data.bygram_release) <= (current.bygram_release ?? 0) || data.apk_name === current.apk_name)) {
+      notify('Для нового APK укажите новый номер релиза BYgram и новое имя файла', true);
       return;
     }
     try {
@@ -198,6 +203,7 @@ export function PublicationPage({ release, channel = 'stable', run, notify }) {
     <Grid columns={{ minWidth: 210, repeat: 'fit' }} gap={3}>
       <Field name="version" label="Версия" initial={current.version} isRequired />
       <Field name="version_code" label="Код версии" initial={current.version_code} inputMode="numeric" isRequired />
+      {beta && <Field name="bygram_release" label="Номер релиза BYgram" initial={current.bygram_release?.toString()} inputMode="numeric" isRequired />}
       <Field name="apk_name" label="Имя APK" initial={current.apk_name} placeholder={beta ? 'BYgram-beta-13.2.2.apk' : 'BYgram-13.2.2.apk'} isRequired />
       <Field name="status" label="Подпись релиза" initial={current.status || (beta ? 'Бета-версия' : '')} />
       <Field name="requirements" label="Требования" initial={current.requirements || (beta ? 'Android 7.0+' : '')} />

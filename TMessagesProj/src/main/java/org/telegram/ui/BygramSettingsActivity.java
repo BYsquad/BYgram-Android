@@ -15,6 +15,10 @@ import android.graphics.drawable.Drawable;
 
 import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.BygramSettingsLink;
+import org.telegram.messenger.BygramUpdates;
+import org.telegram.messenger.NotificationCenter;
+import org.telegram.messenger.browser.Browser;
+import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.BygramChatPrivacy;
 import org.telegram.messenger.BygramActivityController;
@@ -121,10 +125,29 @@ abstract class BygramSettingsPage extends BaseFragment {
     }
 }
 
-public class BygramSettingsActivity extends BygramSettingsPage {
+public class BygramSettingsActivity extends BygramSettingsPage implements NotificationCenter.NotificationCenterDelegate {
     private static final int ROW_PLUGINS = 14;
     private UniversalRecyclerView listView;
+    private FrameLayout updateRow;
     private boolean linkOpened;
+
+    @Override
+    public boolean onFragmentCreate() {
+        if (!super.onFragmentCreate()) return false;
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.bygramUpdateChanged);
+        return true;
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.bygramUpdateChanged);
+        super.onFragmentDestroy();
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (listView != null) listView.adapter.update(true);
+    }
 
     public static BaseFragment forLink(BygramSettingsLink target) {
         BygramSettingsPage page;
@@ -269,6 +292,11 @@ public class BygramSettingsActivity extends BygramSettingsPage {
 
         FrameLayout content = createSettingsContent(context);
         content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        updateRow = new FrameLayout(context);
+        ButtonWithCounterView download = new ButtonWithCounterView(context, getResourceProvider()).setRound();
+        download.setText(getString(R.string.BygramUpdateDownload));
+        download.setOnClickListener(view -> Browser.openUrl(view.getContext(), BygramUpdates.DOWNLOAD_URL));
+        updateRow.addView(download, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP, 16, 12, 16, 0));
         listView = new SettingsList(this, this::fillItems, this::onClick, null);
         listView.setSections();
         listView.adapter.setApplyBackground(false);
@@ -277,6 +305,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        if (BygramUpdates.isAvailable()) items.add(UItem.asCustom(updateRow, 60));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)).setId(-1));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
         items.add(UItem.asButton(ROW_PLUGINS, R.drawable.settings_account, getString(R.string.BygramPluginsBeta), org.telegram.messenger.PluginEntry.summary()));
@@ -292,7 +321,7 @@ public class BygramSettingsActivity extends BygramSettingsPage {
         items.add(UItem.asButton(10, R.drawable.msg_channel, getString(R.string.BygramChannel)));
         items.add(UItem.asButton(11, R.drawable.msg_discussion, getString(R.string.BygramChat)));
         items.add(UItem.asButton(12, R.drawable.msg_link, getString(R.string.BygramTranslations)));
-        items.add(UItem.asShadow(null));
+        items.add(UItem.asShadow(LocaleController.formatString(R.string.BygramReleaseNumber, BygramUpdates.RELEASE_NUMBER)));
     }
 
     private void onClick(UItem item, View view, int position, float x, float y) {

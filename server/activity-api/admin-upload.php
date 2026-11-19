@@ -45,6 +45,9 @@ try {
                 if ($size !== $total || !preg_match('/^[a-f0-9]{64}$/D', $hash) || $actual === false || !hash_equals($hash, $actual)) {
                     throw new RuntimeException('APK загружен не полностью');
                 }
+                if ($channel === 'beta' && $name === (releaseMetadata($channel)['apk_name'] ?? null)) {
+                    throw new InvalidArgumentException('Укажите новое имя APK, чтобы сохранить опубликованный файл');
+                }
                 if (!rename($part, $target)) throw new RuntimeException('Не удалось опубликовать APK');
                 chmod($target, 0644);
             }

@@ -4,9 +4,10 @@
   "status": "Бета-версия (Debug)",
   "requirements": "Android 7.0+",
   "package": "com.bygram.mobile",
-  "apk_name": "BYgram-beta-13.2.2-73049-977f5af.apk",
-  "size_bytes": 195993268,
-  "sha256": "977f5af28bc69f0cb814b2d3b1e30d5214c3f06765a90c90409bee4c0eaf4098",
-  "size": "186,9 МиБ",
-  "date": "2026-11-19"
+  "apk_name": "BYgram-beta-13.2.2-73049-r1-557673a.apk",
+  "size_bytes": 195329838,
+  "sha256": "557673a926cd82f4d08874acea8b34c30dfa492764fec1335ecda1db649fea9f",
+  "size": "186,3 МиБ",
+  "date": "2026-11-19",
+  "bygram_release": 1
 }

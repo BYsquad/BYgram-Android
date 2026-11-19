@@ -1,5 +1,7 @@
 package org.telegram.ui;
 
+import org.telegram.messenger.BygramUpdates;
+
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.replaceSingleTag;
 import static org.telegram.messenger.LocaleController.formatString;
@@ -212,7 +214,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             .createObserversGroup(this)
             .add(NotificationCenter.updateInterfaces)
             .add(NotificationCenter.starBalanceUpdated)
-            .add(NotificationCenter.newSuggestionsAvailable);
+            .add(NotificationCenter.newSuggestionsAvailable)
+            .add(NotificationCenter.bygramUpdateChanged);
 
         if (arguments != null) {
             hasMainTabs = arguments.getBoolean("hasMainTabs", false);
@@ -510,7 +513,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
         } else if (id == NotificationCenter.updateInterfaces) {
             setInfo();
-        } else if (id == NotificationCenter.newSuggestionsAvailable) {
+        } else if (id == NotificationCenter.newSuggestionsAvailable || id == NotificationCenter.bygramUpdateChanged) {
             if (listView != null) {
                 listView.adapter.update(true);
             }
@@ -765,7 +768,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         items.add(SettingCell.Factory.of(BYGRAM_SETTINGS_ID, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom,
-                R.drawable.bygram_logo_new, getString(R.string.BygramSettings)));
+                R.drawable.bygram_logo_new, getString(R.string.BygramSettings),
+                BygramUpdates.isAvailable() ? getString(R.string.BygramUpdateAvailable) : null));
         items.add(UItem.asShadow(null));
 
         final boolean walletAbove = getConnectionsManager().getCurrentTime() - 1791538462 < 4 * 7 * 24 * 60 * 60;
