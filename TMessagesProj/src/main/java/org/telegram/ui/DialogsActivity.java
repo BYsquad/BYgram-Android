@@ -10,6 +10,7 @@ package org.telegram.ui;
 
 import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.BygramActivityController;
+import org.telegram.messenger.BygramFlame;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
@@ -697,6 +698,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private CharSequence sharedTextSeed;
     private ShareTopView shareTopView;
     private Runnable shareLinkSearchRunnable;
+    private final Runnable refreshBygramFlames = this::refreshBygramFlames;
 
     private ArrayList<Long> selectedDialogs = new ArrayList<>();
     public boolean notify = true;
@@ -3038,6 +3040,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        AndroidUtilities.cancelRunOnUIThread(refreshBygramFlames);
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
             observersGroup = null;
@@ -7058,6 +7061,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         bygramFoldersHidden.setValue(false, false);
         bygramNavigationHidden = false;
         super.onResume();
+        if (!onlySelect) refreshBygramFlames();
         if (!onlySelect && folderId == 0 && communityId == 0) {
             BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_DIALOGS, 0, null, null);
         }
@@ -7298,6 +7302,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
+        AndroidUtilities.cancelRunOnUIThread(refreshBygramFlames);
         if (!onlySelect && folderId == 0 && communityId == 0) {
             BygramActivityController.clearCurrentActivity(currentAccount, BygramConfig.ACTIVITY_DIALOGS, 0);
         }
@@ -11313,6 +11318,24 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 //                }
 //            }
             viewPages[b].updateList(false);
+        }
+    }
+
+    private void refreshBygramFlames() {
+        BygramFlame.loadDialogBadges(currentAccount, this::updateBygramFlameRows);
+        updateBygramFlameRows();
+        AndroidUtilities.cancelRunOnUIThread(refreshBygramFlames);
+        AndroidUtilities.runOnUIThread(refreshBygramFlames, 60_000);
+    }
+
+    private void updateBygramFlameRows() {
+        if (isPaused || viewPages == null) return;
+        for (ViewPage page : viewPages) {
+            if (page == null) continue;
+            for (int i = 0; i < page.listView.getChildCount(); i++) {
+                View child = page.listView.getChildAt(i);
+                if (child instanceof DialogCell) ((DialogCell) child).refreshBygramFlame();
+            }
         }
     }
 

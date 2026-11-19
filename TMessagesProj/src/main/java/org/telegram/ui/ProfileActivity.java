@@ -137,12 +137,14 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BygramActivityController;
 import org.telegram.messenger.BygramBadgeController;
+import org.telegram.messenger.BygramFlame;
 import org.telegram.messenger.AuthTokensHelper;
 import org.telegram.messenger.BillingController;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.BygramConfig;
 import org.telegram.ui.Components.BygramBadgeDrawable;
+import org.telegram.ui.Components.BygramFlameBadge;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.ContactsController;
@@ -369,6 +371,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private SearchAdapter searchAdapter;
     /** The name: one view in every state, it moves from the header of the chat while the profile opens. */
     private SimpleTextView nameTextView;
+    private BygramFlame bygramFlame;
+    private BygramFlame.Badge bygramFlameBadge;
+    private CharSequence bygramProfileName;
     private String nameTextViewRightDrawableContentDescription = null;
     private String nameTextViewRightDrawable2ContentDescription = null;
     /** The status under the name, or the description of the photo while the avatar is expanded. */
@@ -2483,6 +2488,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        if (bygramFlame != null) bygramFlame.pause();
         if (sharedMediaLayout != null) {
             sharedMediaLayout.onDestroy();
         }
@@ -4001,7 +4007,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 };
                 bygramMusicView.setMusicDocument(userInfo == null ? null : userInfo.saved_music);
                 bygramMusicView.setTag(RecyclerListView.TAG_NOT_SECTION);
-                bygramMusicView.setBackground(bygramPageBackground(new ColorDrawable(getThemedColor(Theme.key_windowBackgroundWhite))));
                 bygramMusicView.setOnClickListener(v -> musicView.performClick());
             }
 
@@ -10034,6 +10039,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    private void setBygramFlameBadge(BygramFlame.Badge badge) {
+        if (bygramFlameBadge == null ? badge == null : bygramFlameBadge.matches(badge)) return;
+        bygramFlameBadge = badge;
+        updateBygramFlameName();
+    }
+
+    private void updateBygramFlameName() {
+        if (nameTextView == null || bygramProfileName == null) return;
+        if (bygramFlameBadge == null) {
+            nameTextView.setText(bygramProfileName, true);
+        } else {
+            BygramFlameBadge badge = new BygramFlameBadge(nameTextView.getContext(), bygramFlameBadge.days, bygramFlameBadge.active);
+            nameTextView.setText(new SpannableStringBuilder(badge.text()).append('\u00a0').append(bygramProfileName), true);
+        }
+    }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -10042,6 +10063,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
         profileViewsIndicatorRunnable.run();
         TLRPC.User viewedUser = userId == 0 ? null : getMessagesController().getUser(userId);
+        if (BygramFlame.supportsPeer(viewedUser)) {
+            setBygramFlameBadge(BygramFlame.getDialogBadge(currentAccount, userId));
+            if (bygramFlame == null) {
+                bygramFlame = new BygramFlame(currentAccount, userId, (days, activeDay, lostDays, remaining, needsConfirmation) ->
+                        setBygramFlameBadge(days > 0 ? new BygramFlame.Badge(days, activeDay != 0) : null));
+            }
+            bygramFlame.resume();
+        }
         BygramActivityController.setCurrentActivity(currentAccount, BygramConfig.ACTIVITY_PROFILE, getDialogId(), viewedUser, currentChat);
         if (userId > 0 && userId != getUserConfig().getClientUserId()
                 && viewedUser != null && !viewedUser.bot && org.telegram.messenger.BygramTypingController.profileViewsEnabled(currentAccount)) {
@@ -10082,7 +10111,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (userId == getUserConfig().getClientUserId()) updateListAnimated(false);
         fixLayout();
         if (nameTextView != null) {
-            setParentActivityTitle(nameTextView.getText());
+            setParentActivityTitle(bygramProfileName != null ? bygramProfileName : nameTextView.getText());
         }
         if (userId != 0) {
             final TLRPC.User user = getMessagesController().getUser(userId);
@@ -10143,6 +10172,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
+        if (bygramFlame != null) bygramFlame.pause();
         bygramProfilePaused = true;
         AndroidUtilities.cancelRunOnUIThread(bygramProfileActivityRunnable);
         AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
@@ -12062,7 +12092,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 avatarImage.setAnimateFromImageReceiver(fromAvatarImage.getImageReceiver());
             }
             {
-                nameTextView.setText(newString);
+                bygramProfileName = newString;
+                updateBygramFlameName();
                 if (simpleActionBar != null) {
                     simpleActionBar.setTitle(newString);
                 }

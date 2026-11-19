@@ -26,7 +26,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -964,15 +963,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             titleTextView.setText(plainTitle, force);
             return;
         }
-        int color = flameActive
-                ? androidx.core.graphics.ColorUtils.blendARGB(0xffd76a1d, 0xffd12237, Math.min(flameDays - 1, 29) / 29f)
-                : 0xff8b8e93;
-        SpannableStringBuilder suffix = new SpannableStringBuilder("\u00a0\ufffc\u00a0")
-                .append(LocaleController.formatNumber(flameDays, ','));
-        ColoredImageSpan flame = new ColoredImageSpan(R.drawable.filled_fire, ColoredImageSpan.ALIGN_CENTER);
-        flame.setSize(dp(16));
-        flame.setOverrideColor(color);
-        suffix.setSpan(flame, 1, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpannableStringBuilder suffix = new SpannableStringBuilder("\u00a0")
+                .append(new BygramFlameBadge(getContext(), flameDays, flameActive).text());
         CharSequence name = plainTitle;
         if (titleAvailableWidth > 0) {
             TextPaint paint = titleTextView.getTextPaint();

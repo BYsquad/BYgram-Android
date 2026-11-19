@@ -20380,10 +20380,7 @@ public class ChatActivity extends BaseFragment implements
     private boolean supportsBygramFlame() {
         return chatMode == MODE_DEFAULT && !isReport() && !isThreadChat()
                 && !inPreviewMode && !isInPreviewMode() && !isInsideContainer && currentEncryptedChat == null
-                && currentUser != null && dialog_id == currentUser.id && dialog_id > 0
-                && !currentUser.self && !currentUser.bot && !UserObject.isDeleted(currentUser)
-                && !UserObject.isAnonymous(currentUser) && !UserObject.isReplyUser(currentUser)
-                && !MessagesController.isSupportUser(currentUser);
+                && BygramFlame.supportsPeer(currentUser) && dialog_id == currentUser.id;
     }
 
     private void updateBygramFlame(int days, int activeDay, int lostDays, int restoresLeft, boolean needsConfirmation) {

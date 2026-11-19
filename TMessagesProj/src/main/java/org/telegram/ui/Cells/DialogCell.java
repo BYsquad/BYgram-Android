@@ -64,6 +64,7 @@ import androidx.core.math.MathUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BygramActivityController;
+import org.telegram.messenger.BygramFlame;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
@@ -110,6 +111,7 @@ import org.telegram.ui.Components.CanvasButton;
 import org.telegram.ui.Components.CheckBox2;
 import org.telegram.ui.Components.ColoredImageSpan;
 import org.telegram.ui.Components.BygramBadgeDrawable;
+import org.telegram.ui.Components.BygramFlameBadge;
 import org.telegram.messenger.BygramBadgeController;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.DialogCellTags;
@@ -612,6 +614,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private int timeLeft;
     private int timeTop;
     private StaticLayout timeLayout;
+    private BygramFlame.Badge flameState;
+    private BygramFlameBadge flameBadge;
+    private int flameLeft;
 
     private int lock2Left;
 
@@ -1300,16 +1305,39 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private static final float BADGE_DRAWABLE_SIZE = 16;
     private static final float BADGE_DRAWABLE_OFFSET = (BADGE_SIZE - BADGE_DRAWABLE_SIZE) / 2f;
 
+    private BygramFlame.Badge getBygramFlameBadge() {
+        return isDialogCell && currentDialogFolderId == 0 && !isTopic
+                && BygramFlame.supportsPeer(user) && user.id == currentDialogId
+                ? BygramFlame.getDialogBadge(currentAccount, currentDialogId) : null;
+    }
+
+    private boolean bygramFlameChanged(BygramFlame.Badge badge) {
+        return flameState == null ? badge != null : !flameState.matches(badge);
+    }
+
+    public void refreshBygramFlame() {
+        if (getMeasuredWidth() > 0 && bygramFlameChanged(getBygramFlameBadge())) {
+            buildLayout();
+            invalidate();
+        }
+    }
+
     public void buildLayout() {
         drawMiniSender = false;
         if (isTransitionSupport) {
             return;
         }
+        BygramFlame.Badge nextFlame = getBygramFlameBadge();
+        boolean flameChanged = bygramFlameChanged(nextFlame);
+        if (flameChanged) {
+            flameState = nextFlame;
+            flameBadge = nextFlame == null ? null : new BygramFlameBadge(getContext(), nextFlame.days, nextFlame.active);
+        }
         if (isDialogCell) {
             boolean needUpdate = updateHelper.update();
             boolean badgeChanged = (bygramNameBadge != null) != ((user != null && !UserObject.isUserSelf(user) && BygramBadgeController.hasBadge(user))
                     || (chat != null && BygramBadgeController.hasBadge(chat)));
-            if (!needUpdate && !badgeChanged && !forceBygramActivityLayout && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
+            if (!needUpdate && !badgeChanged && !flameChanged && !forceBygramActivityLayout && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
                 return;
             }
         }
@@ -2364,14 +2392,20 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         int timeLeftOffset = 0;
+        if (flameBadge != null && timeLayout != null) {
+            timeLeftOffset = flameBadge.width() + dp(5);
+            flameLeft = LocaleController.isRTL ? timeLeft + timeWidth + dp(5) : timeLeft - timeLeftOffset;
+            timeWidth += timeLeftOffset;
+        }
         if (drawLock2()) {
             if (LocaleController.isRTL) {
                 lock2Left = timeLeft + timeWidth + dp(4);
             } else {
-                lock2Left = timeLeft - Theme.dialogs_lock2Drawable.getIntrinsicWidth() - dp(4);
+                lock2Left = timeLeft - timeLeftOffset - Theme.dialogs_lock2Drawable.getIntrinsicWidth() - dp(4);
             }
-            timeLeftOffset += Theme.dialogs_lock2Drawable.getIntrinsicWidth() + dp(4);
-            timeWidth += timeLeftOffset;
+            int lockWidth = Theme.dialogs_lock2Drawable.getIntrinsicWidth() + dp(4);
+            timeLeftOffset += lockWidth;
+            timeWidth += lockWidth;
         }
 
         if (!LocaleController.isRTL) {
@@ -4265,6 +4299,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             }
 
             if (timeLayout != null && currentDialogFolderId == 0) {
+                if (flameBadge != null) {
+                    flameBadge.draw(canvas, flameLeft, timeTop + timeLayout.getHeight() / 2f, getTimeTextPaint().getColor());
+                }
                 canvas.save();
                 canvas.translate(timeLeft, timeTop);
 
@@ -5702,6 +5739,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 sb.append(chat.title);
                 sb.append(". ");
             }
+        }
+        if (flameState != null && timeLayout != null) {
+            sb.append(LocaleController.formatString(flameState.active
+                    ? R.string.BygramFlameActiveDays : R.string.BygramFlamePendingDays, flameState.days)).append(". ");
         }
         if (drawVerified) {
             sb.append(getString(R.string.AccDescrVerified));

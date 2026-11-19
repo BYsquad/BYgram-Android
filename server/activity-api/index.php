@@ -269,16 +269,16 @@ if (str_starts_with($action, 'profile_views_')) {
     jsonResponse(['ok' => false], 400);
 }
 
-if (in_array($action, ['flame_get', 'flame_sync', 'flame_restore'], true)) {
+if (in_array($action, ['flame_list', 'flame_get', 'flame_sync', 'flame_restore'], true)) {
     require __DIR__ . '/chat-flames.php';
     $idOptions = ['options' => ['min_range' => 1, 'max_range' => 0xffffffffff]];
     $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT, $idOptions);
     $peerId = filter_var($request['peer_id'] ?? null, FILTER_VALIDATE_INT, $idOptions);
-    if (!$userId || !$peerId || $peerId === $userId) jsonResponse(['ok' => false], 400);
+    if (!$userId || ($action !== 'flame_list' && (!$peerId || $peerId === $userId))) jsonResponse(['ok' => false], 400);
     requireAccountSession($userId);
     rateLimit($pdo, 'flame:' . $userId, 60);
     try {
-        jsonResponse(chatFlameRequest($pdo, $userId, $peerId, $action, $request));
+        jsonResponse($action === 'flame_list' ? chatFlameList($pdo, $userId) : chatFlameRequest($pdo, $userId, $peerId, $action, $request));
     } catch (InvalidArgumentException) {
         jsonResponse(['ok' => false], 400);
     }

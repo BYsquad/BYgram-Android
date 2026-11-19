@@ -18,6 +18,7 @@ assert "drawActivityCard" in music and "ACTIVITY_CARD_HEIGHT" in music, "activit
 assert source.index("bygramMusicRow = rowCount++") < source.index("channelRow = rowCount++"), "custom music must precede the linked channel"
 assert "view = bygramMusicView;" in source and "return VIEW_TYPE_MUSIC;" in source, "custom music is not a profile list row"
 assert "bygramMusicView.setOnClickListener(v -> musicView.performClick())" in source, "list music must use the existing playback handler"
+assert "bygramMusicView.setBackground(" not in source, "the full-width row background hides the card's side margins"
 assert "profileList || !BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)" in music, "custom music is duplicated in the avatar header"
 assert "profileList ? 1f" in music, "list music must remain visible and clickable when the header collapses"
 assert "createSimpleBulletin(R.raw.copy, getString(R.string.BygramProfileIdCopied))" in source, "ID confirmation must appear even when Android supplies its own clipboard toast"

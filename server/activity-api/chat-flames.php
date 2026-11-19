@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 function flameDays(array $state, int $today, int $month): array {
-    if ($state['last_day'] > 0 && $state['last_day'] < $today - 1) {
+    if ($state['days'] > 0 && $state['last_day'] < $today - 1) {
         $state['lost_day'] = $state['last_day'];
         $state['lost_days'] = $state['days'];
     }
@@ -24,9 +24,11 @@ function flameApply(array $state, array $ranges): array {
         if ($first <= $previous + 1) {
             $state['days'] += $last - $previous;
         } else {
-            $state['lost_day'] = $previous;
-            $state['lost_days'] = $state['days'];
-            $state['days'] = $last - $first + 1;
+            if ($state['days'] > 0) {
+                $state['lost_day'] = $previous;
+                $state['lost_days'] = $state['days'];
+            }
+            $state['days'] = $last - $first;
         }
         $state['last_day'] = $last;
     }
@@ -67,6 +69,19 @@ function flameCalendar(): array {
         (int) $now->format('Ym'),
         $midnight->modify('+1 day')->getTimestamp() - $now->getTimestamp(),
     ];
+}
+
+function chatFlameList(PDO $pdo, int $userId): array {
+    [$today, , $secondsToMidnight] = flameCalendar();
+    $query = $pdo->prepare('SELECT user_low, user_high, days, last_day FROM chat_flames
+        WHERE (user_low=? OR user_high=?) AND days>0 AND last_day>=?');
+    $query->execute([$userId, $userId, $today - 1]);
+    $flames = [];
+    while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
+        $peerId = (int) $row['user_low'] === $userId ? $row['user_high'] : $row['user_low'];
+        $flames[$peerId] = [(int) $row['days'], (int) $row['last_day']];
+    }
+    return ['ok' => true, 'day' => $today, 'seconds_to_midnight' => $secondsToMidnight, 'flames' => (object) $flames];
 }
 
 function chatFlameRequest(PDO $pdo, int $userId, int $peerId, string $action, array $request): array {

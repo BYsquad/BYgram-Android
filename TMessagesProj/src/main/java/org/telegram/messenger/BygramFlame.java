@@ -3,6 +3,7 @@ package org.telegram.messenger;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.SystemClock;
+import android.util.LongSparseArray;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -18,6 +19,65 @@ import java.util.ArrayList;
 public final class BygramFlame {
     private static final ZoneId DAY_ZONE = ZoneId.of("Europe/Moscow");
     private static final long POLL_MS = 60_000;
+    private static final LongSparseArray<DialogFlames> dialogFlames = new LongSparseArray<>();
+
+    public static final class Badge {
+        public final int days;
+        public final boolean active;
+
+        public Badge(int days, boolean active) {
+            this.days = days;
+            this.active = active;
+        }
+
+        public boolean matches(Badge other) {
+            return other != null && days == other.days && active == other.active;
+        }
+    }
+
+    private static final class DialogFlames {
+        final JSONObject peers;
+        final int day;
+        final long midnight;
+
+        DialogFlames(JSONObject peers, JSONObject response) {
+            this.peers = peers;
+            day = response.optInt("day");
+            midnight = nextMidnight(response);
+        }
+    }
+
+    public static Badge getDialogBadge(int account, long peerId) {
+        DialogFlames snapshot = dialogFlames.get(UserConfig.getInstance(account).getClientUserId());
+        if (snapshot == null) return null;
+        JSONArray flame = snapshot.peers.optJSONArray(Long.toString(peerId));
+        if (flame == null) return null;
+        int today = currentDay(snapshot.day, snapshot.midnight);
+        int last = flame.optInt(1);
+        return last >= today - 1 ? new Badge(flame.optInt(0), last == today) : null;
+    }
+
+    public static void loadDialogBadges(int account, Runnable onChanged) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId <= 0) return;
+        BygramTypingController.flameRequest(userId, BygramTypingController.json("action", "flame_list", "user_id", userId), response -> {
+            if (response == null || UserConfig.getInstance(account).getClientUserId() != userId) return;
+            JSONObject peers = response.optJSONObject("flames");
+            if (response.optBoolean("ok") && peers != null) {
+                dialogFlames.put(userId, new DialogFlames(peers, response));
+            } else if (response.optBoolean("needs_registration")) {
+                dialogFlames.remove(userId);
+            } else {
+                return;
+            }
+            onChanged.run();
+        });
+    }
+
+    public static boolean supportsPeer(TLRPC.User user) {
+        return user != null && user.id > 0 && !user.self && !user.bot && !UserObject.isDeleted(user)
+                && !UserObject.isAnonymous(user) && !UserObject.isReplyUser(user) && !MessagesController.isSupportUser(user);
+    }
 
     public interface Listener {
         void onFlameChanged(int days, int activeDay, int restorableDays, int remaining, boolean needsConfirmation);
@@ -34,6 +94,7 @@ public final class BygramFlame {
     private boolean busy;
     private boolean needsHistory;
     private boolean needsConfirmation;
+    private boolean attemptedLogin;
 
     public BygramFlame(int account, long peerId, Listener listener) {
         this.account = account;
@@ -45,6 +106,7 @@ public final class BygramFlame {
     public void resume() {
         active = true;
         needsHistory = true;
+        attemptedLogin = false;
         refresh();
     }
 
@@ -60,9 +122,16 @@ public final class BygramFlame {
     }
 
     private int day() {
-        int day = state.optInt("day");
+        return currentDay(state.optInt("day"), midnight);
+    }
+
+    private static int currentDay(int day, long midnight) {
         long elapsed = SystemClock.elapsedRealtime() - midnight;
         return elapsed < 0 ? day : day + 1 + (int) (elapsed / 86_400_000);
+    }
+
+    private static long nextMidnight(JSONObject response) {
+        return SystemClock.elapsedRealtime() + response.optLong("seconds_to_midnight") * 1000;
     }
 
     public void render() {
@@ -74,8 +143,8 @@ public final class BygramFlame {
         int today = day();
         int last = state.optInt("last_day");
         int days = state.optInt("days");
-        int lost = last > 0 && last < today - 1 ? days : state.optInt("lost_days");
-        listener.onFlameChanged(last >= today - 1 ? days : 0, last == today ? today : 0, lost, state.optInt("remaining"), false);
+        int lost = days > 0 && last < today - 1 ? days : state.optInt("lost_days");
+        listener.onFlameChanged(last >= today - 1 ? days : 0, days > 0 && last == today ? today : 0, lost, state.optInt("remaining"), false);
     }
 
     public boolean takeMilestone(int days, int activeDay) {
@@ -93,6 +162,16 @@ public final class BygramFlame {
         render();
         busy = true;
         request("flame_get", response -> {
+            if (response != null && response.optBoolean("needs_registration") && active && !attemptedLogin
+                    && UserConfig.getInstance(account).getClientUserId() == userId) {
+                attemptedLogin = true;
+                BygramTypingController.registerAccount(userId, (registered, url) -> {
+                    busy = false;
+                    if (registered) refresh();
+                    else accept(response);
+                });
+                return;
+            }
             if (accept(response) && active && needsHistory
                     && state.optInt("last_day") < state.optInt("day")) {
                 needsHistory = false;
@@ -115,7 +194,7 @@ public final class BygramFlame {
         needsConfirmation = false;
         if (state == null || state.optInt("day") != response.optInt("day")) needsHistory = true;
         state = response;
-        midnight = SystemClock.elapsedRealtime() + response.optLong("seconds_to_midnight") * 1000;
+        midnight = nextMidnight(response);
         if (active) render();
         return true;
     }
@@ -139,7 +218,7 @@ public final class BygramFlame {
         }
         int today = day();
         int last = state.optInt("last_day");
-        int lost = last > 0 && last < today - 1 ? last : state.optInt("lost_day");
+        int lost = state.optInt("days") > 0 && last < today - 1 ? last : state.optInt("lost_day");
         if (lost <= 0) {
             callback.run(false);
             return;
@@ -154,7 +233,10 @@ public final class BygramFlame {
 
     public void requestAccountLogin(Utilities.Callback<String> callback) {
         BygramTypingController.registerAccount(userId, (registered, url) -> {
-            if (active && UserConfig.getInstance(account).getClientUserId() == userId) callback.run(url);
+            if (active && UserConfig.getInstance(account).getClientUserId() == userId) {
+                if (registered) refresh();
+                else callback.run(url);
+            }
         });
     }
 
