@@ -4340,6 +4340,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             viewPage.listView.setOnItemClickListener((view, position, x, y) -> {
                 if (view instanceof GraySectionCell)
                     return;
+                if (!onlySelect && !actionBar.isActionModeShowed() && view instanceof DialogCell
+                        && ((DialogCell) view).tryShowFlameStats(x, y)) return;
                 if (view instanceof DialogCell && ((DialogCell) view).isBlocked()) {
                     showPremiumBlockedToast(view, ((DialogCell) view).getDialogId());
                     return;

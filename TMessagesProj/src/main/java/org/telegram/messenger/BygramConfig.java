@@ -163,7 +163,7 @@ public final class BygramConfig {
     private BygramConfig() {
     }
 
-    private static SharedPreferences preferences() {
+    static SharedPreferences preferences() {
         return MessagesController.getGlobalMainSettings();
     }
 

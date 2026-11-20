@@ -145,6 +145,7 @@ import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.BygramConfig;
 import org.telegram.ui.Components.BygramBadgeDrawable;
 import org.telegram.ui.Components.BygramFlameBadge;
+import org.telegram.ui.Components.BygramFlameStats;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.ContactsController;
@@ -5702,6 +5703,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         nameTextView.setTextColor(getThemedColor(Theme.key_profile_title));
         nameTextView.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(4));
         nameTextView.setTextSizePx(dp(17.5f));
+        nameTextView.setOnFlameClick(() -> {
+            if (bygramFlameBadge != null) {
+                BygramFlameStats.show(this, currentAccount, getMessagesController().getInputPeer(userId),
+                        bygramFlameBadge.days, resourcesProvider);
+            }
+        });
         nameTextView.setGravity(Gravity.LEFT);
         nameTextView.setTypeface(AndroidUtilities.bold());
         nameTextView.setLeftDrawableTopPadding(-AndroidUtilities.dp(1.3f));
@@ -10051,7 +10058,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             nameTextView.setText(bygramProfileName, true);
         } else {
             BygramFlameBadge badge = new BygramFlameBadge(nameTextView.getContext(), bygramFlameBadge.days, bygramFlameBadge.active);
-            nameTextView.setText(new SpannableStringBuilder(badge.text()).append('\u00a0').append(bygramProfileName), true);
+            nameTextView.setText(new SpannableStringBuilder(bygramProfileName).append('\u00a0').append(badge.text()), true);
         }
     }
 

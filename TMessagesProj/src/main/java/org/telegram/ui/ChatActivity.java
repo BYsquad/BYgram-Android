@@ -20392,7 +20392,7 @@ public class ChatActivity extends BaseFragment implements
                 && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
                 && bygramFlame.takeMilestone(days, activeDay)) {
             if (bygramFlameEffect != null) bygramFlameEffect.stop();
-            bygramFlameEffect = new org.telegram.ui.Components.BygramFlameEffect((FrameLayout) fragmentView);
+            bygramFlameEffect = new org.telegram.ui.Components.BygramFlameEffect((FrameLayout) fragmentView, days);
         }
         if (headerItem != null) {
             headerItem.setSubItemShown(RESTORE_FLAME, lostDays > 0 && restoresLeft > 0);

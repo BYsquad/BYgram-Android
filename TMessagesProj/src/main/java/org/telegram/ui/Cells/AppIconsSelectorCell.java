@@ -58,6 +58,10 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
     private LinearLayoutManager linearLayoutManager;
     private int currentAccount;
 
+    protected void selectIcon(LauncherIconController.LauncherIcon icon) {
+        LauncherIconController.setIcon(icon);
+    }
+
     public AppIconsSelectorCell(Context context, BaseFragment fragment, int currentAccount) {
         this(context, fragment, currentAccount, Arrays.asList(LauncherIconController.LauncherIcon.values()));
     }
@@ -141,7 +145,7 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
             smoothScroller.setTargetPosition(position);
             linearLayoutManager.startSmoothScroll(smoothScroller);
 
-            LauncherIconController.setIcon(icon);
+            selectIcon(icon);
             holderView.setSelected(true, true);
 
             for (int i = 0; i < getChildCount(); i++) {

@@ -16,6 +16,7 @@ import android.graphics.drawable.Drawable;
 import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.BygramSettingsLink;
 import org.telegram.messenger.BygramUpdates;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
@@ -72,7 +73,42 @@ abstract class BygramSettingsPage extends BaseFragment {
 
     @Override
     public boolean onFragmentCreate() {
-        return super.onFragmentCreate();
+        boolean created = super.onFragmentCreate();
+        logSetting(created ? "open" : "rejected", "screen");
+        return created;
+    }
+
+    final void logSetting(String result, String feature) {
+        logSetting(result, feature, "");
+    }
+
+    private void logSetting(String result, String feature, String detail) {
+        String page = BygramSettingsActivity.settingsPage(this);
+        String message = "BYgramSettings page=" + (page == null ? getClass().getSimpleName() : page)
+                + " feature=" + feature + " result=" + result + detail;
+        if ("failed".equals(result) || "rejected".equals(result)) {
+            FileLog.w(message);
+        } else {
+            FileLog.d(message);
+        }
+    }
+
+    final void logSettingFailure(String feature, Exception error) {
+        logSetting("failed", feature, " error=" + error.getClass().getSimpleName());
+    }
+
+    final void logPublishResult(String feature, boolean ok, String authUrl) {
+        logSetting(ok ? "success" : authUrl.isEmpty() ? "failed" : "auth_required", feature);
+    }
+
+    final void changeSetting(String feature, Runnable change) {
+        try {
+            change.run();
+        } catch (RuntimeException error) {
+            logSettingFailure(feature, error);
+            throw error;
+        }
+        logSetting("changed", feature);
     }
 
     @Override
@@ -151,15 +187,13 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
 
     public static BaseFragment forLink(BygramSettingsLink target) {
         BygramSettingsPage page;
-        switch (target.page) {
+        switch (target.customizationSection()) {
             case "plugins": return org.telegram.messenger.PluginEntry.page();
             case "customization": page = new CustomizationSettingsActivity(); break;
-            case "general":
-            case "appearance":
-            case "chat_list":
-            case "winter":
-                page = new GeneralCustomizationActivity(target.customizationSection());
-                break;
+            case "general": page = new GeneralCustomizationActivity(); break;
+            case "appearance": page = new AppearanceCustomizationActivity(); break;
+            case "chat_list": page = new ChatListCustomizationActivity(); break;
+            case "winter": page = new WinterCustomizationActivity(); break;
             case "profile": page = new ProfileCustomizationActivity(); break;
             case "typing": page = new TypingCustomizationActivity(); break;
             case "ghost": page = new GhostSettingsActivity(); break;
@@ -176,7 +210,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     private void presentSettingsPage(BaseFragment page) {
         ((BygramSettingsPage) page).linkTarget = linkTarget;
         page.setCurrentAccount(currentAccount);
-        presentFragment(page);
+        if (!presentFragment(page)) logSetting("rejected", settingsPage(page));
     }
 
     @Override
@@ -192,10 +226,13 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         });
     }
 
-    private static String settingsPage(BaseFragment fragment) {
+    static String settingsPage(BaseFragment fragment) {
         if (fragment instanceof BygramSettingsActivity) return "root";
         if (fragment instanceof CustomizationSettingsActivity) return "customization";
         if (fragment instanceof GeneralCustomizationActivity) return "general";
+        if (fragment instanceof AppearanceCustomizationActivity) return "appearance";
+        if (fragment instanceof ChatListCustomizationActivity) return "chat_list";
+        if (fragment instanceof WinterCustomizationActivity) return "winter";
         if (fragment instanceof ProfileCustomizationActivity) return "profile";
         if (fragment instanceof TypingCustomizationActivity) return "typing";
         if (fragment instanceof GhostSettingsActivity) return "ghost";
@@ -209,7 +246,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
 
     private static int linkedRow(BaseFragment fragment) {
         BygramSettingsLink target = ((BygramSettingsPage) fragment).linkTarget;
-        return target != null && settingsPage(fragment).equals(target.page) ? target.highlightedRow() : 0;
+        return target != null && target.customizationSection().equals(settingsPage(fragment)) ? target.highlightedRow() : 0;
     }
 
     public static boolean showLinkMenu(BaseFragment fragment, View view, UniversalRecyclerView list, String target) {
@@ -231,14 +268,19 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     }
 
     private static class SettingsList extends UniversalRecyclerView {
-        private final BaseFragment fragment;
+        private final BygramSettingsPage fragment;
         private boolean focusedLink;
 
-        SettingsList(BaseFragment fragment, Utilities.Callback2<ArrayList<UItem>, UniversalAdapter> fill,
+        SettingsList(BygramSettingsPage fragment, Utilities.Callback2<ArrayList<UItem>, UniversalAdapter> fill,
                 Utilities.Callback5<UItem, View, Integer, Float, Float> click,
                 Utilities.Callback5Return<UItem, View, Integer, Float, Float, Boolean> longClick) {
             super(fragment, (items, adapter) -> {
-                fill.run(items, adapter);
+                try {
+                    fill.run(items, adapter);
+                } catch (RuntimeException error) {
+                    fragment.logSettingFailure("build_rows", error);
+                    throw error;
+                }
                 for (UItem item : items) {
                     if (item.viewType == UniversalAdapter.VIEW_TYPE_CHECK
                             || item.viewType == UniversalAdapter.VIEW_TYPE_TEXT) {
@@ -250,7 +292,14 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                         });
                     }
                 }
-            }, click, longClick);
+            }, (item, view, position, x, y) -> {
+                try {
+                    click.run(item, view, position, x, y);
+                } catch (RuntimeException error) {
+                    fragment.logSettingFailure("row_action", error);
+                    throw error;
+                }
+            }, longClick);
             this.fragment = fragment;
             setOnItemLongClickListener((view, position, x, y) -> {
                 UItem item = adapter.getItem(position);
@@ -328,7 +377,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         if (item.id == ROW_PLUGINS) {
             BaseFragment page = org.telegram.messenger.PluginEntry.page();
             page.setCurrentAccount(currentAccount);
-            presentFragment(page);
+            if (!presentFragment(page)) logSetting("rejected", "plugins");
             return;
         }
         if (item.id == 8) {
@@ -376,6 +425,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     }
 
     private void privacyError() {
+        logSetting("rejected", "hidden_chats_unlock");
         showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                 .setTitle(getString(R.string.BygramPrivacyError))
                 .setPositiveButton(getString(R.string.OK), null).create());
@@ -427,8 +477,10 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                 boolean enabled = !BygramTypingController.profileViewsEnabled(currentAccount);
                 JSONObject data = new JSONObject();
                 try { data.put("action", "profile_views_set"); data.put("enabled", enabled); }
-                catch (Exception error) { org.telegram.messenger.FileLog.e(error); return; }
+                catch (Exception error) { logSettingFailure("set_profile_views", error); return; }
+                logSetting("started", "set_profile_views");
                 BygramTypingController.profileViewsRequest(currentAccount, data, (response, authUrl) -> {
+                    logPublishResult("set_profile_views", response != null && response.optBoolean("ok"), authUrl);
                     if (!authUrl.isEmpty()) {
                         showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                                 .setTitle(getString(R.string.BygramProfileViews))
@@ -454,8 +506,9 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             if (listView == null) return;
             JSONObject data = new JSONObject();
             try { data.put("action", "profile_views_list"); }
-            catch (Exception error) { org.telegram.messenger.FileLog.e(error); return; }
+            catch (Exception error) { logSettingFailure("load_profile_views", error); return; }
             BygramTypingController.profileViewsRequest(currentAccount, data, (response, authUrl) -> {
+                logPublishResult("load_profile_views", response != null && response.optBoolean("ok"), authUrl);
                 if (response != null && response.optBoolean("ok") && listView != null) {
                     views = response.optJSONArray("views");
                     if (views == null) views = new JSONArray();
@@ -753,6 +806,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         }
 
         private void privacyError() {
+            logSetting("rejected", "privacy_validation");
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                     .setTitle(getString(R.string.BygramPrivacyError))
                     .setPositiveButton(getString(R.string.OK), null).create());
@@ -763,12 +817,12 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         @Override int getTitleRes() { return R.string.BygramCustomization; }
 
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-            items.add(UItem.asButton(2, getString(R.string.BygramGeneral)));
-            items.add(UItem.asButton(3, getString(R.string.BygramChatList)));
-            items.add(UItem.asButton(1, getString(R.string.BygramProfile)));
-            items.add(UItem.asButton(5, getString(R.string.BygramAppearance)));
-            items.add(UItem.asButton(6, getString(R.string.BygramWinter)));
-            items.add(UItem.asButton(4, getString(R.string.BygramCustomTyping)));
+            items.add(UItem.asButton(2, R.drawable.msg_settings, getString(R.string.BygramGeneral)));
+            items.add(UItem.asButton(3, R.drawable.msg_discussion, getString(R.string.BygramChatList)));
+            items.add(UItem.asButton(1, R.drawable.msg_contacts, getString(R.string.BygramProfile)));
+            items.add(UItem.asButton(5, R.drawable.msg_theme, getString(R.string.BygramAppearance)));
+            items.add(UItem.asButton(6, R.drawable.bygram_snowflake, getString(R.string.BygramWinter)));
+            items.add(UItem.asButton(4, R.drawable.msg_edit, getString(R.string.BygramCustomTyping)));
             items.add(UItem.asShadow(null));
         }
 
@@ -779,7 +833,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             if ("root".equals(target.page)) return;
             BaseFragment page = forLink(target);
             page.setCurrentAccount(currentAccount);
-            presentFragment(page);
+            if (!presentFragment(page)) logSetting("rejected", target.page);
         }
     }
 
@@ -822,7 +876,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                     .setView(dialogInputContainer(input))
                     .setNegativeButton(getString(R.string.Cancel), null)
                     .setPositiveButton(getString(R.string.Save), (dialog, which) -> {
-                        BygramConfig.setCustomTyping(currentAccount, action, input.getText().toString());
+                        changeSetting("typing_action_" + action,
+                                () -> BygramConfig.setCustomTyping(currentAccount, action, input.getText().toString()));
                         listView.adapter.update(true);
                         publish();
                     }).create());
@@ -836,7 +891,9 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             showDialog(progress);
             progress.setCanceledOnTouchOutside(false);
             progress.setCancelable(false);
+            logSetting("started", "publish_typing");
             BygramTypingController.publish(currentAccount, (ok, authUrl) -> {
+                logPublishResult("publish_typing", ok, authUrl);
                 publishing = false;
                 progress.dismiss();
                 if (getContext() == null) return;
@@ -960,25 +1017,46 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     }
 
     public static class GeneralCustomizationActivity extends ToggleSettingsActivity {
-        private final String section;
-        private boolean md3Expanded;
-        private AppIconsSelectorCell icons;
-        private FrameLayout avatarCorners;
-        private SlideIntChooseView sectionCorners;
-        private SlideIntChooseView snowAmount;
+        @Override int getTitleRes() { return R.string.BygramGeneral; }
 
-        GeneralCustomizationActivity(String section) {
-            this.section = section;
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asCheck(1, getString(R.string.BygramFilterZalgo))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO)));
+            items.add(UItem.asShadow(getString(R.string.BygramFilterZalgoInfo)));
+            items.add(UItem.asHeader(getString(R.string.BygramFeedbackSection)));
+            items.add(UItem.asCheck(9, getString(R.string.BygramAppVibration))
+                    .setChecked(!BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)));
+            if (BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)) {
+                items.add(UItem.asCheck(10, "    " + getString(R.string.BygramCallVibration))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.CALL_VIBRATION)));
+            }
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asCheck(25, getString(R.string.BygramSeconds)).setChecked(BygramConfig.getBoolean(BygramConfig.SECONDS)));
+            items.add(UItem.asShadow(null));
         }
 
-        @Override int getTitleRes() {
-            switch (section) {
-                case "chat_list": return R.string.BygramChatList;
-                case "appearance": return R.string.BygramAppearance;
-                case "winter": return R.string.BygramWinter;
-                default: return R.string.BygramGeneral;
+        @Override String keyFor(int id) {
+            switch (id) {
+                case 1: return BygramConfig.FILTER_ZALGO;
+                case 9: return BygramConfig.DISABLE_VIBRATION;
+                case 10: return BygramConfig.CALL_VIBRATION;
+                case 25: return BygramConfig.SECONDS;
+                default: return null;
             }
         }
+
+        @Override void onSettingChanged(String key) {
+            if ((BygramConfig.DISABLE_VIBRATION.equals(key) && BygramConfig.getBoolean(key)
+                    || BygramConfig.CALL_VIBRATION.equals(key) && !BygramConfig.getBoolean(key))
+                    && !BygramConfig.isCallVibrationEnabled()) {
+                android.os.Vibrator vibrator = (android.os.Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+                if (vibrator != null) vibrator.cancel();
+            }
+        }
+    }
+
+    public static class ChatListCustomizationActivity extends ToggleSettingsActivity {
+        @Override int getTitleRes() { return R.string.BygramChatList; }
 
         private String[] titleOptions() {
             TLRPC.User user = getUserConfig().getCurrentUser();
@@ -996,28 +1074,93 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             return new String[]{getString(R.string.BygramFolderNames), getString(R.string.BygramFolderNamesIcons), getString(R.string.BygramFolderIcons)};
         }
 
-        @Override
-        public View createView(Context context) {
-            if ("appearance".equals(section)) {
-                md3Expanded = md3Expanded || linkedRow(this) >= 200 && linkedRow(this) <= 203;
-                createAppearanceControls(context);
-            } else if ("winter".equals(section)) {
-                snowAmount = new SlideIntChooseView(context, getResourceProvider());
-                snowAmount.setLabel(getString(R.string.BygramSnowAmount));
-                snowAmount.set(BygramConfig.getInt(BygramConfig.SNOW_AMOUNT, BygramConfig.SNOW_AMOUNT_MAX),
-                        SlideIntChooseView.Options.make(0, BygramConfig.SNOW_AMOUNT_MIN,
-                                BygramConfig.SNOW_AMOUNT_MAX, value -> value + "%"), value -> {
-                            BygramConfig.setInt(BygramConfig.SNOW_AMOUNT, value);
-                            fragmentView.invalidate();
-                        });
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asHeader(getString(R.string.BygramFoldersAppearance)));
+            items.add(UItem.asCustom(folderPreview(getContext(), currentAccount), 48));
+            items.add(UItem.asButton(15, getString(R.string.BygramFolderStyle), folderStyleOptions()[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.FOLDER_STYLE, 0)))]));
+            items.add(UItem.asCheck(16, getString(R.string.BygramHideFolderCounters)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_FOLDER_COUNTERS)));
+            items.add(UItem.asCheck(17, getString(R.string.BygramHideAllTab)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_ALL_TAB)));
+            items.add(UItem.asShadow(getString(R.string.BygramFoldersPreviewInfo)));
+            items.add(UItem.asCheck(12, getString(R.string.BygramCollapseFoldersOnScroll))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL)));
+            items.add(UItem.asCheck(13, getString(R.string.BygramCollapseNavigationOnScroll))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL)));
+            items.add(UItem.asCheck(4, getString(R.string.BygramCollapseSearchOnStart))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)));
+            if (BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)) {
+                items.add(UItem.asCheck(11, "    " + getString(R.string.BygramKeepSearchCollapsed))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.KEEP_SEARCH_COLLAPSED)));
             }
-            return super.createView(context);
+            items.add(UItem.asShadow(getString(R.string.BygramCollapseSearchOnStartInfo)));
+            items.add(UItem.asCheck(5, getString(R.string.BygramHideArchive))
+                    .setChecked(org.telegram.messenger.SharedConfig.archiveHidden));
+            items.add(UItem.asShadow(getString(R.string.BygramHideArchiveInfo)));
+            items.add(UItem.asCheck(8, getString(R.string.BygramNoUnarchiveSwipe))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.NO_UNARCHIVE_SWIPE)));
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asHeader(getString(R.string.BygramHeaderSection)));
+            items.add(UItem.asCheck(14, getString(R.string.BygramHideStories)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_STORIES)));
+            items.add(UItem.asCustom(new TitlePreview(getContext(), currentAccount, this)));
+            String[] titles = titleOptions();
+            String[] positions = positionOptions();
+            items.add(UItem.asButton(6, getString(R.string.BygramTitleText),
+                    titles[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.TITLE_TEXT, 0)))]));
+            items.add(UItem.asButton(7, getString(R.string.BygramTitlePosition),
+                    positions[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.TITLE_POSITION, 0)))]));
+            items.add(UItem.asShadow(null));
         }
 
-        private void createAppearanceControls(Context context) {
+        @Override String keyFor(int id) {
+            switch (id) {
+                case 4: return BygramConfig.COLLAPSE_SEARCH_ON_START;
+                case 8: return BygramConfig.NO_UNARCHIVE_SWIPE;
+                case 11: return BygramConfig.KEEP_SEARCH_COLLAPSED;
+                case 12: return BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL;
+                case 13: return BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL;
+                case 14: return BygramConfig.HIDE_STORIES;
+                case 16: return BygramConfig.HIDE_FOLDER_COUNTERS;
+                case 17: return BygramConfig.HIDE_ALL_TAB;
+                default: return null;
+            }
+        }
+
+        @Override void onCustomClick(int id) {
+            if (id == 5) {
+                changeSetting("archive_hidden", org.telegram.messenger.SharedConfig::toggleArchiveHidden);
+                listView.adapter.update(true);
+                return;
+            }
+            if (id != 6 && id != 7 && id != 15) return;
+            String key = id == 15 ? BygramConfig.FOLDER_STYLE : id == 6 ? BygramConfig.TITLE_TEXT : BygramConfig.TITLE_POSITION;
+            String[] options = id == 15 ? folderStyleOptions() : id == 6 ? titleOptions() : positionOptions();
+            int title = id == 15 ? R.string.BygramFolderStyle : id == 6 ? R.string.BygramTitleText : R.string.BygramTitlePosition;
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
+                    .setTitle(getString(title))
+                    .setItems(options, (dialog, which) -> {
+                        setIntSetting(key, which);
+                        listView.adapter.update(true);
+                    }).create());
+        }
+    }
+
+    public static class AppearanceCustomizationActivity extends ToggleSettingsActivity {
+        @Override int getTitleRes() { return R.string.BygramAppearance; }
+
+        private boolean md3Expanded;
+        private AppIconsSelectorCell icons;
+        private FrameLayout avatarCorners;
+        private SlideIntChooseView sectionCorners;
+
+        @Override void createControls(Context context) {
+            int row = linkedRow(this);
+            md3Expanded = md3Expanded || row >= 200 && row <= 203;
             icons = new AppIconsSelectorCell(context, this, currentAccount, Arrays.asList(
                     LauncherIconController.LauncherIcon.DEFAULT,
-                    LauncherIconController.LauncherIcon.AQUA));
+                    LauncherIconController.LauncherIcon.AQUA)) {
+                @Override protected void selectIcon(LauncherIconController.LauncherIcon icon) {
+                    changeSetting("app_icon", () -> super.selectIcon(icon));
+                }
+            };
             BackupImageView avatarPreview = new BackupImageView(context);
             AvatarDrawable avatarDrawable = new AvatarDrawable();
             avatarDrawable.setInfo(getUserConfig().getCurrentUser());
@@ -1035,7 +1178,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                     SlideIntChooseView.Options.make(0, 0, 28, value -> value == 0
                             ? getString(R.string.BygramSquare)
                             : value == 28 ? getString(R.string.BygramCircle) : String.valueOf(value)), value -> {
-                        BygramConfig.setInt(BygramConfig.AVATAR_CORNERS, value);
+                        setIntSetting(BygramConfig.AVATAR_CORNERS, value);
                         avatarPreview.invalidate();
                     });
             avatarCorners.addView(cornersSlider, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 75, Gravity.BOTTOM));
@@ -1043,172 +1186,107 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             sectionCorners.setLabel(getString(R.string.BygramSectionRadius));
             sectionCorners.set(BygramConfig.getInt(BygramConfig.SECTION_RADIUS, 16),
                     SlideIntChooseView.Options.make(0, 0, 28, value -> value == 0 ? getString(R.string.BygramOff) : value + " dp"), value -> {
-                        BygramConfig.setInt(BygramConfig.SECTION_RADIUS, value);
+                        setIntSetting(BygramConfig.SECTION_RADIUS, value);
                         listView.setSections();
                         listView.invalidate();
                     });
         }
 
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-            switch (section) {
-                case "chat_list":
-                    items.add(UItem.asHeader(getString(R.string.BygramFoldersAppearance)));
-                    items.add(UItem.asCustom(folderPreview(getContext(), currentAccount), 48));
-                    items.add(UItem.asButton(15, getString(R.string.BygramFolderStyle), folderStyleOptions()[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.FOLDER_STYLE, 0)))]));
-                    items.add(UItem.asCheck(16, getString(R.string.BygramHideFolderCounters)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_FOLDER_COUNTERS)));
-                    items.add(UItem.asCheck(17, getString(R.string.BygramHideAllTab)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_ALL_TAB)));
-                    items.add(UItem.asShadow(getString(R.string.BygramFoldersPreviewInfo)));
-                    items.add(UItem.asCheck(12, getString(R.string.BygramCollapseFoldersOnScroll))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL)));
-                    items.add(UItem.asCheck(13, getString(R.string.BygramCollapseNavigationOnScroll))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL)));
-                    items.add(UItem.asCheck(4, getString(R.string.BygramCollapseSearchOnStart))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)));
-                    if (BygramConfig.getBoolean(BygramConfig.COLLAPSE_SEARCH_ON_START)) {
-                        items.add(UItem.asCheck(11, "    " + getString(R.string.BygramKeepSearchCollapsed))
-                                .setChecked(BygramConfig.getBoolean(BygramConfig.KEEP_SEARCH_COLLAPSED)));
-                    }
-                    items.add(UItem.asShadow(getString(R.string.BygramCollapseSearchOnStartInfo)));
-                    items.add(UItem.asCheck(5, getString(R.string.BygramHideArchive))
-                            .setChecked(org.telegram.messenger.SharedConfig.archiveHidden));
-                    items.add(UItem.asShadow(getString(R.string.BygramHideArchiveInfo)));
-                    items.add(UItem.asCheck(8, getString(R.string.BygramNoUnarchiveSwipe))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.NO_UNARCHIVE_SWIPE)));
-                    items.add(UItem.asShadow(null));
-                    items.add(UItem.asHeader(getString(R.string.BygramHeaderSection)));
-                    items.add(UItem.asCheck(14, getString(R.string.BygramHideStories)).setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_STORIES)));
-                    items.add(UItem.asCustom(new TitlePreview(getContext(), currentAccount, this)));
-                    String[] titles = titleOptions();
-                    String[] positions = positionOptions();
-                    items.add(UItem.asButton(6, getString(R.string.BygramTitleText),
-                            titles[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.TITLE_TEXT, 0)))]));
-                    items.add(UItem.asButton(7, getString(R.string.BygramTitlePosition),
-                            positions[Math.max(0, Math.min(2, BygramConfig.getInt(BygramConfig.TITLE_POSITION, 0)))]));
-                    items.add(UItem.asShadow(null));
-                    break;
-                case "appearance":
-                    items.add(UItem.asHeader(getString(R.string.BygramAppIcons)).setId(-1));
-                    items.add(UItem.asCustom(icons, 104).setId(-1));
-                    items.add(UItem.asShadow(null));
-                    items.add(UItem.asHeader(getString(R.string.BygramSections)));
-                    items.add(UItem.asCustom(sectionCorners, 75).setId(26));
-                    items.add(UItem.asCheck(27, getString(R.string.BygramSeparateHeaders)).setChecked(BygramConfig.getBoolean(BygramConfig.SEPARATE_HEADERS)));
-                    items.add(UItem.asCheck(28, getString(R.string.BygramQrGlassStyle))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE)));
-                    items.add(UItem.asShadow(null));
-                    int md3 = (BygramConfig.getBoolean(BygramConfig.MD3_LOADING) ? 1 : 0)
-                            + (BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS) ? 1 : 0)
-                            + (BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES) ? 1 : 0)
-                            + (BygramConfig.getBoolean(BygramConfig.MD3_PROFILE_BUTTONS) ? 1 : 0);
-                    items.add(UItem.asButton(3, getString(R.string.BygramMaterial3),
-                            md3 + "/4"));
-                    if (md3Expanded) {
-                        items.add(UItem.asCheck(203, getString(R.string.BygramMd3ProfileButtons)).setChecked(BygramConfig.getBoolean(BygramConfig.MD3_PROFILE_BUTTONS)));
-                        items.add(UItem.asCheck(200, getString(R.string.BygramMd3Loading))
-                                .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_LOADING)));
-                        items.add(UItem.asCheck(201, getString(R.string.BygramMd3Sliders))
-                                .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS)));
-                        items.add(UItem.asCheck(202, getString(R.string.BygramMd3Switches))
-                                .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES)));
-                    }
-                    items.add(UItem.asShadow(null));
-                    items.add(UItem.asHeader(getString(R.string.BygramAvatarCorners)).setId(-2));
-                    items.add(UItem.asCustom(avatarCorners).setId(-2));
-                    items.add(UItem.asShadow(null));
-                    break;
-                case "winter":
-                    items.add(UItem.asCheck(22, getString(R.string.BygramSnowScreens)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_SCREENS)));
-                    items.add(UItem.asCheck(18, getString(R.string.BygramSnowChats)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_CHATS)));
-                    items.add(UItem.asCheck(21, getString(R.string.BygramSnowNavigation)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_NAVIGATION)));
-                    items.add(UItem.asCustom(snowAmount, 75).setId(29));
-                    items.add(UItem.asShadow(getString(R.string.BygramSnowInfo)));
-                    break;
-                default:
-                    items.add(UItem.asCheck(1, getString(R.string.BygramFilterZalgo))
-                            .setChecked(BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO)));
-                    items.add(UItem.asShadow(getString(R.string.BygramFilterZalgoInfo)));
-                    items.add(UItem.asHeader(getString(R.string.BygramFeedbackSection)));
-                    items.add(UItem.asCheck(9, getString(R.string.BygramAppVibration))
-                            .setChecked(!BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)));
-                    if (BygramConfig.getBoolean(BygramConfig.DISABLE_VIBRATION)) {
-                        items.add(UItem.asCheck(10, "    " + getString(R.string.BygramCallVibration))
-                                .setChecked(BygramConfig.getBoolean(BygramConfig.CALL_VIBRATION)));
-                    }
-                    items.add(UItem.asShadow(null));
-                    items.add(UItem.asCheck(25, getString(R.string.BygramSeconds)).setChecked(BygramConfig.getBoolean(BygramConfig.SECONDS)));
-                    items.add(UItem.asShadow(null));
-                    break;
+            items.add(UItem.asHeader(getString(R.string.BygramAppIcons)).setId(-1));
+            items.add(UItem.asCustom(icons, 104).setId(-1));
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asHeader(getString(R.string.BygramSections)));
+            items.add(UItem.asCustom(sectionCorners, 75).setId(26));
+            items.add(UItem.asCheck(27, getString(R.string.BygramSeparateHeaders)).setChecked(BygramConfig.getBoolean(BygramConfig.SEPARATE_HEADERS)));
+            items.add(UItem.asCheck(28, getString(R.string.BygramQrGlassStyle))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE)));
+            items.add(UItem.asShadow(null));
+            int md3 = (BygramConfig.getBoolean(BygramConfig.MD3_LOADING) ? 1 : 0)
+                    + (BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS) ? 1 : 0)
+                    + (BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES) ? 1 : 0)
+                    + (BygramConfig.getBoolean(BygramConfig.MD3_PROFILE_BUTTONS) ? 1 : 0);
+            items.add(UItem.asButton(3, getString(R.string.BygramMaterial3),
+                    md3 + "/4"));
+            if (md3Expanded) {
+                items.add(UItem.asCheck(203, getString(R.string.BygramMd3ProfileButtons)).setChecked(BygramConfig.getBoolean(BygramConfig.MD3_PROFILE_BUTTONS)));
+                items.add(UItem.asCheck(200, getString(R.string.BygramMd3Loading))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_LOADING)));
+                items.add(UItem.asCheck(201, getString(R.string.BygramMd3Sliders))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_SLIDERS)));
+                items.add(UItem.asCheck(202, getString(R.string.BygramMd3Switches))
+                        .setChecked(BygramConfig.getBoolean(BygramConfig.MD3_SWITCHES)));
             }
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asHeader(getString(R.string.BygramAvatarCorners)).setId(-2));
+            items.add(UItem.asCustom(avatarCorners).setId(-2));
+            items.add(UItem.asShadow(null));
         }
 
         @Override String keyFor(int id) {
             switch (id) {
-                case 1: return BygramConfig.FILTER_ZALGO;
-                case 4: return BygramConfig.COLLAPSE_SEARCH_ON_START;
-                case 11: return BygramConfig.KEEP_SEARCH_COLLAPSED;
-                case 12: return BygramConfig.COLLAPSE_FOLDERS_ON_SCROLL;
-                case 13: return BygramConfig.COLLAPSE_NAVIGATION_ON_SCROLL;
-                case 14: return BygramConfig.HIDE_STORIES;
-                case 16: return BygramConfig.HIDE_FOLDER_COUNTERS;
-                case 17: return BygramConfig.HIDE_ALL_TAB;
-                case 18: return BygramConfig.SNOW_CHATS;
-                case 21: return BygramConfig.SNOW_NAVIGATION;
-                case 22: return BygramConfig.SNOW_SCREENS;
-                case 25: return BygramConfig.SECONDS;
+                case 27: return BygramConfig.SEPARATE_HEADERS;
+                case 28: return BygramConfig.QR_GLASS_STYLE;
+                case 200: return BygramConfig.MD3_LOADING;
+                case 201: return BygramConfig.MD3_SLIDERS;
+                case 202: return BygramConfig.MD3_SWITCHES;
+                case 203: return BygramConfig.MD3_PROFILE_BUTTONS;
                 default: return null;
             }
         }
 
-        @Override void onClick(UItem item, View view, int position, float x, float y) {
-            if (item.id == 15) {
-                showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                        .setTitle(getString(R.string.BygramFolderStyle))
-                        .setItems(folderStyleOptions(), (dialog, which) -> {
-                            BygramConfig.setInt(BygramConfig.FOLDER_STYLE, which);
-                            listView.adapter.update(true);
-                        }).create());
-                return;
-            } else if (item.id == 27) {
-                BygramConfig.setBoolean(BygramConfig.SEPARATE_HEADERS, !BygramConfig.getBoolean(BygramConfig.SEPARATE_HEADERS));
+        @Override void onSettingChanged(String key) {
+            if (BygramConfig.SEPARATE_HEADERS.equals(key)) {
                 listView.setSections();
-            } else if (item.id == 28) {
-                BygramConfig.setBoolean(BygramConfig.QR_GLASS_STYLE, !BygramConfig.getBoolean(BygramConfig.QR_GLASS_STYLE));
+            } else if (BygramConfig.QR_GLASS_STYLE.equals(key)) {
                 listView.invalidate();
                 if (getParentLayout() != null) getParentLayout().rebuildAllFragmentViews(false, false);
-            } else if (item.id == 3) {
-                md3Expanded = !md3Expanded;
-            } else if (item.id == 5) {
-                org.telegram.messenger.SharedConfig.toggleArchiveHidden();
-            } else if (item.id == 8 || item.id == 9 || item.id == 10) {
-                String key = item.id == 8 ? BygramConfig.NO_UNARCHIVE_SWIPE
-                        : item.id == 9 ? BygramConfig.DISABLE_VIBRATION : BygramConfig.CALL_VIBRATION;
-                BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
-                if ((item.id == 9 && BygramConfig.getBoolean(key)
-                        || item.id == 10 && !BygramConfig.getBoolean(key))
-                        && !BygramConfig.isCallVibrationEnabled()) {
-                    android.os.Vibrator vibrator = (android.os.Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
-                    if (vibrator != null) vibrator.cancel();
-                }
-            } else if (item.id == 6 || item.id == 7) {
-                boolean title = item.id == 6;
-                String[] options = title ? titleOptions() : positionOptions();
-                showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                        .setTitle(getString(title ? R.string.BygramTitleText : R.string.BygramTitlePosition))
-                        .setItems(Arrays.copyOf(options, 3), (dialog, which) -> {
-                            BygramConfig.setInt(title ? BygramConfig.TITLE_TEXT : BygramConfig.TITLE_POSITION, which);
-                            listView.adapter.update(true);
-                        }).create());
-                return;
-            } else if (item.id >= 200 && item.id <= 203) {
-                String[] keys = {BygramConfig.MD3_LOADING, BygramConfig.MD3_SLIDERS, BygramConfig.MD3_SWITCHES, BygramConfig.MD3_PROFILE_BUTTONS};
-                String key = keys[item.id - 200];
-                BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
-            } else {
-                super.onClick(item, view, position, x, y);
-                if (item.id == 22) updateBygramSnow();
-                return;
             }
+        }
+
+        @Override void onCustomClick(int id) {
+            if (id != 3) return;
+            md3Expanded = !md3Expanded;
+            logSetting(md3Expanded ? "expanded" : "collapsed", "material3");
             listView.adapter.update(true);
+        }
+    }
+
+    public static class WinterCustomizationActivity extends ToggleSettingsActivity {
+        @Override int getTitleRes() { return R.string.BygramWinter; }
+
+        private SlideIntChooseView snowAmount;
+
+        @Override void createControls(Context context) {
+            snowAmount = new SlideIntChooseView(context, getResourceProvider());
+            snowAmount.setLabel(getString(R.string.BygramSnowAmount));
+            snowAmount.set(BygramConfig.getInt(BygramConfig.SNOW_AMOUNT, BygramConfig.SNOW_AMOUNT_MAX),
+                    SlideIntChooseView.Options.make(0, BygramConfig.SNOW_AMOUNT_MIN,
+                            BygramConfig.SNOW_AMOUNT_MAX, value -> value + "%"), value -> {
+                        setIntSetting(BygramConfig.SNOW_AMOUNT, value);
+                        fragmentView.invalidate();
+                    });
+        }
+
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asCheck(22, getString(R.string.BygramSnowScreens)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_SCREENS)));
+            items.add(UItem.asCheck(18, getString(R.string.BygramSnowChats)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_CHATS)));
+            items.add(UItem.asCheck(21, getString(R.string.BygramSnowNavigation)).setChecked(BygramConfig.getBoolean(BygramConfig.SNOW_NAVIGATION)));
+            items.add(UItem.asCustom(snowAmount, 75).setId(29));
+            items.add(UItem.asShadow(getString(R.string.BygramSnowInfo)));
+        }
+
+        @Override String keyFor(int id) {
+            switch (id) {
+                case 18: return BygramConfig.SNOW_CHATS;
+                case 21: return BygramConfig.SNOW_NAVIGATION;
+                case 22: return BygramConfig.SNOW_SCREENS;
+                default: return null;
+            }
+        }
+
+        @Override void onSettingChanged(String key) {
+            if (BygramConfig.SNOW_SCREENS.equals(key)) updateBygramSnow();
         }
     }
 
@@ -1268,7 +1346,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                     .setTitle(getString(R.string.BygramProfileId))
                     .setItems(modes, (dialog, which) -> {
-                        BygramConfig.setInt(BygramConfig.PROFILE_ID_MODE, which);
+                        setIntSetting(BygramConfig.PROFILE_ID_MODE, which);
                         listView.adapter.update(true);
                     }).create());
         }
@@ -1289,7 +1367,10 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             showDialog(progress);
             progress.setCanceledOnTouchOutside(false);
             progress.setCancelable(false);
+            String feature = pendingBackground == null ? "remove_background" : "publish_background";
+            logSetting("started", feature);
             BygramTypingController.publishProfileBackground(currentAccount, pendingBackground, (ok, authUrl) -> {
+                logPublishResult(feature, ok, authUrl);
                 backgroundPublishing = false;
                 progress.dismiss();
                 if (getContext() == null) return;
@@ -1374,17 +1455,23 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                     showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                             .setTitle(getString(R.string.BygramResetSettings)).setMessage(getString(R.string.BygramResetInfo))
                             .setPositiveButton(getString(R.string.Reset), (dialog, which) -> {
-                                BygramConfig.resetSettings();
-                                LauncherIconController.setIcon(LauncherIconController.LauncherIcon.DEFAULT);
+                                changeSetting("reset_settings", () -> {
+                                    BygramConfig.resetSettings();
+                                    LauncherIconController.setIcon(LauncherIconController.LauncherIcon.DEFAULT);
+                                });
                                 finishFragment();
                             }).setNegativeButton(getString(R.string.Cancel), null).create());
                 } else if (item.id == 4) {
-                    BygramConfig.setBoolean(BygramConfig.FIREBASE_CRASHLYTICS, !BygramConfig.getBoolean(BygramConfig.FIREBASE_CRASHLYTICS));
-                    BygramConfig.applyTelemetrySettings();
+                    changeSetting(BygramConfig.FIREBASE_CRASHLYTICS, () -> {
+                        BygramConfig.setBoolean(BygramConfig.FIREBASE_CRASHLYTICS, !BygramConfig.getBoolean(BygramConfig.FIREBASE_CRASHLYTICS));
+                        BygramConfig.applyTelemetrySettings();
+                    });
                     listView.adapter.update(true);
                 } else if (item.id == 5) {
-                    BygramConfig.setBoolean(BygramConfig.FIREBASE_ANALYTICS, !BygramConfig.getBoolean(BygramConfig.FIREBASE_ANALYTICS));
-                    BygramConfig.applyTelemetrySettings();
+                    changeSetting(BygramConfig.FIREBASE_ANALYTICS, () -> {
+                        BygramConfig.setBoolean(BygramConfig.FIREBASE_ANALYTICS, !BygramConfig.getBoolean(BygramConfig.FIREBASE_ANALYTICS));
+                        BygramConfig.applyTelemetrySettings();
+                    });
                     listView.adapter.update(true);
                 }
             }, null);
@@ -1394,7 +1481,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         }
 
         private void showError(Exception error) {
-            org.telegram.messenger.FileLog.e(error);
+            logSettingFailure("export_settings", error);
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext()).setTitle(getString(R.string.ErrorOccurred))
                     .setMessage(getString(R.string.BygramExportFailed)).setPositiveButton(getString(R.string.OK), null).create());
         }
@@ -1405,7 +1492,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             try (java.io.OutputStream output = getContext().getContentResolver().openOutputStream(data.getData(), "wt")) {
                 if (output == null) throw new java.io.IOException("Document provider returned no stream");
                 output.write(BygramConfig.exportSettings().toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            } catch (Exception e) { showError(e); }
+            } catch (Exception e) { showError(e); return; }
+            logSetting("success", "export_settings");
         }
     }
 
@@ -1500,8 +1588,10 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         private void onClick(UItem item, View view, int position, float x, float y) {
             if (item.id == 800) {
                 boolean enabled = !BygramConfig.isActivityEnabled(currentAccount);
-                BygramConfig.setActivityEnabled(currentAccount, enabled);
-                if (enabled) BygramActivityController.updateViewers(currentAccount); else BygramActivityController.clear(currentAccount);
+                changeSetting("activity_sharing", () -> {
+                    BygramConfig.setActivityEnabled(currentAccount, enabled);
+                    if (enabled) BygramActivityController.updateViewers(currentAccount); else BygramActivityController.clear(currentAccount);
+                });
                 listView.adapter.update(true);
                 return;
             }
@@ -1522,6 +1612,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             else permissions = permissions == 0 ? BygramConfig.ACTIVITY_CHAT : 0;
             BygramConfig.setActivityPermissions(currentAccount, userId, permissions);
             BygramActivityController.updateViewers(currentAccount);
+            logSetting("changed", "activity_permissions");
             listView.adapter.update(true);
         }
     }
@@ -1535,6 +1626,12 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
 
         @Override
         public View createView(Context context) {
+            try {
+                createControls(context);
+            } catch (RuntimeException error) {
+                logSettingFailure("create_controls", error);
+                throw error;
+            }
             simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
             simpleActionBar.setTitle(getString(getTitleRes()));
             simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -1555,20 +1652,32 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         void onClick(UItem item, View view, int position, float x, float y) {
             String key = keyFor(item.id);
             if (key != null) {
-                BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
-                if (BygramConfig.GHOST_NO_ONLINE.equals(key) || BygramConfig.GHOST_ENABLED.equals(key)) {
-                    getMessagesController().updateTimerProc();
-                }
-                listView.adapter.update(true);
+                changeSetting(key, () -> {
+                    BygramConfig.setBoolean(key, !BygramConfig.getBoolean(key));
+                    onSettingChanged(key);
+                    listView.adapter.update(true);
+                });
             } else {
                 onCustomClick(item.id);
             }
         }
 
+        final void setIntSetting(String key, int value) {
+            changeSetting(key, () -> BygramConfig.setInt(key, value));
+        }
+
+        void createControls(Context context) {}
+        void onSettingChanged(String key) {}
         void onCustomClick(int id) {}
     }
 
     public static class GhostSettingsActivity extends ToggleSettingsActivity {
+        @Override void onSettingChanged(String key) {
+            if (BygramConfig.GHOST_NO_ONLINE.equals(key) || BygramConfig.GHOST_ENABLED.equals(key)) {
+                getMessagesController().updateTimerProc();
+            }
+        }
+
         @Override int getTitleRes() { return R.string.BygramGhostMode; }
 
         @Override
@@ -1639,7 +1748,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                     .setTitle(getString(R.string.BygramClearSpyData))
                     .setMessage(getString(R.string.BygramClearSpyDataConfirm))
-                    .setPositiveButton(getString(R.string.Delete), (dialog, which) -> BygramConfig.clearSpyData())
+                    .setPositiveButton(getString(R.string.Delete), (dialog, which) -> changeSetting("clear_spy_data", BygramConfig::clearSpyData))
                     .setNegativeButton(getString(R.string.Cancel), null).create());
         }
     }

@@ -19,8 +19,8 @@
     "file": "assets/jsx-runtime-Wy9s6hX0.js",
     "name": "jsx-runtime"
   },
-  "_main-BfE2B6Yv.js": {
-    "file": "assets/main-BfE2B6Yv.js",
+  "_main-CHot1UJt.js": {
+    "file": "assets/main-CHot1UJt.js",
     "name": "main",
     "imports": [
       "_jsx-runtime-Wy9s6hX0.js",
@@ -28,7 +28,7 @@
     ],
     "css": [
       "assets/main-CJicCINs.css",
-      "assets/styles.css"
+      "assets/styles-DY1yu_Nq.css"
     ],
     "assets": [
       "assets/bygram-logo.png",
@@ -62,9 +62,9 @@
       "_jsx-runtime-Wy9s6hX0.js"
     ]
   },
-  "_styles.css": {
-    "file": "assets/styles.css",
-    "src": "_styles.css"
+  "_styles-DY1yu_Nq.css": {
+    "file": "assets/styles-DY1yu_Nq.css",
+    "src": "_styles-DY1yu_Nq.css"
   },
   "_useLayerDismissal-BcSn0qc8.js": {
     "file": "assets/useLayerDismissal-BcSn0qc8.js",

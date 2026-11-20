@@ -10,7 +10,6 @@ import spyUrl from '../assets/bygram-spy.png';
 import profileUrl from '../assets/bygram-profile.png';
 import pluginsUrl from '../assets/bygram-plugins.png';
 import pluginAuthorUrl from '../assets/bygram-author.png';
-import fallbackRelease from '../../activity-api/release.json';
 
 const pagePath = location.pathname.split('/').pop() || 'index.html';
 const activePage = pagePath === 'editions.html' ? 'features.html' : pagePath;
@@ -32,7 +31,7 @@ function usePublicData(path, initial) {
 }
 
 function downloadPath(release) {
-  return typeof release?.apk_name === 'string' && /^BYgram-[0-9A-Za-z._-]+\.apk$/.test(release.apk_name)
+  return typeof release?.apk_name === 'string' && /^BYgram-beta-[0-9A-Za-z._-]+\.apk$/.test(release.apk_name)
     ? release.apk_name : null;
 }
 
@@ -80,18 +79,16 @@ const highlights = [
 ];
 
 function HomePage() {
-  const release = usePublicData('release.json', fallbackRelease);
   const beta = usePublicData('beta.json', null);
   const users = usePublicData('users-count.php', null);
   return <main id="content">
     <section className="container hero">
       <div className="hero-copy">
-        <p className="platform"><Smartphone aria-hidden="true" /> Для Android · {beta?.version ? `бета ${beta.version}` : `BYgram ${release.version}`}</p>
+        <p className="platform"><Smartphone aria-hidden="true" /> Для Android · Debug{beta?.version && ` ${beta.version}`}</p>
         <h1>Telegram<br />по вашим правилам.</h1>
         <p className="lead">«Пламя» в личных чатах, оформление, настройки приватности и официальный каталог плагинов для Android.</p>
         <div className="actions">
-          <a className="button" href="download.html"><ArrowDownToLine aria-hidden="true" /> Скачать BYgram</a>
-          {downloadPath(beta) && <a className="text-link" href="download.html#beta">Попробовать бета-версию <ArrowRight aria-hidden="true" /></a>}
+          <a className="button" href="download.html"><ArrowDownToLine aria-hidden="true" /> Скачать BYgram Debug</a>
         </div>
         {Number.isInteger(users?.count) && <p className="usage"><strong>{numbers.format(users.count)}</strong> <span>{userLabels[userPlural.select(users.count)]} BYgram</span></p>}
       </div>
@@ -120,30 +117,28 @@ function HomePage() {
   </main>;
 }
 
-function ReleaseCard({ release, beta = false }) {
+function ReleaseCard({ release }) {
   const href = downloadPath(release);
-  return <section className={beta ? 'release-card release-card--beta' : 'release-card'} id={beta ? 'beta' : 'stable'}>
-    <h2>{beta ? 'Бета-версия' : 'Стабильная версия'}</h2>
-    <p>{beta ? 'Новые функции и исправления. В тестовой сборке могут встречаться ошибки.' : 'Опубликованная сборка для повседневного использования.'}</p>
+  return <section className="release-card" id="beta">
+    <h2>Тестовая сборка (Debug)</h2>
+    <p><strong>Клиент на стадии тестирования.</strong> В работе приложения возможны ошибки и сбои.</p>
     {href ? <>
       <dl className="release-facts">
-        <div><dt>Версия</dt><dd>{release.version}{beta && release.version_code ? ' (' + release.version_code + ')' : ''}</dd></div>
+        <div><dt>Версия</dt><dd>{release.version}{release.version_code ? ' (' + release.version_code + ')' : ''}</dd></div>
         <div><dt>Требования</dt><dd>{release.requirements}</dd></div>
         <div><dt>Размер</dt><dd>{release.size}</dd></div>
       </dl>
-      <a className={beta ? 'button button--quiet' : 'button'} href={href} download><ArrowDownToLine aria-hidden="true" />
-        {beta ? 'Скачать бета-версию' : 'Скачать стабильный APK'}</a>
+      <a className="button" href={href} download><ArrowDownToLine aria-hidden="true" /> Скачать Debug APK</a>
       {release.sha256 && <details className="checksum"><summary>Контрольная сумма SHA-256</summary><code>{release.sha256}</code></details>}
     </> : <p role="status">Сборка пока недоступна.</p>}
   </section>;
 }
 
 function DownloadPage() {
-  const release = usePublicData('release.json', fallbackRelease);
   const beta = usePublicData('beta.json', null);
   return <main id="content" className="container standard">
-    <header className="page-heading"><h1>Скачать BYgram</h1><p className="lead">Выберите сборку для своего Android-устройства.</p></header>
-    <div className="release-grid"><ReleaseCard release={release} /><ReleaseCard release={beta} beta /></div>
+    <header className="page-heading"><h1>Скачать BYgram</h1></header>
+    <ReleaseCard release={beta} />
     <section className="install">
       <h2>Как установить APK</h2>
       <ol><li>Откройте файл из загрузок.</li><li>Если Android попросит, разрешите установку из этого источника.</li><li>Нажмите «Установить» или «Обновить».</li></ol>

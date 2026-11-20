@@ -19,7 +19,8 @@
 <div class="nav-group"><p>Начало работы</p>
             <a href="#intro"><span class="nav-icon" aria-hidden="true">◈</span>Введение</a>
             <a href="#install"><span class="nav-icon" aria-hidden="true">▤</span>Установка</a>
-            <a href="#first-plugin"><span class="nav-icon" aria-hidden="true">◇</span>Первый плагин</a></div>
+            <a href="#first-plugin"><span class="nav-icon" aria-hidden="true">◇</span>Первый плагин</a>
+            <a href="#ai-skills"><span class="nav-icon" aria-hidden="true">⌘</span>Скиллы для ИИ</a></div>
 <div class="nav-group"><p>Структурированные плагины</p><details><summary>
             <a href="#elyx"><span class="nav-icon" aria-hidden="true">⬡</span>Elyx</a><span class="chevron" aria-hidden="true">›</span></summary><div class="nested">
             <a href="#elyx-quick-start">Быстрый старт</a>
@@ -108,13 +109,30 @@
         <h2>Первый плагин</h2>
         <p><code>HelloPlugin</code> добавляет в меню чата действие <strong>Hello BYgram</strong>. Нажатие показывает уведомление с настраиваемым текстом.</p>
         <h3 id="source-files">Файлы проекта</h3>
-        <p>Положите <code>main.py</code> и <code>manifest.json</code> в одну папку. Ниже приведён пример из SDK.</p>
+        <p>Сохраните <code>main.py</code> и <code>manifest.json</code> из примера ниже в папку <code>hello</code>.</p>
         <figure><figcaption>main.py</figcaption><pre><code id="hello-code"></code></pre></figure>
         <figure><figcaption>manifest.json</figcaption><pre><code id="hello-manifest"></code></pre></figure>
         <h3 id="build-package">Сборка и проверка</h3>
-        <p>Скачайте или клонируйте репозиторий BYgram и выполните команды из его корня. Для команд нужен Python. После установки и включения пакета откройте меню обычного чата и выберите <strong>Hello BYgram</strong>.</p>
-        <figure><figcaption>Терминал</figcaption><pre><code>python Tools/package_plugin.py docs/plugins/examples/hello output/hello.byplugin
-python Tools/check_plugins.py</code></pre></figure>
+        <p>Для сборки без клонирования BYgram установите Python 3.10 или новее и сохраните <a href="https://raw.githubusercontent.com/BYsquad/BYgram-Android/9f4695b9616b7dcfef1449dd5f697c10311b8027/Tools/package_plugin.py"><code>package_plugin.py</code></a> рядом с папкой <code>hello</code>. Запустите команду из папки, в которой лежит скрипт.</p>
+        <figure><figcaption>Терминал</figcaption><pre><code>python ./package_plugin.py ./hello ./hello.byplugin</code></pre></figure>
+        <p><a href="#install">Установите и включите</a> <code>hello.byplugin</code>, затем откройте меню обычного чата и выберите <strong>Hello BYgram</strong>.</p>
+      </section>
+
+      <section id="ai-skills">
+        <h2>Скиллы для ИИ</h2>
+        <p>Скилл <code>bygram-plugin</code> помогает агенту выбрать API BYgram по вашему запросу, написать исходники и манифест, собрать <code>.byplugin</code> и проверить результат. В комплект входят справочник SDK, примеры, упаковщик, конвертер exteraGram и инструкции по тестированию на Android.</p>
+        <h3 id="ai-skills-install">Установка без репозитория</h3>
+        <p><a href="./install_bygram_skills.py" download>Скачать Python-установщик скиллов</a>. Откройте терминал в папке загрузки и запустите команду с Python 3.10 или новее.</p>
+        <figure><figcaption>Установить все скиллы</figcaption><pre><code>python install_bygram_skills.py</code></pre></figure>
+        <p>Для одного клиента добавьте <code>codex</code>, <code>claude</code>, <code>gemini</code>, <code>cursor</code>, <code>copilot</code> или <code>deepseek</code> после имени файла. Если команда <code>python</code> недоступна, используйте <code>py</code> на Windows или <code>python3</code> на Linux и macOS.</p>
+        <h3 id="ai-skills-use">Как использовать</h3>
+        <ul>
+          <li><strong>Codex</strong> — начните запрос с <code>$bygram-plugin</code>.</li>
+          <li><strong>Claude Code и Copilot в VS Code</strong> — вызовите <code>/bygram-plugin</code>.</li>
+          <li><strong>Gemini CLI и Cursor</strong> — попросите применить скилл <code>bygram-plugin</code>.</li>
+          <li><strong>DeepSeek</strong> — откройте файл промпта по пути из вывода установщика. Вставьте его в чат и приложите нужные материалы SDK из установленного комплекта.</li>
+        </ul>
+        <p>После установки откройте новую сессию агента. Например, попросите: «Добавь в меню чата пункт с настраиваемой подсказкой. Собери .byplugin и перечисли выполненные проверки».</p>
       </section>
 
       <section id="manifest">
@@ -213,7 +231,8 @@ python Tools/check_plugins.py</code></pre></figure>
           <li>Опубликуйте стабильный GitHub Release с одним <code>.byplugin</code>. Тег <code>v1.2.3</code> или <code>1.2.3</code> должен совпадать с версией в manifest.</li>
           <li>В BYgram откройте «Добавить плагин в каталог» и отправьте URL репозитория. Каждый новый Release проходит модерацию отдельно. Для обновлений используйте тот же ключ.</li>
         </ol>
-        <figure><figcaption>Упаковка с подписью</figcaption><pre><code>python Tools/package_plugin.py path/to/plugin output/plugin.byplugin --signing-key path/to/private.pem</code></pre></figure>
+        <p>Для подписи установите OpenSSL и используйте <a href="#build-package">упаковщик из инструкции по сборке</a>.</p>
+        <figure><figcaption>Упаковка с подписью</figcaption><pre><code>python ./package_plugin.py ./my-plugin ./release.byplugin --signing-key ./author.pem</code></pre></figure>
       </section>
 
       <section id="recovery">
@@ -306,7 +325,7 @@ animation = assets.loading.to_lottie_drawable(48, 48)</code></pre></figure></sec
         <h2>Разработка и сборка</h2>
         <p class="lead">Упаковка проекта и обновление на устройстве.</p>
         <h3 id="elyx-development-overview">Как это работает</h3>
-        <p>Для Elyx используйте <code>Tools/port_extera_plugin.py</code>. Для нативного проекта BYgram с <code>manifest.json</code> используйте <code>Tools/package_plugin.py</code>.</p>
+        <p>Для Elyx используйте <code>Tools/port_extera_plugin.py</code>. Для проекта BYgram с <code>manifest.json</code> следуйте <a href="#build-package">инструкции по сборке пакета</a>.</p>
         <h3 id="elyx-development-details">Обновление на устройстве</h3>
         <p><a href="#dev-server">Dev Server</a> принимает готовый <code>.byplugin</code> и исходный Elyx через <code>elyx_write</code>. После первого развёртывания можно передавать изменения файлов.</p>
       </section>
@@ -462,13 +481,13 @@ python Tools/plugin_dev.py watch output/sample.byplugin</code></pre></figure></s
         <p class="lead">Оплата и выдача файла работают в официальном каталоге BYgram.</p>
         <ol>
           <li>Задайте уникальный <code>id</code> и версию в <code>manifest.json</code>. Для обновлений оставляйте прежний <code>id</code> и повышайте версию.</li>
-          <li>Упакуйте и подпишите релиз RSA-ключом. Храните ключ вне исходников и архива. Подписывайте обновления тем же ключом.</li>
+          <li>Упакуйте и подпишите релиз RSA-ключом с помощью <a href="#publish">упаковщика и OpenSSL</a>. Храните ключ вне исходников и архива. Подписывайте обновления тем же ключом.</li>
           <li>В актуальной бете откройте «Настройки BYgram → Плагины → Официальный каталог → Добавить плагин». Укажите цену и выберите подписанный архив.</li>
           <li>Для оплаты TON подтвердите владение активным кошельком V3R2, V4R2 или V5R1 на <a href="../api/plugin-store-web.php?wallet=1">странице кошелька автора</a>. Используйте тот же Telegram-аккаунт, под которым отправили заявку.</li>
           <li>Дождитесь модерации конкретного SHA-256. Цена в TON появится для одобренного релиза, когда привязан кошелёк в сети продаж.</li>
         </ol>
         <figure><figcaption>Создание ключа и подпись пакета</figcaption><pre><code>openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out author.pem
-python Tools/package_plugin.py ./my-plugin ./release.byplugin --signing-key ./author.pem</code></pre></figure>
+python ./package_plugin.py ./my-plugin ./release.byplugin --signing-key ./author.pem</code></pre></figure>
         <p>Один подтверждённый кошелёк в каждой сети используется для всех ваших плагинов. Его замена влияет только на новые заказы. Вопрос обязательного возврата TON рассматривает автор, получивший перевод.</p>
         <p><a href="purchases.html#conditions">Условия оплаты и возврата</a></p>
       </section>

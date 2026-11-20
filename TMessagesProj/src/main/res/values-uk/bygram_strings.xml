@@ -12,6 +12,9 @@
     <string name="BygramFlameRestoreMessage">Повернути серію (%1$d дн.)? Залишилося відновлень для цього чату в цьому місяці: %2$d.</string>
     <string name="BygramFlameRestoreAction">Відновити</string>
     <string name="BygramFlameRestoreError">Не вдалося відновити «Полум’я». Перевірте підключення та спробуйте ще раз, якщо відновлення досі доступне.</string>
+    <string name="BygramFlameStats">Статистика полум’я</string>
+    <string name="BygramFlameStatsDays">Днів у серії</string>
+    <string name="BygramFlameStatsMessages">Повідомлень за весь час</string>
     <string name="BygramFlameActiveDays">Полум’я, днів: %1$d</string>
     <string name="BygramFlamePendingDays">Полум’я, днів: %1$d. Сьогодні вам обом потрібно надіслати повідомлення.</string>
     <string name="BygramResourceBadgeNotice">Офіційний ресурс BYgram</string>
@@ -134,4 +137,5 @@
     <string name="BygramVideoWallpaperError">Виберіть відтворюване відео до 100 МіБ і 3840 пікселів з кожного боку. Попередні шпалери збережено.</string>
     <string name="BygramPluginDevServer">Сервер розробки плагінів</string>
     <string name="BygramPluginDevServerWarning">Сервер працює локально до вимкнення або виходу з BYgram. Токен і доступ до локального порту дають змогу завантажувати й запускати код плагінів.</string>
+    <string name="BygramOnlyDeletedMessages">Лише збережені видалені повідомлення</string>
 </resources>

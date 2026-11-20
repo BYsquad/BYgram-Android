@@ -68,7 +68,7 @@ public class SpyDeletionCheck {
         void updateDialogsWithDeletedMessages(long peer, long channel, ArrayList<Integer> ids, ArrayList<Long> peers) {}
         long getNonChannelDialogIdForMessageSync(int id) { return peer; }
         Set<Integer> getBygramDeletedMessageIdsSync(long peer, ArrayList<Integer> ids) { return saved ? Set.of(ids.get(0)) : Set.of(); }
-        TLRPC.Message getMessage(long peer, int id) { return peer == this.peer ? message : null; }
+        TLRPC.Message getMessageForBygramSpy(long peer, int id) { return peer == this.peer ? message : null; }
         void markMessageAsBygramDeleted(long peer, int id) { saved = true; }
     }
     static class Notifications {

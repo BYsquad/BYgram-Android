@@ -85,7 +85,8 @@ public final class BygramTypingController {
                     else callback.run(response != null && response.optBoolean("ok"), "");
                 });
             } catch (Exception error) {
-                FileLog.e(error);
+                FileLog.w("BYgramSettings page=profile feature=read_background result=failed error="
+                        + error.getClass().getSimpleName());
                 AndroidUtilities.runOnUIThread(() -> callback.run(false, ""));
             }
         });
@@ -434,10 +435,14 @@ public final class BygramTypingController {
         Utilities.globalQueue.postRunnable(() -> {
             JSONObject result = null;
             HttpURLConnection connection = null;
+            String action = data.optString("action");
+            boolean settingsRequest = "typing_put".equals(action) || "profile_background_put".equals(action)
+                    || "profile_views_set".equals(action) || "profile_views_list".equals(action);
+            int status = 0;
             try {
                 URL url = new URL(ENDPOINT);
                 connection = (HttpURLConnection) url.openConnection();
-                boolean store = data.optString("action").startsWith("store_");
+                boolean store = action.startsWith("store_");
                 if (store) connection.setInstanceFollowRedirects(false);
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(7000); connection.setReadTimeout(store ? 25000 : 7000);
@@ -449,7 +454,8 @@ public final class BygramTypingController {
                 }
                 connection.setDoOutput(true);
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }
-                InputStream stream = connection.getResponseCode() < 400 ? connection.getInputStream() : connection.getErrorStream();
+                status = connection.getResponseCode();
+                InputStream stream = status < 400 ? connection.getInputStream() : connection.getErrorStream();
                 if (stream != null) try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                     StringBuilder response = new StringBuilder();
                     char[] buffer = new char[8192];
@@ -460,8 +466,17 @@ public final class BygramTypingController {
                     }
                     if (response.length() > 0) result = new JSONObject(response.toString());
                 }
-            } catch (Exception e) { FileLog.e(e); }
-            finally { if (connection != null) connection.disconnect(); }
+                if (settingsRequest && (result == null || !result.optBoolean("ok") && !result.optBoolean("needs_registration"))) {
+                    FileLog.w("BYgramSettings page=api feature=" + action + " result=failed http_status=" + status);
+                }
+            } catch (Exception e) {
+                if (settingsRequest) {
+                    FileLog.w("BYgramSettings page=api feature=" + action + " result=failed http_status=" + status
+                            + " error=" + e.getClass().getSimpleName());
+                } else {
+                    FileLog.e(e);
+                }
+            } finally { if (connection != null) connection.disconnect(); }
             JSONObject response = result;
             AndroidUtilities.runOnUIThread(() -> callback.run(response));
         });

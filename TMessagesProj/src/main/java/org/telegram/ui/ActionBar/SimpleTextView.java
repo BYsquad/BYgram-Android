@@ -24,10 +24,12 @@ import android.graphics.Region;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.Layout;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -40,10 +42,13 @@ import androidx.annotation.NonNull;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
+import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.R;
 import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
 import org.telegram.ui.Components.BygramBadgeDrawable;
+import org.telegram.ui.Components.BygramFlameBadge;
 import org.telegram.ui.Components.EmptyStubSpan;
 import org.telegram.ui.Components.StaticLayoutEx;
 import org.telegram.ui.Components.spoilers.SpoilerEffect;
@@ -423,6 +428,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
                         width += rightDrawableWidth;
                         width += drawablePadding;
                     }
+                }
+                BygramFlameBadge flameBadge = BygramFlameBadge.find(text);
+                if (flameBadge != null) {
+                    text = flameBadge.fitAfterName((Spanned) text, textPaint, width - dp(6));
                 }
                 if (buildFullLayout) {
                     CharSequence string = text;
@@ -1285,6 +1294,20 @@ public class SimpleTextView extends View implements Drawable.Callback {
         info.setVisibleToUser(true);
         info.setClassName("android.widget.TextView");
         info.setText(text);
+        if (onFlameClick != null && layout != null && BygramFlameBadge.find(layout.getText()) != null) {
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.acc_action_flame_stats,
+                    LocaleController.getString(R.string.BygramFlameStats)));
+        }
+    }
+
+    @Override
+    public boolean performAccessibilityAction(int action, Bundle arguments) {
+        if (action == R.id.acc_action_flame_stats && onFlameClick != null
+                && layout != null && BygramFlameBadge.find(layout.getText()) != null) {
+            onFlameClick.run();
+            return true;
+        }
+        return super.performAccessibilityAction(action, arguments);
     }
 
     public void setFullLayoutAdditionalWidth(int fullLayoutAdditionalWidth, int fullLayoutLeftOffset) {
@@ -1330,6 +1353,12 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     private BygramBadgeDrawable pressedBygramBadge;
+    private BygramFlameBadge pressedFlameBadge;
+    private Runnable onFlameClick;
+
+    public void setOnFlameClick(Runnable listener) {
+        onFlameClick = listener;
+    }
 
     private BygramBadgeDrawable badgeIn(Drawable drawable) {
         if (drawable instanceof BygramBadgeDrawable) return (BygramBadgeDrawable) drawable;
@@ -1356,6 +1385,25 @@ public class SimpleTextView extends View implements Drawable.Callback {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            pressedFlameBadge = null;
+            if (onFlameClick != null && layout != null && event.getX() < getMaxTextWidth() - paddingRight) {
+                BygramFlameBadge badge = BygramFlameBadge.find(layout.getText());
+                if (badge != null && badge.contains(layout, event.getX() - layoutX, event.getY() - layoutY)) {
+                    pressedFlameBadge = badge;
+                    return true;
+                }
+            }
+        } else if (pressedFlameBadge != null) {
+            if (event.getActionMasked() == MotionEvent.ACTION_UP && onFlameClick != null
+                    && pressedFlameBadge.contains(layout, event.getX() - layoutX, event.getY() - layoutY)) {
+                pressedFlameBadge = null;
+                onFlameClick.run();
+            } else if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                pressedFlameBadge = null;
+            }
+            return true;
+        }
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             pressedBygramBadge = badgeAt(event.getX(), event.getY());
             if (pressedBygramBadge != null) return true;

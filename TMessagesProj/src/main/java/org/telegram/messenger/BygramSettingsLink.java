@@ -70,8 +70,14 @@ public final class BygramSettingsLink {
                 case 6: return "winter";
             }
         }
+        if (row == 0) return null;
+        if ("chat_list".equals(page) || "appearance".equals(page) || "winter".equals(page)) {
+            // Keep links usable on versions that still use the general.* namespace.
+            BygramSettingsLink link = parse("general." + row);
+            return link != null && page.equals(link.customizationSection()) ? "general." + row : null;
+        }
         String target = page + "." + row;
-        return row == 0 || parse(target) == null ? null : target;
+        return parse(target) == null ? null : target;
     }
 
     public String customizationSection() {

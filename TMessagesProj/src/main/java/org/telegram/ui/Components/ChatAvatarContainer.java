@@ -24,7 +24,6 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.text.Layout;
 import android.text.SpannableStringBuilder;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -88,7 +87,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     private CharSequence plainTitle;
     private int flameDays;
     private boolean flameActive;
-    private int titleAvailableWidth = -1;
     private AtomicReference<SimpleTextView> titleTextLargerCopyView = new AtomicReference<>();
     private SimpleTextView subtitleTextView;
     private AnimatedTextView animatedSubtitleTextView;
@@ -288,6 +286,12 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         ThemeBind.textColor(titleTextView, Theme.key_actionBarDefaultTitle, resourcesProvider);
         titleTextView.setTextSize(18);
         titleTextView.setGravity(Gravity.LEFT);
+        if (baseFragment instanceof ChatActivity) {
+            ChatActivity chat = (ChatActivity) baseFragment;
+            titleTextView.setOnFlameClick(() -> BygramFlameStats.show(chat, chat.getCurrentAccount(),
+                    MessagesController.getInstance(chat.getCurrentAccount()).getInputPeer(chat.getDialogId()),
+                    flameDays, resourcesProvider));
+        }
         titleTextView.setTypeface(AndroidUtilities.bold());
         titleTextView.setLeftDrawableTopPadding(-dp(1.3f));
         titleTextView.setCanHideRightDrawable(false);
@@ -675,10 +679,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         final int width = MeasureSpec.getSize(widthMeasureSpec);
         final int availableWidth = width - dp((avatarImageView.getVisibility() == VISIBLE ? 54 : 0) + 16);
-        if (titleAvailableWidth != availableWidth) {
-            titleAvailableWidth = availableWidth;
-            if (flameDays > 0) applyTitle(true);
-        }
         avatarImageView.measure(MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - 2, MeasureSpec.EXACTLY));
         titleTextView.measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24 + 8), MeasureSpec.AT_MOST));
         if (subtitleTextView != null) {
@@ -963,17 +963,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             titleTextView.setText(plainTitle, force);
             return;
         }
-        SpannableStringBuilder suffix = new SpannableStringBuilder("\u00a0")
-                .append(new BygramFlameBadge(getContext(), flameDays, flameActive).text());
-        CharSequence name = plainTitle;
-        if (titleAvailableWidth > 0) {
-            TextPaint paint = titleTextView.getTextPaint();
-            float nameWidth = titleAvailableWidth - Layout.getDesiredWidth(suffix, paint) - dp(4);
-            Drawable left = titleTextView.getLeftDrawable();
-            if (left != null) nameWidth -= left.getIntrinsicWidth() + dp(4);
-            name = TextUtils.ellipsize(name, paint, Math.max(0, nameWidth), TextUtils.TruncateAt.END);
-        }
-        titleTextView.setText(new SpannableStringBuilder(name).append(suffix), force);
+        titleTextView.setText(new SpannableStringBuilder(plainTitle).append('\u00a0')
+                .append(new BygramFlameBadge(getContext(), flameDays, flameActive).text()), force);
     }
 
     public void setTitle(CharSequence value, boolean scam, boolean fake, boolean verified, boolean premium, TLRPC.EmojiStatus emojiStatus, boolean animated) {

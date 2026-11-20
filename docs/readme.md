@@ -10,4 +10,4 @@
 - [Плагины Android, SDK и каталог](plugins/README.md)
 - [История изменений](../changelog.md)
 
-Клиент находится в `TMessagesProj`, основной APK собирается из `TMessagesProj_App`. Сервер активности и каталога находится в `server/activity-api`, публичные страницы — в `server/site`. Для опубликованного APK используйте метаданные `server/activity-api/release.json`. Страница покупки получает имя менеджера через `manager.php` из `app_settings.manager_username`.
+Клиент находится в `TMessagesProj`, основной APK собирается из `TMessagesProj_App`. Сервер активности и каталога находится в `server/activity-api`, публичные страницы — в `server/site`. Страница загрузки использует метаданные Debug APK из `server/activity-api/beta.json`. Страница покупки получает имя менеджера через `manager.php` из `app_settings.manager_username`.

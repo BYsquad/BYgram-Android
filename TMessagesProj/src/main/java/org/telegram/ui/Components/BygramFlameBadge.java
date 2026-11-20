@@ -5,8 +5,14 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.text.Layout;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
+import android.text.TextPaint;
+import android.text.TextUtils;
 import android.text.Spanned;
 import android.text.style.ReplacementSpan;
 
@@ -41,6 +47,37 @@ public final class BygramFlameBadge extends ReplacementSpan {
         SpannableString text = new SpannableString("🔥 " + count);
         text.setSpan(this, 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return text;
+    }
+
+    public static BygramFlameBadge find(CharSequence text) {
+        if (!(text instanceof Spanned)) return null;
+        BygramFlameBadge[] badges = ((Spanned) text).getSpans(0, text.length(), BygramFlameBadge.class);
+        return badges.length == 0 ? null : badges[0];
+    }
+
+    public CharSequence fitAfterName(Spanned text, TextPaint paint, int width) {
+        int start = text.getSpanStart(this) - 1;
+        if (start < 0 || Layout.getDesiredWidth(text, paint) <= width) return text;
+        CharSequence suffix = text.subSequence(start, text.length());
+        float nameWidth = width - Layout.getDesiredWidth(suffix, paint);
+        if (nameWidth <= 0) return TextUtils.ellipsize(text.subSequence(0, start), paint, Math.max(0, width), TextUtils.TruncateAt.END);
+        return new SpannableStringBuilder(TextUtils.ellipsize(text.subSequence(0, start), paint, nameWidth, TextUtils.TruncateAt.END))
+                .append(suffix);
+    }
+
+    public boolean contains(Layout layout, float x, float y) {
+        if (layout == null || !(layout.getText() instanceof Spanned)) return false;
+        Spanned text = (Spanned) layout.getText();
+        int start = text.getSpanStart(this);
+        if (start < 0) return false;
+        int line = layout.getLineForOffset(start);
+        if (layout.getEllipsisCount(line) > 0 && start >= layout.getLineStart(line) + layout.getEllipsisStart(line)) return false;
+        if (y < layout.getLineTop(line) - dp(4) || y > layout.getLineBottom(line) + dp(4)) return false;
+        Path selection = new Path();
+        layout.getSelectionPath(start, text.getSpanEnd(this), selection);
+        RectF bounds = new RectF();
+        selection.computeBounds(bounds, true);
+        return x >= bounds.left && x <= bounds.right;
     }
 
     public int width() {

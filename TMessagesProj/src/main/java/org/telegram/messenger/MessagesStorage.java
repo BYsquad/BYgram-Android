@@ -385,6 +385,7 @@ public class MessagesStorage extends BaseController {
                     }
                 }
             }
+            openBygramSpyArchive();
             databaseCreated = true;
         } catch (Exception e) {
             FileLog.e(e);
@@ -407,6 +408,8 @@ public class MessagesStorage extends BaseController {
             }
         });
         loadDialogFilters();
+        restoreBygramSpyDialogs();
+        reconcileBygramSpyArchive();
         loadUnreadMessages();
         loadPendingTasks();
         try {
@@ -453,6 +456,11 @@ public class MessagesStorage extends BaseController {
             FileLog.e("Try create new database = " + restored);
         }
         if (restored) {
+            try {
+                openBygramSpyArchive();
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
             reset();
         }
         return restored;
@@ -4537,6 +4545,10 @@ public class MessagesStorage extends BaseController {
                         return;
                     }
                 }
+                if (messagesOnly == 0 || messagesOnly == 1) {
+                    database.executeFast("DELETE FROM bygram_spy_messages WHERE uid = " + did).stepThis().dispose();
+                    bygramSpyOnlyDialogs.remove(did);
+                }
                 if (DialogObject.isEncryptedDialog(did) || messagesOnly == 2) {
                     cursor = database.queryFinalized("SELECT data FROM messages_v2 WHERE uid = " + did);
                     ArrayList<File> filesToDelete = new ArrayList<>();
@@ -4745,6 +4757,7 @@ public class MessagesStorage extends BaseController {
                 String ids = "(" + TextUtils.join(",", dids) + ")";
 
                 database.beginTransaction();
+                stageBygramSpyArchive("uid IN " + ids);
                 database.executeFast("DELETE FROM chat_pinned_count WHERE uid IN " + ids).stepThis().dispose();
                 database.executeFast("DELETE FROM chat_pinned_v2 WHERE uid IN " + ids).stepThis().dispose();
                 database.executeFast("DELETE FROM dialogs WHERE did IN " + ids).stepThis().dispose();
@@ -4786,6 +4799,7 @@ public class MessagesStorage extends BaseController {
                 }
 
                 putDialogsInternal(dialogsRes, 0);
+                restoreBygramSpyMessages("uid IN " + ids);
                 saveDiffParamsInternal(seq, newPts, date, qts);
 
                 int totalDialogsLoadCount = getUserConfig().getTotalDialogsCount(0);
@@ -4797,9 +4811,9 @@ public class MessagesStorage extends BaseController {
                 long dialogsLoadOffsetAccess = 0;
 
                 totalDialogsLoadCount += dialogsRes.dialogs.size();
-                dialogsLoadOffsetId = lastMessage.id;
-                dialogsLoadOffsetDate = lastMessage.date;
-                if (lastMessage.peer_id.channel_id != 0) {
+                dialogsLoadOffsetId = lastMessage == null ? Integer.MAX_VALUE : lastMessage.id;
+                dialogsLoadOffsetDate = lastMessage == null ? 0 : lastMessage.date;
+                if (lastMessage != null && lastMessage.peer_id != null && lastMessage.peer_id.channel_id != 0) {
                     dialogsLoadOffsetChannelId = lastMessage.peer_id.channel_id;
                     dialogsLoadOffsetChatId = 0;
                     dialogsLoadOffsetUserId = 0;
@@ -4810,7 +4824,7 @@ public class MessagesStorage extends BaseController {
                             break;
                         }
                     }
-                } else if (lastMessage.peer_id.chat_id != 0) {
+                } else if (lastMessage != null && lastMessage.peer_id != null && lastMessage.peer_id.chat_id != 0) {
                     dialogsLoadOffsetChatId = lastMessage.peer_id.chat_id;
                     dialogsLoadOffsetChannelId = 0;
                     dialogsLoadOffsetUserId = 0;
@@ -4821,7 +4835,7 @@ public class MessagesStorage extends BaseController {
                             break;
                         }
                     }
-                } else if (lastMessage.peer_id.user_id != 0) {
+                } else if (lastMessage != null && lastMessage.peer_id != null && lastMessage.peer_id.user_id != 0) {
                     dialogsLoadOffsetUserId = lastMessage.peer_id.user_id;
                     dialogsLoadOffsetChatId = 0;
                     dialogsLoadOffsetChannelId = 0;
@@ -5824,6 +5838,9 @@ public class MessagesStorage extends BaseController {
                     nativeByteBuffer.reuse();
                 }
             }
+            if (message.bygramDeleted) {
+                archiveBygramSpyMessage(dialogId, saveFromMessage.id, message);
+            }
             database.commitTransaction();
         } catch (Exception e) {
             checkSQLException(e);
@@ -5868,6 +5885,332 @@ public class MessagesStorage extends BaseController {
         return message;
     }
 
+    private static final String BYGRAM_SPY_COLUMNS =
+            "uid, mid, data, custom_params, date, out, is_channel, read_state, send_state, ttl, media, group_id";
+    private final java.util.Set<Long> bygramSpyOnlyDialogs = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private boolean bygramSpyReconciling;
+    private boolean bygramSpyRestartReconciliation;
+    private final SharedPreferences.OnSharedPreferenceChangeListener bygramSpyPreferenceListener = (prefs, key) -> {
+        if (key == null || BygramConfig.SPY_SAVE_DELETED.equals(key)) {
+            storageQueue.postRunnable(() -> {
+                try {
+                    updateBygramSpyCapture();
+                } catch (Exception e) {
+                    checkSQLException(e);
+                }
+            });
+        }
+    };
+
+    private void openBygramSpyArchive() throws SQLiteException {
+        bygramSpyReconciling = false;
+        bygramSpyRestartReconciliation = false;
+        database.executeFast("CREATE TABLE IF NOT EXISTS bygram_spy_messages (" +
+                "uid INTEGER, mid INTEGER, data BLOB, custom_params BLOB, date INTEGER, out INTEGER, " +
+                "is_channel INTEGER, read_state INTEGER, send_state INTEGER, ttl INTEGER, media INTEGER, group_id INTEGER, " +
+                "saved INTEGER NOT NULL DEFAULT 0, pending INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, mid))").stepThis().dispose();
+        database.executeFast("CREATE INDEX IF NOT EXISTS bygram_spy_pending ON bygram_spy_messages(uid, mid) WHERE pending = 1").stepThis().dispose();
+        database.executeFast("CREATE INDEX IF NOT EXISTS bygram_spy_nonchannel ON bygram_spy_messages(mid) WHERE is_channel = 0").stepThis().dispose();
+        database.executeFast("CREATE TEMP TABLE IF NOT EXISTS bygram_spy_capture (enabled INTEGER)").stepThis().dispose();
+        String values = "NEW." + BYGRAM_SPY_COLUMNS.replace(", ", ", NEW.");
+        String capture = " ON main.messages_v2 " +
+                "WHEN NEW.mid > 0 AND NEW.uid < 4611686018427387904 AND NEW.send_state = 0 AND NEW.data IS NOT NULL " +
+                "AND EXISTS (SELECT 1 FROM bygram_spy_capture WHERE enabled = 1) BEGIN " +
+                "INSERT INTO bygram_spy_messages (" + BYGRAM_SPY_COLUMNS + ") VALUES (" + values + ") " +
+                "ON CONFLICT(uid, mid) DO UPDATE SET data = excluded.data, date = excluded.date, out = excluded.out, " +
+                "is_channel = excluded.is_channel, read_state = excluded.read_state, ttl = excluded.ttl, " +
+                "media = excluded.media, group_id = excluded.group_id, " +
+                "custom_params = COALESCE(excluded.custom_params, bygram_spy_messages.custom_params), pending = 0 WHERE saved = 0; END";
+        database.executeFast("CREATE TEMP TRIGGER IF NOT EXISTS bygram_spy_capture_insert AFTER INSERT" + capture).stepThis().dispose();
+        database.executeFast("CREATE TEMP TRIGGER IF NOT EXISTS bygram_spy_capture_update AFTER UPDATE OF data, mid, send_state" + capture).stepThis().dispose();
+        BygramConfig.preferences().registerOnSharedPreferenceChangeListener(bygramSpyPreferenceListener);
+        updateBygramSpyCapture();
+
+        // Import the original Spy flags, including older custom-params formats.
+        SQLiteCursor cursor = null;
+        try {
+            cursor = database.queryFinalized("SELECT m.uid, m.mid, m.custom_params FROM messages_v2 m " +
+                    "WHERE m.custom_params IS NOT NULL AND NOT EXISTS " +
+                    "(SELECT 1 FROM bygram_spy_messages a WHERE a.uid = m.uid AND a.mid = m.mid AND a.saved = 1)");
+            while (cursor.next()) {
+                TLRPC.Message message = new TLRPC.TL_message();
+                NativeByteBuffer params = cursor.byteBufferValue(2);
+                try {
+                    MessageCustomParamsHelper.readLocalParams(message, params);
+                } finally {
+                    if (params != null) params.reuse();
+                }
+                if (message.bygramDeleted) {
+                    archiveBygramSpyMessage(cursor.longValue(0), cursor.intValue(1), message);
+                }
+            }
+        } finally {
+            if (cursor != null) cursor.dispose();
+        }
+        restoreBygramSpyMessages("1");
+        bygramSpyOnlyDialogs.clear();
+        cursor = null;
+        try {
+            cursor = database.queryFinalized("SELECT DISTINCT uid FROM bygram_spy_messages WHERE saved = 1");
+            while (cursor.next()) refreshBygramSpyDialog(cursor.longValue(0));
+        } finally {
+            if (cursor != null) cursor.dispose();
+        }
+    }
+
+    private void updateBygramSpyCapture() throws SQLiteException {
+        database.executeFast("DELETE FROM bygram_spy_capture").stepThis().dispose();
+        if (BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
+            database.executeFast("INSERT INTO bygram_spy_capture VALUES (1)").stepThis().dispose();
+        } else {
+            database.executeFast("DELETE FROM bygram_spy_messages WHERE saved = 0").stepThis().dispose();
+        }
+    }
+
+    private void archiveBygramSpyMessage(long did, int mid, TLRPC.Message message) throws SQLiteException {
+        database.executeFast("INSERT OR IGNORE INTO bygram_spy_messages (" + BYGRAM_SPY_COLUMNS + ") " +
+                "SELECT " + BYGRAM_SPY_COLUMNS + " FROM messages_v2 WHERE uid = " + did + " AND mid = " + mid +
+                " AND data IS NOT NULL").stepThis().dispose();
+        NativeByteBuffer params = MessageCustomParamsHelper.writeLocalParams(message);
+        SQLitePreparedStatement statement = null;
+        try {
+            statement = database.executeFast("UPDATE bygram_spy_messages SET saved = 1, pending = 0, custom_params = ? WHERE uid = ? AND mid = ?");
+            if (params == null) return;
+            statement.bindByteBuffer(1, params);
+            statement.bindLong(2, did);
+            statement.bindInteger(3, mid);
+            statement.step();
+        } finally {
+            if (statement != null) statement.dispose();
+            if (params != null) params.reuse();
+        }
+        refreshBygramSpyDialog(did);
+    }
+
+    private void stageBygramSpyArchive(String scope) throws SQLiteException {
+        if (!BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) return;
+        database.executeFast("INSERT OR IGNORE INTO bygram_spy_messages (" + BYGRAM_SPY_COLUMNS + ") " +
+                "SELECT " + BYGRAM_SPY_COLUMNS + " FROM messages_v2 WHERE mid > 0 AND send_state = 0 " +
+                "AND uid < 4611686018427387904 AND data IS NOT NULL AND " + scope).stepThis().dispose();
+        database.executeFast("UPDATE bygram_spy_messages SET pending = 1 WHERE saved = 0 AND " + scope).stepThis().dispose();
+    }
+
+    private void restoreBygramSpyMessages(String scope) throws SQLiteException {
+        database.executeFast("INSERT OR IGNORE INTO messages_v2 (" + BYGRAM_SPY_COLUMNS + ") " +
+                "SELECT " + BYGRAM_SPY_COLUMNS + " FROM bygram_spy_messages WHERE saved = 1 AND " + scope).stepThis().dispose();
+    }
+
+    public boolean isBygramSpyOnlyDialog(long did) {
+        return bygramSpyOnlyDialogs.contains(did);
+    }
+
+    void clearBygramSpyOnlyDialog(long did) {
+        bygramSpyOnlyDialogs.remove(did);
+    }
+
+    private void refreshBygramSpyDialog(long did) throws SQLiteException {
+        SQLiteCursor cursor = null;
+        try {
+            cursor = database.queryFinalized("SELECT EXISTS (SELECT 1 FROM bygram_spy_messages WHERE uid = ? AND saved = 1) " +
+                    "AND NOT EXISTS (SELECT 1 FROM bygram_spy_messages WHERE uid = ? AND saved = 0) " +
+                    "AND NOT EXISTS (SELECT 1 FROM messages_v2 m WHERE m.uid = ? AND NOT EXISTS " +
+                    "(SELECT 1 FROM bygram_spy_messages a WHERE a.uid = m.uid AND a.mid = m.mid AND a.saved = 1))", did, did, did);
+            boolean savedOnly = cursor.next() && cursor.intValue(0) != 0;
+            boolean changed = savedOnly ? bygramSpyOnlyDialogs.add(did) : bygramSpyOnlyDialogs.remove(did);
+            if (changed) {
+                AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload));
+            }
+        } finally {
+            if (cursor != null) cursor.dispose();
+        }
+    }
+
+    public void reconcileBygramSpyArchive() {
+        storageQueue.postRunnable(() -> {
+            if (bygramSpyReconciling) {
+                bygramSpyRestartReconciliation = true;
+                return;
+            }
+            if (!BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) return;
+            bygramSpyReconciling = true;
+            reconcileNextBygramSpyBatch(Long.MIN_VALUE, 0);
+        });
+    }
+
+    private void reconcileNextBygramSpyBatch(long afterDid, int afterMid) {
+        SQLiteCursor cursor = null;
+        long did = 0;
+        boolean channel = false;
+        ArrayList<Integer> ids = new ArrayList<>();
+        try {
+            if (BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
+                cursor = database.queryFinalized("SELECT uid, mid, is_channel FROM bygram_spy_messages a " +
+                        "WHERE pending = 1 AND (uid > ? OR (uid = ? AND mid > ?)) " +
+                        "AND NOT EXISTS (SELECT 1 FROM messages_v2 m WHERE m.uid = a.uid AND m.mid = a.mid) " +
+                        "ORDER BY uid, mid LIMIT 100", afterDid, afterDid, afterMid);
+                while (cursor.next()) {
+                    if (ids.isEmpty()) {
+                        did = cursor.longValue(0);
+                        channel = cursor.intValue(2) != 0;
+                    } else if (did != cursor.longValue(0)) {
+                        break;
+                    }
+                    ids.add(cursor.intValue(1));
+                }
+            }
+        } catch (Exception e) {
+            checkSQLException(e);
+        } finally {
+            if (cursor != null) cursor.dispose();
+        }
+        if (ids.isEmpty()) {
+            bygramSpyReconciling = false;
+            if (bygramSpyRestartReconciliation) {
+                bygramSpyRestartReconciliation = false;
+                reconcileBygramSpyArchive();
+            }
+            return;
+        }
+
+        final long dialogId = did;
+        final int lastId = ids.get(ids.size() - 1);
+        TLObject request;
+        if (channel) {
+            TLRPC.Chat chat = getChat(-dialogId);
+            if (chat == null || chat.access_hash == 0) {
+                storageQueue.postRunnable(() -> reconcileNextBygramSpyBatch(dialogId, lastId));
+                return;
+            }
+            TLRPC.TL_channels_getMessages channelRequest = new TLRPC.TL_channels_getMessages();
+            channelRequest.channel = MessagesController.getInputChannel(chat);
+            channelRequest.id = ids;
+            request = channelRequest;
+        } else {
+            TLRPC.TL_messages_getMessages messagesRequest = new TLRPC.TL_messages_getMessages();
+            messagesRequest.id = ids;
+            request = messagesRequest;
+        }
+        SQLiteDatabase archiveDatabase = database;
+        getConnectionsManager().sendRequest(request, (response, error) -> storageQueue.postRunnable(() -> {
+            if (archiveDatabase != database) return;
+            if (response instanceof TLRPC.messages_Messages && BygramConfig.getBoolean(BygramConfig.SPY_SAVE_DELETED)) {
+                applyBygramSpyDifference(dialogId, ids, (TLRPC.messages_Messages) response);
+            }
+            reconcileNextBygramSpyBatch(dialogId, lastId);
+        }));
+    }
+
+    private void applyBygramSpyDifference(long did, ArrayList<Integer> ids, TLRPC.messages_Messages response) {
+        ArrayList<Integer> savedIds = new ArrayList<>();
+        boolean keepOwn = BygramConfig.getBoolean(BygramConfig.SPY_SAVE_OWN_DELETED);
+        try {
+            for (TLRPC.Message remote : response.messages) {
+                if (!ids.contains(remote.id)) continue;
+                if (!(remote instanceof TLRPC.TL_messageEmpty)) {
+                    database.executeFast("UPDATE bygram_spy_messages SET pending = 0 WHERE uid = " + did + " AND mid = " + remote.id).stepThis().dispose();
+                    continue;
+                }
+                SQLiteCursor cursor = database.queryFinalized("SELECT out, custom_params FROM bygram_spy_messages " +
+                        "WHERE uid = ? AND mid = ? AND pending = 1 AND NOT EXISTS " +
+                        "(SELECT 1 FROM messages_v2 WHERE uid = ? AND mid = ?)", did, remote.id, did, remote.id);
+                TLRPC.Message params = null;
+                boolean discard = false;
+                try {
+                    if (cursor.next()) {
+                        discard = !keepOwn && (did == getUserConfig().getClientUserId() || cursor.intValue(0) != 0);
+                        params = new TLRPC.TL_message();
+                        NativeByteBuffer data = cursor.byteBufferValue(1);
+                        try {
+                            MessageCustomParamsHelper.readLocalParams(params, data);
+                        } finally {
+                            if (data != null) data.reuse();
+                        }
+                    }
+                } finally {
+                    cursor.dispose();
+                }
+                if (discard) {
+                    database.executeFast("DELETE FROM bygram_spy_messages WHERE uid = " + did + " AND mid = " + remote.id).stepThis().dispose();
+                } else if (params != null) {
+                    params.bygramDeleted = true;
+                    archiveBygramSpyMessage(did, remote.id, params);
+                    savedIds.add(remote.id);
+                }
+            }
+            if (!savedIds.isEmpty()) {
+                restoreBygramSpyMessages("uid = " + did);
+                ArrayList<MessageObject> savedMessages = new ArrayList<>();
+                for (int mid : savedIds) {
+                    TLRPC.Message message = getMessageInternal(did, mid);
+                    if (message == null) continue;
+                    message.dialog_id = did;
+                    message.unread = message.media_unread = false;
+                    MessageCustomParamsHelper.copyParams(getMessageWithCustomParamsOnlyInternal(mid, did), message);
+                    savedMessages.add(new MessageObject(currentAccount, message, false, false));
+                }
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (!savedMessages.isEmpty()) {
+                        getNotificationCenter().postNotificationName(NotificationCenter.didReceiveNewMessages, did, savedMessages, false, 0);
+                    }
+                });
+                AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(
+                        NotificationCenter.bygramMessagesDeleted, did, savedIds));
+            }
+            refreshBygramSpyDialog(did);
+            if (isBygramSpyOnlyDialog(did)) restoreBygramSpyDialog(did);
+        } catch (Exception e) {
+            checkSQLException(e);
+        }
+    }
+
+    public void restoreBygramSpyDialogs() {
+        storageQueue.postRunnable(() -> {
+            for (long did : bygramSpyOnlyDialogs) {
+                try {
+                    restoreBygramSpyDialog(did);
+                } catch (Exception e) {
+                    checkSQLException(e);
+                }
+            }
+        });
+    }
+
+    private void restoreBygramSpyDialog(long did) throws SQLiteException {
+        SQLiteCursor cursor = database.queryFinalized("SELECT mid, date, is_channel FROM bygram_spy_messages " +
+                "WHERE uid = ? AND saved = 1 ORDER BY date DESC, mid DESC LIMIT 1", did);
+        int mid, date;
+        boolean channel;
+        try {
+            if (!cursor.next()) return;
+            mid = cursor.intValue(0);
+            date = cursor.intValue(1);
+            channel = cursor.intValue(2) != 0;
+        } finally {
+            cursor.dispose();
+        }
+        TLRPC.Message message = getMessageInternal(did, mid);
+        if (message == null) return;
+        MessageCustomParamsHelper.copyParams(getMessageWithCustomParamsOnlyInternal(mid, did), message);
+        message.id = mid;
+        message.dialog_id = did;
+        message.unread = message.media_unread = false;
+        TLRPC.TL_dialog dialog = new TLRPC.TL_dialog();
+        dialog.id = did;
+        dialog.top_message = mid;
+        dialog.last_message_date = date;
+        dialog.flags = channel ? 1 : 0;
+        dialog.read_inbox_max_id = dialog.read_outbox_max_id = mid;
+        dialog.notify_settings = new TLRPC.TL_peerNotifySettings();
+        TLRPC.User user = DialogObject.isUserDialog(did) ? getUser(did) : null;
+        TLRPC.Chat chat = DialogObject.isChatDialog(did) ? getChat(-did) : null;
+        if (user == null && chat == null) return;
+        database.executeFast("INSERT OR IGNORE INTO dialogs (did, date, last_mid, inbox_max, outbox_max, folder_id) VALUES (" +
+                did + ", " + date + ", " + mid + ", " + mid + ", " + mid + ", 0)").stepThis().dispose();
+        database.executeFast("UPDATE dialogs SET date = " + date + ", last_mid = " + mid +
+                ", last_mid_group = NULL WHERE did = " + did + " AND last_mid != " + mid).stepThis().dispose();
+        AndroidUtilities.runOnUIThread(() -> getMessagesController().showBygramSpyDialog(dialog, message, user, chat));
+    }
+
     public void markMessageAsBygramDeleted(long dialogId, int messageId) {
         storageQueue.postRunnable(() -> markMessageAsBygramDeletedInternal(dialogId, messageId));
     }
@@ -5888,7 +6231,7 @@ public class MessagesStorage extends BaseController {
         storageQueue.postRunnable(() -> {
             SQLiteCursor cursor = null;
             try {
-                cursor = database.queryFinalized("SELECT mid, data, custom_params, read_state, date FROM messages_v2 WHERE uid = ? AND mid >= ? AND mid <= ? ORDER BY mid DESC", dialogId, lower, upper);
+                cursor = database.queryFinalized("SELECT mid, data, custom_params, read_state, date FROM bygram_spy_messages WHERE uid = ? AND mid >= ? AND mid <= ? AND saved = 1 ORDER BY mid DESC", dialogId, lower, upper);
                 while (cursor.next()) {
                     int id = cursor.intValue(0);
                     if (ids.contains(id)) continue;
@@ -5939,7 +6282,10 @@ public class MessagesStorage extends BaseController {
                         if (cursor.next()) resolvedDialogId = cursor.longValue(0);
                         cursor.dispose();
                     }
-                    if (resolvedDialogId != 0 && getMessageWithCustomParamsOnlyInternal(id, resolvedDialogId).bygramDeleted) result.add(id);
+                    if (resolvedDialogId != 0 && (database.executeInt("SELECT 1 FROM bygram_spy_messages WHERE uid = ? AND mid = ? AND saved = 1", resolvedDialogId, id) != null
+                            || getMessageWithCustomParamsOnlyInternal(id, resolvedDialogId).bygramDeleted)) {
+                        result.add(id);
+                    }
                 }
             } catch (Exception e) {
                 checkSQLException(e);
@@ -5972,6 +6318,10 @@ public class MessagesStorage extends BaseController {
                 message.id = messageId;
                 message.bygramDeleted = true;
                 updateMessageCustomParamsInternal(resolvedDialogId, message);
+                if (database.executeInt("SELECT 1 FROM messages_v2 WHERE uid = ? AND mid = ?", resolvedDialogId, messageId) == null) {
+                    restoreBygramSpyMessages("uid = " + resolvedDialogId + " AND mid = " + messageId);
+                    if (isBygramSpyOnlyDialog(resolvedDialogId)) restoreBygramSpyDialog(resolvedDialogId);
+                }
             }
         } catch (Exception e) {
             checkSQLException(e);
@@ -6035,6 +6385,8 @@ public class MessagesStorage extends BaseController {
             ArrayList<Integer> removeIds = new ArrayList<>();
             SQLiteCursor cursor = null;
             try {
+                database.executeFast("INSERT OR IGNORE INTO messages_v2 (" + BYGRAM_SPY_COLUMNS + ") " +
+                        "SELECT " + BYGRAM_SPY_COLUMNS + " FROM bygram_spy_messages WHERE uid = " + dialogId).stepThis().dispose();
                 cursor = database.queryFinalized("SELECT mid, out FROM messages_v2 WHERE uid = ? ORDER BY date DESC, mid DESC", dialogId);
                 while (cursor.next()) {
                     int id = cursor.intValue(0);
@@ -6078,7 +6430,14 @@ public class MessagesStorage extends BaseController {
             SQLiteCursor cursor = null;
             try {
                 cursor = database.queryFinalized("SELECT uid FROM messages_v2 WHERE mid = ? AND is_channel = 0 LIMIT 1", messageId);
-                if (cursor.next()) result[0] = cursor.longValue(0);
+                if (cursor.next()) {
+                    result[0] = cursor.longValue(0);
+                } else {
+                    cursor.dispose();
+                    cursor = null;
+                    cursor = database.queryFinalized("SELECT uid FROM bygram_spy_messages WHERE mid = ? AND is_channel = 0 LIMIT 1", messageId);
+                    if (cursor.next()) result[0] = cursor.longValue(0);
+                }
             } catch (Exception e) {
                 checkSQLException(e);
             } finally {
@@ -8230,6 +8589,14 @@ public class MessagesStorage extends BaseController {
     }
 
     public TLRPC.Message getMessage(long dialogId, long msgId) {
+        return getMessage(dialogId, msgId, false);
+    }
+
+    TLRPC.Message getMessageForBygramSpy(long dialogId, int msgId) {
+        return getMessage(dialogId, msgId, true);
+    }
+
+    private TLRPC.Message getMessage(long dialogId, long msgId, boolean includeSpyArchive) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
         AtomicReference<TLRPC.Message> ref = new AtomicReference<>();
         storageQueue.postRunnable(() -> {
@@ -8246,6 +8613,19 @@ public class MessagesStorage extends BaseController {
                 }
                 cursor.dispose();
                 cursor = null;
+                if (includeSpyArchive && ref.get() == null) {
+                    cursor = database.queryFinalized("SELECT data FROM bygram_spy_messages WHERE uid = ? AND mid = ?", dialogId, msgId);
+                    if (cursor.next()) {
+                        NativeByteBuffer data = cursor.byteBufferValue(0);
+                        if (data != null) {
+                            try {
+                                ref.set(TLRPC.Message.TLdeserialize(data, data.readInt32(false), false));
+                            } finally {
+                                data.reuse();
+                            }
+                        }
+                    }
+                }
             } catch (Exception e) {
                 checkSQLException(e);
             } finally {
@@ -11829,6 +12209,7 @@ public class MessagesStorage extends BaseController {
                 cursor.dispose();
                 cursor = null;
 
+                stageBygramSpyArchive("uid = " + did);
                 database.executeFast("DELETE FROM chat_pinned_count WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM chat_pinned_v2 WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did).stepThis().dispose();
@@ -11860,6 +12241,8 @@ public class MessagesStorage extends BaseController {
                 dialog.pinnedNum = pinned;
                 dialogs.dialogs.add(dialog);
                 putDialogsInternal(dialogs, 0);
+                restoreBygramSpyMessages("uid = " + did);
+                reconcileBygramSpyArchive();
 
                 updateDialogsWithDeletedMessages(-channelId, channelId, new ArrayList<>(), null);
                 AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.removeAllMessagesFromDialog, did, true, difference));
@@ -14942,6 +15325,25 @@ public class MessagesStorage extends BaseController {
             final boolean scheduled = mode == ChatActivity.MODE_SCHEDULED;
             final boolean quickReplies = mode == ChatActivity.MODE_QUICK_REPLIES;
             final boolean welcomeMessages = mode == ChatActivity.MODE_WELCOME_MESSAGES;
+            if (!scheduled && !quickReplies && !welcomeMessages && !messages.isEmpty()) {
+                String scope = dialogId == 0 ? "is_channel = 0" : "uid = " + dialogId;
+                String archivedIds = TextUtils.join(",", messages);
+                ArrayList<Long> archivedDialogs = new ArrayList<>();
+                cursor = database.queryFinalized("SELECT DISTINCT uid FROM bygram_spy_messages WHERE " + scope + " AND mid IN (" + archivedIds + ")");
+                while (cursor.next()) archivedDialogs.add(cursor.longValue(0));
+                cursor.dispose();
+                cursor = null;
+                database.executeFast("DELETE FROM bygram_spy_messages WHERE " + scope + " AND mid IN (" + archivedIds + ")").stepThis().dispose();
+                for (long did : archivedDialogs) {
+                    storageQueue.postRunnable(() -> {
+                        try {
+                            refreshBygramSpyDialog(did);
+                        } catch (SQLiteException e) {
+                            checkSQLException(e);
+                        }
+                    });
+                }
+            }
             if (welcomeMessages) {
                 String ids = TextUtils.join(",", messages);
                 database.executeFast(String.format(Locale.US, "DELETE FROM welcome_messages WHERE mid IN(%s) AND dialog_id = %d", ids, dialogId)).stepThis().dispose();
@@ -17391,7 +17793,7 @@ public class MessagesStorage extends BaseController {
                     }
 
                     ArrayList<Pair<Long, Long>> dialogsToLoadGroupMessages = new ArrayList<>();
-                    cursor = database.queryFinalized(String.format(Locale.US, "SELECT d.did, d.last_mid, d.unread_count, d.date, m.data, m.read_state, m.mid, m.send_state, s.flags, m.date, d.pts, d.inbox_max, d.outbox_max, m.replydata, d.pinned, d.unread_count_i, d.flags, d.folder_id, d.data, d.unread_reactions, d.last_mid_group, d.ttl_period, d.unread_poll_votes FROM dialogs as d LEFT JOIN messages_v2 as m ON d.last_mid = m.mid AND d.did = m.uid AND d.last_mid_group IS NULL LEFT JOIN dialog_settings as s ON d.did = s.did WHERE d.folder_id = %d ORDER BY d.pinned DESC, d.date DESC LIMIT %d,%d", fid, off, cnt));
+                    cursor = database.queryFinalized(String.format(Locale.US, "SELECT d.did, d.last_mid, d.unread_count, d.date, m.data, m.read_state, m.mid, m.send_state, s.flags, m.date, d.pts, d.inbox_max, d.outbox_max, m.replydata, d.pinned, d.unread_count_i, d.flags, d.folder_id, d.data, d.unread_reactions, d.last_mid_group, d.ttl_period, d.unread_poll_votes, m.custom_params FROM dialogs as d LEFT JOIN messages_v2 as m ON d.last_mid = m.mid AND d.did = m.uid AND d.last_mid_group IS NULL LEFT JOIN dialog_settings as s ON d.did = s.did WHERE d.folder_id = %d ORDER BY d.pinned DESC, d.date DESC LIMIT %d,%d", fid, off, cnt));
                     while (cursor.next()) {
                         long dialogId = cursor.longValue(0);
                         TLRPC.Dialog dialog;
@@ -17468,6 +17870,12 @@ public class MessagesStorage extends BaseController {
                                 }
                                 message.send_state = cursor.intValue(7);
                                 message.dialog_id = dialog.id;
+                                NativeByteBuffer customParams = cursor.byteBufferValue(23);
+                                try {
+                                    MessageCustomParamsHelper.readLocalParams(message, customParams);
+                                } finally {
+                                    if (customParams != null) customParams.reuse();
+                                }
                                 dialogs.messages.add(message);
 
                                 addUsersAndChatsFromMessage(message, usersToLoad, chatsToLoad, emojiToLoad);

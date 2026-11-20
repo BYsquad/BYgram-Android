@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { guideGroups } from './english-guides.js';
 
 const guides = guideGroups.flatMap(([, articles]) => articles);
@@ -63,16 +67,39 @@ function render(guide) {
 </html>`.replace(/^[ \t]+$/gm, '');
 }
 
-export function englishPages() {
-  const files = new Map([[ `docs/en/${cssName}`, css ], ...guides.map((guide) => [`docs/en/${guide[0]}index.html`, render(guide)])]);
+function buildSkillInstaller() {
+  const temporary = mkdtempSync(join(tmpdir(), 'bygram-docs-'));
+  try {
+    const builder = fileURLToPath(new URL('../../../Tools/install_bygram_skills.py', import.meta.url));
+    const output = join(temporary, 'install_bygram_skills.py');
+    const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+    execFileSync(python, [builder, '--build', output]);
+    return readFileSync(output);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+export function documentationFiles() {
+  const installer = 'docs/install_bygram_skills.py';
+  const files = new Map([
+    [`docs/en/${cssName}`, css],
+    [installer, buildSkillInstaller()],
+    ...guides.map((guide) => [`docs/en/${guide[0]}index.html`, render(guide)]),
+  ]);
   return {
-    name: 'bygram-english-docs',
+    name: 'bygram-compiled-docs',
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const path = new URL(request.url, 'http://localhost').pathname.slice(1);
         const name = path.endsWith('/') ? `${path}index.html` : path;
         if (!files.has(name)) return next();
-        response.setHeader('Content-Type', name.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8');
+        if (name === installer) {
+          response.setHeader('Content-Type', 'application/octet-stream');
+          response.setHeader('Content-Disposition', 'attachment; filename="install_bygram_skills.py"');
+        } else {
+          response.setHeader('Content-Type', name.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8');
+        }
         response.end(files.get(name));
       });
     },

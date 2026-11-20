@@ -29,6 +29,20 @@ public class BygramSettingsLinkCheck {
         check("chat_list".equals(BygramSettingsLink.target("customization", 3)), "Chat list category");
         check("appearance".equals(BygramSettingsLink.target("customization", 5)), "Appearance category");
         check("winter".equals(BygramSettingsLink.target("customization", 6)), "Winter category");
+        for (String page : new String[]{"chat_list", "appearance", "winter"}) {
+            int generated = 0;
+            for (int row = -2; row <= 203; row++) {
+                String target = BygramSettingsLink.target(page, row);
+                BygramSettingsLink legacy = BygramSettingsLink.parse("general." + row);
+                if (legacy != null && page.equals(legacy.customizationSection())) {
+                    check(("general." + row).equals(target), "Preserve row link for " + page + ": " + row);
+                    generated++;
+                } else {
+                    check(target == null, "Do not generate another section's row link: " + page + ", " + row);
+                }
+            }
+            check(generated > 0, "Section must have shareable rows: " + page);
+        }
         check("chat_list".equals(BygramSettingsLink.parse("general.8").customizationSection()), "Moved archive setting");
         check("appearance".equals(BygramSettingsLink.parse("general.202").customizationSection()), "Moved MD3 setting");
         for (int row : new int[]{19, 22, 23, 24}) {

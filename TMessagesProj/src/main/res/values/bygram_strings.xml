@@ -12,6 +12,9 @@
     <string name="BygramFlameRestoreMessage">Restore the %1$d-day streak? Restores left for this chat this month: %2$d.</string>
     <string name="BygramFlameRestoreAction">Restore</string>
     <string name="BygramFlameRestoreError">Couldn’t restore Flame. Check your connection and try again if the option is still available.</string>
+    <string name="BygramFlameStats">Flame statistics</string>
+    <string name="BygramFlameStatsDays">Flame streak in days</string>
+    <string name="BygramFlameStatsMessages">Messages in chat history</string>
     <string name="BygramFlameActiveDays">Flame, %1$d days</string>
     <string name="BygramFlamePendingDays">Flame, %1$d days. Both people need to send a message today.</string>
     <string name="BygramResourceBadgeNotice">Official BYgram resource</string>
@@ -135,4 +138,5 @@
     <string name="BygramVideoWallpaperError">Choose a playable video up to 100 MiB and 3840 px per side. The previous wallpaper was kept.</string>
     <string name="BygramPluginDevServer">Plugin Dev Server</string>
     <string name="BygramPluginDevServerWarning">Enable local plugin development until you stop the server or exit BYgram. Anyone with the token and access to the local port can deploy and run plugin code.</string>
+    <string name="BygramOnlyDeletedMessages">Only saved deleted messages</string>
 </resources>

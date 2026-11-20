@@ -16,6 +16,22 @@ Host показывает автора, capabilities, SHA-256 и fingerprint п�
 доступны через «Откатить». Внешние действия, storage автора и отправленные
 сообщения не откатываются. Удаление отдельно предлагает сохранить настройки.
 
+## Сборка плагина без клонирования
+
+Установите Python 3.10 или новее. Скачайте [`package_plugin.py`](https://raw.githubusercontent.com/BYsquad/BYgram-Android/9f4695b9616b7dcfef1449dd5f697c10311b8027/Tools/package_plugin.py)
+и сохраните его рядом с папкой `my-plugin`. Поместите `manifest.json` в корень
+папки плагина, а Python-файл расположите по пути из `entrypoint`, например `main.py`.
+
+```powershell
+python ./package_plugin.py ./my-plugin ./my-plugin.byplugin
+```
+
+Готовый пакет появится рядом с папкой плагина. Для подписи добавьте
+`--signing-key ./author.pem`. Подпись требует OpenSSL и ключа вне папки плагина.
+
+Если у вас уже есть копия репозитория BYgram, из её корня можно собрать
+примеры SDK и запустить проверки репозитория.
+
 ```powershell
 python Tools/package_plugin.py docs/plugins/examples/hello output/hello.byplugin
 python Tools/package_plugin.py docs/plugins/examples/theme output/theme.byplugin

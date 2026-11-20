@@ -112,6 +112,7 @@ import org.telegram.ui.Components.CheckBox2;
 import org.telegram.ui.Components.ColoredImageSpan;
 import org.telegram.ui.Components.BygramBadgeDrawable;
 import org.telegram.ui.Components.BygramFlameBadge;
+import org.telegram.ui.Components.BygramFlameStats;
 import org.telegram.messenger.BygramBadgeController;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.DialogCellTags;
@@ -616,7 +617,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private StaticLayout timeLayout;
     private BygramFlame.Badge flameState;
     private BygramFlameBadge flameBadge;
-    private int flameLeft;
 
     private int lock2Left;
 
@@ -2392,11 +2392,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         int timeLeftOffset = 0;
-        if (flameBadge != null && timeLayout != null) {
-            timeLeftOffset = flameBadge.width() + dp(5);
-            flameLeft = LocaleController.isRTL ? timeLeft + timeWidth + dp(5) : timeLeft - timeLeftOffset;
-            timeWidth += timeLeftOffset;
-        }
         if (drawLock2()) {
             if (LocaleController.isRTL) {
                 lock2Left = timeLeft + timeWidth + dp(4);
@@ -2515,6 +2510,18 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             CharSequence nameStringFinal = nameString;
             bygramNameBadge = null;
             if (bygramBadged) ellipsizeWidth = Math.max(0, ellipsizeWidth - dp(24));
+            CharSequence flameSuffix = null;
+            int flameWidth = 0;
+            if (flameBadge != null) {
+                flameSuffix = new SpannableStringBuilder("\u00a0").append(flameBadge.text());
+                flameWidth = (int) Math.ceil(Layout.getDesiredWidth(flameSuffix, Theme.dialogs_namePaint[paintIndex]));
+                if (flameWidth < ellipsizeWidth) {
+                    ellipsizeWidth -= flameWidth;
+                    nameLayoutEllipsizeByGradient = false;
+                } else {
+                    flameSuffix = null;
+                }
+            }
             if (nameLayoutEllipsizeByGradient) {
                 nameLayoutFits = nameStringFinal.length() == TextUtils.ellipsize(nameStringFinal, Theme.dialogs_namePaint[paintIndex], ellipsizeWidth, TextUtils.TruncateAt.END).length();
                 ellipsizeWidth += dp(48);
@@ -2527,6 +2534,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 nameStringFinal = TextUtils.ellipsize(nameStringFinal, Theme.dialogs_namePaint[paintIndex], ellipsizeWidth, TextUtils.TruncateAt.END);
             }
             nameStringFinal = Emoji.replaceEmoji(nameStringFinal, Theme.dialogs_namePaint[paintIndex].getFontMetricsInt(), false);
+            if (flameSuffix != null) {
+                nameStringFinal = new SpannableStringBuilder(nameStringFinal).append(flameSuffix);
+                ellipsizeWidth += flameWidth;
+            }
             if (bygramBadged) {
                 bygramNameBadge = new BygramBadgeDrawable(getContext(), chat != null, 18);
                 bygramNameBadge.setBounds(0, 0, dp(18), dp(18));
@@ -2824,6 +2835,12 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             messageNameString = null;
             typingString = "";
             thumbsCount = 0;
+        }
+        if (isBygramSpyOnlyDialog()) {
+            messageString = DialogMediaIconsHelper.addDialogMediaSpan(
+                    new SpannableStringBuilder(messageString == null || messageString.length() == 0
+                            ? getString(R.string.BygramOnlyDeletedMessages) : messageString),
+                    R.drawable.msg_delete, true);
         }
         messageWidth = Math.max(dp(12), messageWidth);
         buttonTop = dp(useForceThreeLines || SharedConfig.useThreeLinesLayout ? 58 : 62);
@@ -3376,6 +3393,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         boolean rebuildLayout = false;
         boolean invalidate = false;
         boolean oldIsForumCell = isForumCell();
+        boolean bygramSpyOnly = isBygramSpyOnlyDialog();
+        boolean bygramSpyChanged = lastBygramSpyOnly != bygramSpyOnly;
+        lastBygramSpyOnly = bygramSpyOnly;
         drawAvatarSelector = false;
         ttlPeriod = 0;
 
@@ -3496,7 +3516,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             }
 
             if (mask != 0) {
-                boolean continueUpdate = false;
+                boolean continueUpdate = bygramSpyChanged;
                 if (user != null && !MessagesController.isSupportUser(user) && !user.bot && (mask & MessagesController.UPDATE_MASK_STATUS) != 0) {
                     user = MessagesController.getInstance(currentAccount).getUser(user.id);
                     if (wasDrawnOnline != isOnline()) {
@@ -4254,10 +4274,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 Theme.dialogs_lockDrawable.draw(canvas);
             }
 
-            int nameTop = dp(useForceThreeLines || SharedConfig.useThreeLinesLayout ? 10 : 14);
-            if ((!(useForceThreeLines || SharedConfig.useThreeLinesLayout) || isForumCell()) && hasTags()) {
-                nameTop -= dp(isForumCell() ? 8 : 9);
-            }
+            int nameTop = getNameTop();
             if (nameLayout != null) {
                 if (nameLayoutEllipsizeByGradient && !nameLayoutFits) {
                     if (nameLayoutEllipsizeLeft && fadePaint == null) {
@@ -4299,9 +4316,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             }
 
             if (timeLayout != null && currentDialogFolderId == 0) {
-                if (flameBadge != null) {
-                    flameBadge.draw(canvas, flameLeft, timeTop + timeLayout.getHeight() / 2f, getTimeTextPaint().getColor());
-                }
                 canvas.save();
                 canvas.translate(timeLeft, timeTop);
 
@@ -5662,6 +5676,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public boolean performAccessibilityAction(int action, Bundle arguments) {
+        if (action == R.id.acc_action_flame_stats && canShowFlameStats()) {
+            showFlameStats();
+            return true;
+        }
         if (action == R.id.acc_action_chat_preview && org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
             return false;
         }
@@ -5680,6 +5698,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         } else {
             info.addAction(AccessibilityNodeInfo.ACTION_CLICK);
             info.addAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+            if (canShowFlameStats()) {
+                info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.acc_action_flame_stats,
+                        getString(R.string.BygramFlameStats)));
+            }
             if (!isFolderCell() && parentFragment != null
                     && !org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId)) {
                 info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.acc_action_chat_preview, getString(R.string.AccActionChatPreview)));
@@ -5692,10 +5714,20 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
     }
 
+    private boolean lastBygramSpyOnly;
+
+    private boolean isBygramSpyOnlyDialog() {
+        return isDialogCell && !isTopic && currentDialogFolderId == 0
+                && MessagesStorage.getInstance(currentAccount).isBygramSpyOnlyDialog(currentDialogId);
+    }
+
     @Override
     public void onPopulateAccessibilityEvent(AccessibilityEvent event) {
         super.onPopulateAccessibilityEvent(event);
         StringBuilder sb = new StringBuilder();
+        if (isBygramSpyOnlyDialog()) {
+            sb.append(getString(R.string.BygramOnlyDeletedMessages)).append(". ");
+        }
         if (titleOverride != null) {
             sb.append(titleOverride);
             sb.append(". ");
@@ -5740,7 +5772,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 sb.append(". ");
             }
         }
-        if (flameState != null && timeLayout != null) {
+        if (flameState != null) {
             sb.append(LocaleController.formatString(flameState.active
                     ? R.string.BygramFlameActiveDays : R.string.BygramFlamePendingDays, flameState.days)).append(". ");
         }
@@ -6292,6 +6324,29 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             storyParams.checkOnTouchEvent(ev, this);
         }
         return super.dispatchTouchEvent(ev);
+    }
+
+    private int getNameTop() {
+        boolean threeLines = useForceThreeLines || SharedConfig.useThreeLinesLayout;
+        int top = dp(threeLines ? 10 : 14);
+        if ((!threeLines || isForumCell()) && hasTags()) top -= dp(isForumCell() ? 8 : 9);
+        return top;
+    }
+
+    private boolean canShowFlameStats() {
+        return flameBadge != null && parentFragment != null && !parentFragment.clickSelectsDialog()
+                && !org.telegram.messenger.BygramChatPrivacy.isProtected(currentAccount, currentDialogId);
+    }
+
+    private void showFlameStats() {
+        BygramFlameStats.show(parentFragment, currentAccount, MessagesController.getInstance(currentAccount)
+                .getInputPeer(currentDialogId), flameState.days, resourcesProvider);
+    }
+
+    public boolean tryShowFlameStats(float x, float y) {
+        if (!canShowFlameStats() || !flameBadge.contains(nameLayout, x - nameLeft - nameLayoutTranslateX, y - getNameTop())) return false;
+        showFlameStats();
+        return true;
     }
 
     @Override

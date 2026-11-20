@@ -12049,7 +12049,7 @@ public class MessagesController extends BaseController implements NotificationCe
         }
 
         // Server history omits deleted rows, including the latest row after a cold start.
-        if (!isCache && mode == 0 && threadMessageId == 0 && DialogObject.isUserDialog(dialogId)) {
+        if (!isCache && mode == 0 && threadMessageId == 0 && !DialogObject.isEncryptedDialog(dialogId)) {
             getMessagesStorage().mergeBygramDeletedMessagesSync(dialogId, messagesRes.messages, max_id == 0 && offset_date == 0);
         }
 
@@ -13212,6 +13212,8 @@ public class MessagesController extends BaseController implements NotificationCe
                 if (totalDialogsLoadCount < 400 && dialogsLoadOffset[UserConfig.i_dialogsLoadOffsetId] != -1 && dialogsLoadOffset[UserConfig.i_dialogsLoadOffsetId] != Integer.MAX_VALUE) {
                     loadDialogs(0, 0, 100, false);
                 }
+                getMessagesStorage().restoreBygramSpyDialogs();
+                getMessagesStorage().reconcileBygramSpyArchive();
                 getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
             });
         });
@@ -13517,6 +13519,9 @@ public class MessagesController extends BaseController implements NotificationCe
                 MessageObject messageObject = new MessageObject(currentAccount, message, usersDict, chatsDict, false, false);
                 newMessages.add(messageObject);
                 long did = messageObject.getDialogId();
+                if (loadType != DIALOGS_LOAD_TYPE_CACHE && !(message instanceof TLRPC.TL_messageEmpty)) {
+                    getMessagesStorage().clearBygramSpyOnlyDialog(did);
+                }
                 ArrayList<MessageObject> arrayList = new_dialogMessage.get(did);
                 if (arrayList == null) {
                     arrayList = new ArrayList<MessageObject>(1);
@@ -13622,14 +13627,16 @@ public class MessagesController extends BaseController implements NotificationCe
                         if (!chat.megagroup) {
                             allowCheck = false;
                         }
-                        if (ChatObject.isNotInChat(chat) && (promoDialogId == 0 || promoDialogId != d.id)) {
+                        if (ChatObject.isNotInChat(chat) && (promoDialogId == 0 || promoDialogId != d.id)
+                                && !getMessagesStorage().isBygramSpyOnlyDialog(d.id)) {
                             continue;
                         }
                     }
                     channelsPts.put(-d.id, d.pts);
                 } else if (DialogObject.isChatDialog(d.id)) {
                     TLRPC.Chat chat = chatsDict.get(-d.id);
-                    if (chat != null && (chat.migrated_to != null || ChatObject.isNotInChat(chat))) {
+                    if (chat != null && (chat.migrated_to != null || ChatObject.isNotInChat(chat))
+                            && !getMessagesStorage().isBygramSpyOnlyDialog(d.id)) {
                         continue;
                     }
                 }
@@ -18045,7 +18052,7 @@ public class MessagesController extends BaseController implements NotificationCe
         ArrayList<Integer> ids = new ArrayList<>();
         ids.add(messageId);
         if (getMessagesStorage().getBygramDeletedMessageIdsSync(resolvedDialogId, ids).contains(messageId)) return true;
-        TLRPC.Message message = getMessagesStorage().getMessage(resolvedDialogId, messageId);
+        TLRPC.Message message = getMessagesStorage().getMessageForBygramSpy(resolvedDialogId, messageId);
         if (message == null) return false;
         if (notify && messageId > 0 && message instanceof TLRPC.TL_message && !message.out
                 && DialogObject.isUserDialog(resolvedDialogId) && resolvedDialogId != getUserConfig().getClientUserId()
@@ -22208,6 +22215,26 @@ public class MessagesController extends BaseController implements NotificationCe
         return false;
     }
 
+    void showBygramSpyDialog(TLRPC.TL_dialog archived, TLRPC.Message message, TLRPC.User user, TLRPC.Chat chat) {
+        if (!getMessagesStorage().isBygramSpyOnlyDialog(archived.id)) return;
+        TLRPC.Dialog dialog = dialogs_dict.get(archived.id);
+        if (user != null) putUser(user, true);
+        if (chat != null) putChat(chat, true);
+        if (dialog == null) {
+            archived.peer = getPeer(archived.id);
+            dialogs_dict.put(archived.id, archived);
+            allDialogs.add(archived);
+            dialog = archived;
+        }
+        dialog.top_message = archived.top_message;
+        dialog.last_message_date = archived.last_message_date;
+        ArrayList<MessageObject> preview = new ArrayList<>();
+        preview.add(new MessageObject(currentAccount, message, false, false));
+        dialogMessage.put(archived.id, preview);
+        sortDialogs(null);
+        getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
+    }
+
     public boolean updateInterfaceWithMessages(long dialogId, ArrayList<MessageObject> messages, int mode) {
         if (messages == null || messages.isEmpty()) {
             return false;
@@ -22225,6 +22252,9 @@ public class MessagesController extends BaseController implements NotificationCe
             checkDialogReplied(dialogId, messages);
             for (int a = 0; a < messages.size(); a++) {
                 MessageObject message = messages.get(a);
+                if (mode == ChatActivity.MODE_DEFAULT && !message.isBygramDeleted()) {
+                    getMessagesStorage().clearBygramSpyOnlyDialog(dialogId);
+                }
                 if (lastMessage == null || (!isEncryptedChat && message.getId() > lastMessage.getId() || (isEncryptedChat || message.getId() < 0 && lastMessage.getId() < 0) && message.getId() < lastMessage.getId()) || message.messageOwner.date > lastMessage.messageOwner.date) {
                     lastMessage = message;
                     if (message.messageOwner.peer_id.channel_id != 0) {
