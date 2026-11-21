@@ -3400,7 +3400,9 @@ public class MessagesStorage extends BaseController {
                 SparseArray<MessagesController.DialogFilter> filtersToDelete = new SparseArray<>();
                 for (int a = 0, N = dialogFilters.size(); a < N; a++) {
                     MessagesController.DialogFilter filter = dialogFilters.get(a);
-                    filtersToDelete.put(filter.id, filter);
+                    if (!filter.isLocal()) {
+                        filtersToDelete.put(filter.id, filter);
+                    }
                 }
                 ArrayList<Integer> filtersOrder = new ArrayList<>();
 
@@ -3723,26 +3725,30 @@ public class MessagesStorage extends BaseController {
             saveDialogFilterInternal(filtersToSave.get(a), false, true);
             anythingChanged = true;
         }
-        boolean orderChanged = false;
-        for (int a = 0, N = dialogFilters.size(); a < N; a++) {
-            MessagesController.DialogFilter filter = dialogFilters.get(a);
-            int order = filtersOrder.indexOf(filter.id);
-            if (filter.order != order) {
-                filter.order = order;
-                anythingChanged = true;
-                orderChanged = true;
+        ArrayList<MessagesController.DialogFilter> orderedFilters = new ArrayList<>(dialogFilters.size());
+        for (int id : filtersOrder) {
+            MessagesController.DialogFilter filter = dialogFiltersMap.get(id);
+            if (filter != null) {
+                orderedFilters.add(filter);
             }
         }
+        for (int i = 0; i < dialogFilters.size(); i++) {
+            MessagesController.DialogFilter filter = dialogFilters.get(i);
+            if (filter.isLocal()) {
+                orderedFilters.add(Math.min(i, orderedFilters.size()), filter);
+            }
+        }
+        boolean orderChanged = !dialogFilters.equals(orderedFilters);
+        for (int i = 0; i < orderedFilters.size(); i++) {
+            MessagesController.DialogFilter filter = orderedFilters.get(i);
+            orderChanged |= filter.order != i;
+            filter.order = i;
+        }
         if (orderChanged) {
-            Collections.sort(dialogFilters, (o1, o2) -> {
-                if (o1.order > o2.order) {
-                    return 1;
-                } else if (o1.order < o2.order) {
-                    return -1;
-                }
-                return 0;
-            });
+            dialogFilters.clear();
+            dialogFilters.addAll(orderedFilters);
             saveDialogFiltersOrderInternal();
+            anythingChanged = true;
         }
         int remote = anythingChanged ? 1 : 2;
         calcUnreadCounters(true);

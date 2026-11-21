@@ -730,6 +730,7 @@ public class MessagesController extends BaseController implements NotificationCe
 
     private final SharedPreferences notificationsPreferences;
     private final SharedPreferences mainPreferences;
+    private final SparseArray<LongSparseIntArray> localDialogPins = new SparseArray<>();
     private final SharedPreferences emojiPreferences;
 
     public volatile boolean ignoreSetOnline;
@@ -878,23 +879,16 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public void lockFiltersInternal() {
         boolean changed = false;
-        if (!getUserConfig().isPremium() && dialogFilters.size() - 1 > dialogFiltersLimitDefault) {
-            int n = dialogFilters.size() - 1 - dialogFiltersLimitDefault;
-            ArrayList<DialogFilter> filtersSortedById = new ArrayList<>(dialogFilters);
-            Collections.reverse(filtersSortedById);
-            for (int i = 0; i < filtersSortedById.size(); i++) {
-                if (i < n) {
-                    if (!filtersSortedById.get(i).locked) {
-                        changed = true;
-                    }
-                    filtersSortedById.get(i).locked = true;
-                } else {
-                    if (filtersSortedById.get(i).locked) {
-                        changed = true;
-                    }
-                    filtersSortedById.get(i).locked = false;
-                }
+        int serverFolders = 0;
+        boolean premium = getUserConfig().isPremium();
+        for (DialogFilter filter : dialogFilters) {
+            boolean locked = false;
+            if (!premium && !filter.isLocal() && !filter.isDefault()) {
+                locked = serverFolders >= dialogFiltersLimitDefault;
+                serverFolders++;
             }
+            changed |= filter.locked != locked;
+            filter.locked = locked;
         }
         if (changed) {
             getNotificationCenter().postNotificationName(NotificationCenter.dialogFiltersUpdated);
@@ -1299,6 +1293,10 @@ public class MessagesController extends BaseController implements NotificationCe
         public int localId = dialogFilterPointer++;
         public boolean locked;
 
+        public boolean isLocal() {
+            return id < -1;
+        }
+
         public boolean includesDialog(AccountInstance accountInstance, long dialogId) {
             MessagesController messagesController = accountInstance.getMessagesController();
             TLRPC.Dialog dialog = messagesController.dialogs_dict.get(dialogId);
@@ -1312,7 +1310,7 @@ public class MessagesController extends BaseController implements NotificationCe
             if (neverShow.contains(dialogId)) {
                 return false;
             }
-            if (alwaysShow.contains(dialogId)) {
+            if (alwaysShow.contains(dialogId) || accountInstance.getMessagesController().getLocalDialogPin(d.id, this) > 0) {
                 return true;
             }
             if (d.folder_id != 0 && (flags & DIALOG_FILTER_FLAG_EXCLUDE_ARCHIVED) != 0) {
@@ -1385,7 +1383,8 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
             }
 
-            return alwaysShow.contains(dialogId);
+            return alwaysShow.contains(dialogId) || !neverShow.contains(dialogId)
+                    && MessagesController.getInstance(currentAccount).getLocalDialogPin(dialog.id, this) > 0;
         }
 
         public boolean isDefault() {
@@ -1422,6 +1421,10 @@ public class MessagesController extends BaseController implements NotificationCe
                 return 0;
             }
         }
+        int localOrder = compareLocalDialogPins(dialog1, dialog2, sortingDialogFilter);
+        if (localOrder != 0) {
+            return localOrder;
+        }
         MediaDataController mediaDataController = getMediaDataController();
         long date1 = DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
         long date2 = DialogObject.getLastMessageOrDraftDate(dialog2, mediaDataController.getDraft(dialog2.id, 0));
@@ -1457,6 +1460,10 @@ public class MessagesController extends BaseController implements NotificationCe
             } else {
                 return 0;
             }
+        }
+        int localOrder = compareLocalDialogPins(dialog1, dialog2, null);
+        if (localOrder != 0) {
+            return localOrder;
         }
         MediaDataController mediaDataController = getMediaDataController();
         long date1 = DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
@@ -1576,6 +1583,24 @@ public class MessagesController extends BaseController implements NotificationCe
             notificationsPreferences = ApplicationLoader.applicationContext.getSharedPreferences("Notifications" + currentAccount, Activity.MODE_PRIVATE);
             mainPreferences = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig" + currentAccount, Activity.MODE_PRIVATE);
             emojiPreferences = ApplicationLoader.applicationContext.getSharedPreferences("emoji" + currentAccount, Activity.MODE_PRIVATE);
+        }
+        for (String entry : mainPreferences.getStringSet("localDialogPins", Collections.emptySet())) {
+            String[] parts = entry.split(":");
+            if (parts.length == 3) {
+                try {
+                    int scope = Integer.parseInt(parts[0]);
+                    long dialogId = Long.parseLong(parts[1]);
+                    int order = Integer.parseInt(parts[2]);
+                    if (order > 0) {
+                        if (localDialogPins.get(scope) == null) {
+                            localDialogPins.put(scope, new LongSparseIntArray());
+                        }
+                        localDialogPins.get(scope).put(dialogId, order);
+                    }
+                } catch (NumberFormatException e) {
+                    FileLog.e(e);
+                }
+            }
         }
         long time = System.currentTimeMillis();
 
@@ -2540,6 +2565,42 @@ public class MessagesController extends BaseController implements NotificationCe
         lockFiltersInternal();
     }
 
+    public int nextDialogFilterId() {
+        int serverFolderCount = 0;
+        for (DialogFilter filter : dialogFilters) {
+            if (!filter.isLocal() && !filter.isDefault()) {
+                serverFolderCount++;
+            }
+        }
+        int limit = getUserConfig().isPremium() ? dialogFiltersLimitPremium : dialogFiltersLimitDefault;
+        if (serverFolderCount >= limit) {
+            return nextLocalDialogFilterId();
+        }
+        int id = 2;
+        while (dialogFiltersById.get(id) != null) {
+            id++;
+        }
+        return id;
+    }
+
+    public int nextLocalDialogFilterId() {
+        int id = -2;
+        while (dialogFiltersById.get(id) != null) {
+            id--;
+        }
+        return id;
+    }
+
+    public TLRPC.TL_messages_updateDialogFiltersOrder createDialogFiltersOrderRequest() {
+        TLRPC.TL_messages_updateDialogFiltersOrder request = new TLRPC.TL_messages_updateDialogFiltersOrder();
+        for (DialogFilter filter : dialogFilters) {
+            if (!filter.isLocal()) {
+                request.order.add(filter.isDefault() ? 0 : filter.id);
+            }
+        }
+        return request;
+    }
+
     public static TLRPC.TL_emojiStatusCollectible emojiStatusCollectibleFromGift(TL_stars.TL_starGiftUnique gift) {
         final TLRPC.TL_emojiStatusCollectible status = new TLRPC.TL_emojiStatusCollectible();
         status.collectible_id = gift.id;
@@ -2606,6 +2667,10 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public void removeFilter(DialogFilter filter) {
+        if (!filter.isDefault() && localDialogPins.get(filter.id) != null) {
+            localDialogPins.remove(filter.id);
+            saveLocalDialogPins();
+        }
         dialogFilters.remove(filter);
         dialogFiltersById.remove(filter.id);
         getNotificationCenter().postNotificationName(NotificationCenter.dialogFiltersUpdated);
@@ -6425,6 +6490,8 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public void cleanup() {
+        localDialogPins.clear();
+        mainPreferences.edit().remove("localDialogPins").apply();
         getContactsController().cleanup();
         MediaController.getInstance().cleanup();
         getNotificationsController().cleanup();
@@ -10178,6 +10245,17 @@ public class MessagesController extends BaseController implements NotificationCe
             return;
         }
         if (onlyHistory == 0 || onlyHistory == 3) {
+            boolean removedLocalPin = false;
+            for (int i = 0; i < localDialogPins.size(); i++) {
+                LongSparseIntArray pins = localDialogPins.valueAt(i);
+                if (pins.indexOfKey(did) >= 0) {
+                    pins.delete(did);
+                    removedLocalPin = true;
+                }
+            }
+            if (removedLocalPin) {
+                saveLocalDialogPins();
+            }
             getMediaDataController().uninstallShortcut(did, MediaDataController.SHORTCUT_TYPE_USER_OR_CHAT);
         }
         int max_id_delete = max_id;
@@ -17443,6 +17521,108 @@ public class MessagesController extends BaseController implements NotificationCe
                 getMessagesStorage().removePendingTask(newTaskId);
             }
         });
+    }
+
+    private int getLocalDialogPin(long dialogId, DialogFilter filter) {
+        LongSparseIntArray pins = localDialogPins.get(filter == null ? 0 : filter.id);
+        return pins == null ? 0 : pins.get(dialogId);
+    }
+
+    private int compareLocalDialogPins(TLRPC.Dialog first, TLRPC.Dialog second, DialogFilter filter) {
+        return Integer.compare(getLocalDialogPin(second.id, filter), getLocalDialogPin(first.id, filter));
+    }
+
+    public boolean isTelegramDialogPinned(TLRPC.Dialog dialog, DialogFilter filter) {
+        return filter == null ? dialog.pinned : filter.pinnedDialogs.indexOfKey(dialog.id) >= 0;
+    }
+
+    public boolean isLocalDialogPinned(TLRPC.Dialog dialog, DialogFilter filter) {
+        return getLocalDialogPin(dialog.id, filter) > 0 && !isTelegramDialogPinned(dialog, filter);
+    }
+
+    public boolean isDialogPinned(TLRPC.Dialog dialog, DialogFilter filter) {
+        return isTelegramDialogPinned(dialog, filter) || getLocalDialogPin(dialog.id, filter) > 0;
+    }
+
+    public boolean canPinDialogInTelegram(TLRPC.Dialog dialog, DialogFilter filter, long peerId) {
+        boolean secret = DialogObject.isEncryptedDialog(dialog.id);
+        if (filter != null) {
+            if (filter.isLocal()) {
+                return false;
+            }
+            int limit = 100 - filter.alwaysShow.size();
+            if (filter.alwaysShow.contains(peerId)) {
+                limit++;
+            }
+            int count = 0;
+            for (int i = 0; i < filter.pinnedDialogs.size(); i++) {
+                if (DialogObject.isEncryptedDialog(filter.pinnedDialogs.keyAt(i)) == secret) {
+                    count++;
+                }
+            }
+            return count < limit;
+        }
+        int limit = dialog.folder_id == 0
+                ? (getUserConfig().isPremium() ? dialogFiltersPinnedLimitPremium : dialogFiltersPinnedLimitDefault)
+                : (getUserConfig().isPremium() ? maxFolderPinnedDialogsCountPremium : maxFolderPinnedDialogsCountDefault);
+        int count = 0;
+        for (TLRPC.Dialog pinned : getDialogs(dialog.folder_id)) {
+            if (pinned instanceof TLRPC.TL_dialogFolder || pinned.id == promoDialogId) {
+                continue;
+            }
+            if (!pinned.pinned) {
+                break;
+            }
+            if (DialogObject.isEncryptedDialog(pinned.id) == secret) {
+                count++;
+            }
+        }
+        return count < limit;
+    }
+
+    public boolean setLocalDialogPinned(long dialogId, DialogFilter filter, boolean pin) {
+        int scope = filter == null ? 0 : filter.id;
+        LongSparseIntArray pins = localDialogPins.get(scope);
+        if (pin) {
+            if (pins == null) {
+                pins = new LongSparseIntArray();
+                localDialogPins.put(scope, pins);
+            } else if (pins.indexOfKey(dialogId) >= 0) {
+                return false;
+            }
+            int order = 0;
+            for (int i = 0; i < pins.size(); i++) {
+                order = Math.max(order, pins.valueAt(i));
+            }
+            pins.put(dialogId, order + 1);
+        } else {
+            if (pins == null || pins.indexOfKey(dialogId) < 0) {
+                return false;
+            }
+            pins.delete(dialogId);
+        }
+        saveLocalDialogPins();
+        return true;
+    }
+
+    public void swapLocalDialogPins(long firstId, long secondId, DialogFilter filter) {
+        LongSparseIntArray pins = localDialogPins.get(filter == null ? 0 : filter.id);
+        int firstOrder = pins.get(firstId);
+        pins.put(firstId, pins.get(secondId));
+        pins.put(secondId, firstOrder);
+        saveLocalDialogPins();
+    }
+
+    private void saveLocalDialogPins() {
+        Set<String> entries = new HashSet<>();
+        for (int i = 0; i < localDialogPins.size(); i++) {
+            int scope = localDialogPins.keyAt(i);
+            LongSparseIntArray pins = localDialogPins.valueAt(i);
+            for (int j = 0; j < pins.size(); j++) {
+                entries.add(scope + ":" + pins.keyAt(j) + ":" + pins.valueAt(j));
+            }
+        }
+        mainPreferences.edit().putStringSet("localDialogPins", entries).apply();
     }
 
     public boolean pinDialog(long dialogId, boolean pin, TLRPC.InputPeer peer, long taskId) {

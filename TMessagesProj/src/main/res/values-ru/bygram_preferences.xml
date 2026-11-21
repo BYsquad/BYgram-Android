@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="BygramLocalChatFolderInfo">Эта папка хранится на этом устройстве.</string>
+    <string name="BygramFeatures">Возможности BYgram</string>
+    <string name="BygramUnlimitedPinnedChats">Неограниченное количество закреплённых чатов</string>
+    <string name="BygramUnlimitedPinnedChatsInfo">Закрепляйте сколько угодно чатов. Закрепления сверх лимита Telegram сохраняются на этом устройстве.</string>
+    <string name="BygramUnlimitedChatFolders">Неограниченное количество папок</string>
+    <string name="BygramUnlimitedChatFoldersInfo">Создавайте сколько угодно папок чатов. Папки сверх лимита Telegram сохраняются на этом устройстве.</string>
     <string name="BygramGeneral">Основное</string>
     <string name="BygramAppearance">Внешний вид</string>
     <string name="BygramChats">Чаты</string>

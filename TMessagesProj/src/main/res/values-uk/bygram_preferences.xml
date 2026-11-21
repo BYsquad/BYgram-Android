@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="BygramLocalChatFolderInfo">Ця папка зберігається на цьому пристрої.</string>
+    <string name="BygramFeatures">Можливості BYgram</string>
+    <string name="BygramUnlimitedPinnedChats">Необмежена кількість закріплених чатів</string>
+    <string name="BygramUnlimitedPinnedChatsInfo">Закріплюйте скільки завгодно чатів. Закріплення понад ліміт Telegram зберігаються на цьому пристрої.</string>
+    <string name="BygramUnlimitedChatFolders">Необмежена кількість папок</string>
+    <string name="BygramUnlimitedChatFoldersInfo">Створюйте скільки завгодно папок чатів. Папки понад ліміт Telegram зберігаються на цьому пристрої.</string>
     <string name="BygramHidePhone">Приховати номер телефону</string>
     <string name="BygramHideOwnPhoneInfo">Приховує ваш номер у вашому профілі та налаштуваннях. Не змінює видимість номера для інших користувачів Telegram.</string>
     <string name="BygramRelativeOnline">Відносний час останнього відвідування</string>

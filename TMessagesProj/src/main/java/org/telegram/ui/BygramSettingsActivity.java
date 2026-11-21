@@ -3,6 +3,8 @@ package org.telegram.ui;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -46,6 +48,7 @@ import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalRecyclerView;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.ShareAlert;
+import org.telegram.ui.Components.TopViewCell;
 import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Cells.AppIconsSelectorCell;
 import org.telegram.ui.Cells.SlideIntChooseView;
@@ -163,6 +166,7 @@ abstract class BygramSettingsPage extends BaseFragment {
 
 public class BygramSettingsActivity extends BygramSettingsPage implements NotificationCenter.NotificationCenterDelegate {
     private static final int ROW_PLUGINS = 14;
+    private static final int ROW_FEATURES = 15;
     private UniversalRecyclerView listView;
     private FrameLayout updateRow;
     private boolean linkOpened;
@@ -356,6 +360,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (BygramUpdates.isAvailable()) items.add(UItem.asCustom(updateRow, 60));
         items.add(UItem.asHeader(getString(R.string.BygramCategories)).setId(-1));
+        items.add(UItem.asButton(ROW_FEATURES, R.drawable.settings_premium, getString(R.string.BygramFeatures)));
         items.add(UItem.asButton(9, R.drawable.settings_account, getString(R.string.BygramCustomization)));
         items.add(UItem.asButton(ROW_PLUGINS, R.drawable.settings_account, getString(R.string.BygramPluginsBeta), org.telegram.messenger.PluginEntry.summary()));
         items.add(UItem.asButton(1, R.drawable.settings_privacy, getString(R.string.BygramGhostMode)));
@@ -380,7 +385,9 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             if (!presentFragment(page)) logSetting("rejected", "plugins");
             return;
         }
-        if (item.id == 8) {
+        if (item.id == ROW_FEATURES) {
+            presentSettingsPage(new FeaturesActivity());
+        } else if (item.id == 8) {
             presentSettingsPage(new OtherSettingsActivity());
         } else if (item.id == 9) {
             presentSettingsPage(new CustomizationSettingsActivity());
@@ -458,6 +465,39 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         FrameLayout container = new FrameLayout(input.getContext());
         container.addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 24, 8, 24, 8));
         return container;
+    }
+
+    private static class FeaturesActivity extends BygramSettingsPage {
+        @Override
+        public View createView(Context context) {
+            simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            simpleActionBar.setTitle(getString(R.string.BygramFeatures));
+            simpleActionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                @Override
+                public void onItemClick(int id) {
+                    if (id == -1) finishFragment();
+                }
+            });
+
+            FrameLayout content = createSettingsContent(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            Utilities.Callback<View> tintIcon = view -> ((TopViewCell) view).imageView.setColorFilter(
+                    new PorterDuffColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteBlueText), PorterDuff.Mode.SRC_IN));
+            UniversalRecyclerView list = new UniversalRecyclerView(this, (items, adapter) -> {
+                items.add(UItem.asTopViewStatic(
+                        getString(R.string.BygramUnlimitedPinnedChats),
+                        getString(R.string.BygramUnlimitedPinnedChatsInfo),
+                        R.drawable.msg_pin).onBind(tintIcon));
+                items.add(UItem.asTopViewStatic(
+                        getString(R.string.BygramUnlimitedChatFolders),
+                        getString(R.string.BygramUnlimitedChatFoldersInfo),
+                        R.drawable.settings_folders).onBind(tintIcon));
+            }, null, null);
+            list.setSections();
+            list.adapter.setApplyBackground(false);
+            content.addView(list, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+            return fragmentView = content;
+        }
     }
 
     public static class ProfileViewsActivity extends BygramSettingsPage {

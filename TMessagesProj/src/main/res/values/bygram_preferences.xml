@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="BygramLocalChatFolderInfo">This folder is stored on this device.</string>
+    <string name="BygramFeatures">BYgram Features</string>
+    <string name="BygramUnlimitedPinnedChats">Unlimited pinned chats</string>
+    <string name="BygramUnlimitedPinnedChatsInfo">Pin as many chats as you like. Pins beyond the Telegram limit are saved on this device.</string>
+    <string name="BygramUnlimitedChatFolders">Unlimited chat folders</string>
+    <string name="BygramUnlimitedChatFoldersInfo">Create as many chat folders as you like. Folders beyond the Telegram limit are saved on this device.</string>
     <string name="BygramGeneral">General</string>
     <string name="BygramAppearance">Appearance</string>
     <string name="BygramChats">Chats</string>

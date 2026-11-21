@@ -2499,7 +2499,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder source, RecyclerView.ViewHolder target) {
-            if (!(target.itemView instanceof DialogCell)) {
+            if (!(source.itemView instanceof DialogCell) || !(target.itemView instanceof DialogCell)) {
                 return false;
             }
             DialogCell dialogCell = (DialogCell) target.itemView;
@@ -2508,15 +2508,27 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             if (dialog == null || !isDialogPinned(dialog) || DialogObject.isFolderDialogId(dialogId)) {
                 return false;
             }
+            MessagesController controller = getMessagesController();
+            MessagesController.DialogFilter filter = getPinDialogFilter();
+            TLRPC.Dialog fromDialog = controller.dialogs_dict.get(((DialogCell) source.itemView).getDialogId());
+            boolean local = controller.isLocalDialogPinned(dialog, filter);
+            if (fromDialog == null || local != controller.isLocalDialogPinned(fromDialog, filter)) {
+                return false;
+            }
             int fromIndex = source.getAdapterPosition();
             int toIndex = target.getAdapterPosition();
+            if (fromIndex == RecyclerView.NO_POSITION || toIndex == RecyclerView.NO_POSITION) {
+                return false;
+            }
             if (parentPage.listView.getItemAnimator() == null) {
                 parentPage.listView.setItemAnimator(parentPage.dialogsItemAnimator);
             }
             parentPage.dialogsAdapter.moveDialogs(parentPage.listView, fromIndex, toIndex);
 
-            if (viewPages[0].dialogsType == 7 || viewPages[0].dialogsType == 8) {
-                MessagesController.DialogFilter filter = getMessagesController().selectedDialogFilter[viewPages[0].dialogsType == 8 ? 1 : 0];
+            if (local) {
+                return true;
+            }
+            if (filter != null) {
                 if (!movingDialogFilters.contains(filter)) {
                     movingDialogFilters.add(filter);
                 }
@@ -3558,9 +3570,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         builder.setMessage(LocaleController.getString(R.string.FilterDeleteAlert));
                         builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
                         builder.setPositiveButton(LocaleController.getString(R.string.Delete), (dialog2, which2) -> {
-                            TLRPC.TL_messages_updateDialogFilter req = new TLRPC.TL_messages_updateDialogFilter();
-                            req.id = dialogFilter.id;
-                            getConnectionsManager().sendRequest(req, null);
+                            if (!dialogFilter.isLocal()) {
+                                TLRPC.TL_messages_updateDialogFilter req = new TLRPC.TL_messages_updateDialogFilter();
+                                req.id = dialogFilter.id;
+                                getConnectionsManager().sendRequest(req, null);
+                            }
                             getMessagesController().removeFilter(dialogFilter);
                             getMessagesStorage().deleteDialogFilter(dialogFilter);
                         });
@@ -3702,7 +3716,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                                     i--;
                                 }
                             }
-                            hasShare = filter.isChatlist() || filter.neverShow.isEmpty() && (filter.flags & ~(MessagesController.DIALOG_FILTER_FLAG_CHATLIST | MessagesController.DIALOG_FILTER_FLAG_CHATLIST_ADMIN)) == 0;
+                            hasShare = !filter.isLocal() && (filter.isChatlist() || filter.neverShow.isEmpty()
+                                    && (filter.flags & ~(MessagesController.DIALOG_FILTER_FLAG_CHATLIST | MessagesController.DIALOG_FILTER_FLAG_CHATLIST_ADMIN)) == 0);
                             if (hasShare) {
                                 for (int i = 0; i < filter.alwaysShow.size(); ++i) {
                                     long did = filter.alwaysShow.get(i);
@@ -8730,66 +8745,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             previewMenu[0].addView(markAsUnreadItem);
         }
 
-        final boolean[] hasPinAction = new boolean[1];
-        hasPinAction[0] = true;
         TLRPC.Dialog dialog = getMessagesController().dialogs_dict.get(dialogId);
-        boolean containsFilter;
-        final MessagesController.DialogFilter filter = (
-                (containsFilter = (viewPages[0].dialogsType == 7 || viewPages[0].dialogsType == 8) && (!actionBar.isActionModeShowed() || actionBar.isActionModeShowed(null))) ?
-                        getMessagesController().selectedDialogFilter[viewPages[0].dialogsType == 8 ? 1 : 0] : null
-        );
-        if (!isDialogPinned(dialog)) {
-            int pinnedCount = 0;
-            int pinnedSecretCount = 0;
-            int newPinnedCount = 0;
-            int newPinnedSecretCount = 0;
-            ArrayList<TLRPC.Dialog> dialogs = getMessagesController().getDialogs(folderId);
-            for (int a = 0, N = dialogs.size(); a < N; a++) {
-                TLRPC.Dialog dialog1 = dialogs.get(a);
-                if (dialog1 instanceof TLRPC.TL_dialogFolder) {
-                    continue;
-                }
-                if (isDialogPinned(dialog1)) {
-                    if (DialogObject.isEncryptedDialog(dialog1.id)) {
-                        pinnedSecretCount++;
-                    } else {
-                        pinnedCount++;
-                    }
-                } else if (!getMessagesController().isPromoDialog(dialog1.id, false)) {
-                    break;
-                }
-            }
-            int alreadyAdded = 0;
-            if (dialog != null && !isDialogPinned(dialog)) {
-                if (DialogObject.isEncryptedDialog(dialogId)) {
-                    newPinnedSecretCount++;
-                } else {
-                    newPinnedCount++;
-                }
-                if (filter != null && filter.alwaysShow.contains(dialogId)) {
-                    alreadyAdded++;
-                }
-            }
-            int maxPinnedCount;
-            if (containsFilter && filter != null) {
-                maxPinnedCount = 100 - filter.alwaysShow.size();
-            } else if (folderId != 0 || filter != null) {
-                if (getUserConfig().isPremium()) {
-                    maxPinnedCount = getMessagesController().maxFolderPinnedDialogsCountPremium;
-                } else {
-                    maxPinnedCount = getMessagesController().maxFolderPinnedDialogsCountDefault;
-                }
-            } else {
-                if (getUserConfig().isPremium()) {
-                    maxPinnedCount = getMessagesController().maxPinnedDialogsCountPremium;
-                } else {
-                    maxPinnedCount = getMessagesController().maxPinnedDialogsCountDefault;
-                }
-            }
-            hasPinAction[0] = !(newPinnedSecretCount + pinnedSecretCount > maxPinnedCount || newPinnedCount + pinnedCount - alreadyAdded > maxPinnedCount);
-        }
-
-        if (hasPinAction[0]) {
+        final MessagesController.DialogFilter filter = getPinDialogFilter();
+        if (dialog != null) {
             ActionBarMenuSubItem unpinItem = new ActionBarMenuSubItem(getParentActivity(), !hasFolders && isCommunityCell, false);
             if (isDialogPinned(dialog)) {
                 unpinItem.setTextAndIcon(LocaleController.getString(R.string.UnpinMessage), R.drawable.msg_unpin);
@@ -8801,42 +8759,26 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 finishPreviewFragment();
                 AndroidUtilities.runOnUIThread(() -> {
                     int minPinnedNum = Integer.MAX_VALUE;
-                    if (filter != null && isDialogPinned(dialog)) {
+                    if (filter != null && !isDialogPinned(dialog)) {
                         for (int c = 0, N = filter.pinnedDialogs.size(); c < N; c++) {
                             minPinnedNum = Math.min(minPinnedNum, filter.pinnedDialogs.valueAt(c));
                         }
-                        minPinnedNum -= canPinCount;
-                    }
-                    TLRPC.EncryptedChat encryptedChat = null;
-                    if (DialogObject.isEncryptedDialog(dialogId)) {
-                        encryptedChat = getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
+                        minPinnedNum--;
                     }
                     UndoView undoView = getUndoView();
                     if (undoView == null) {
                         return;
                     }
-                    if (!isDialogPinned(dialog)) {
-                        pinDialog(dialogId, true, filter, minPinnedNum, true);
-                        undoView.showWithAction(0, UndoView.ACTION_PIN_DIALOGS, 1, 1600, null, null);
+                    boolean pin = !isDialogPinned(dialog);
+                    boolean synced = pinDialog(dialogId, pin, filter, minPinnedNum, true);
+                    undoView.showWithAction(0, pin ? UndoView.ACTION_PIN_DIALOGS : UndoView.ACTION_UNPIN_DIALOGS, 1, 1600, null, null);
+                    if (synced) {
                         if (filter != null) {
-                            if (encryptedChat != null) {
-                                if (!filter.alwaysShow.contains(encryptedChat.user_id)) {
-                                    filter.alwaysShow.add(encryptedChat.user_id);
-                                }
-                            } else {
-                                if (!filter.alwaysShow.contains(dialogId)) {
-                                    filter.alwaysShow.add(dialogId);
-                                }
-                            }
+                            FilterCreateActivity.saveFilterToServer(filter, filter.flags, filter.name, filter.entities, filter.title_noanimate, filter.color, filter.alwaysShow, filter.neverShow, filter.pinnedDialogs, false, false, true, true, false, DialogsActivity.this, null);
+                        } else {
+                            getMessagesController().reorderPinnedDialogs(folderId, null, 0);
                         }
-                    } else {
-                        pinDialog(dialogId, false, filter, minPinnedNum, true);
-                        undoView.showWithAction(0, UndoView.ACTION_UNPIN_DIALOGS, 1, 1600, null, null);
                     }
-                    if (filter != null) {
-                        FilterCreateActivity.saveFilterToServer(filter, filter.flags, filter.name, filter.entities, filter.title_noanimate, filter.color, filter.alwaysShow, filter.neverShow, filter.pinnedDialogs, false, false, true, true, false, DialogsActivity.this, null);
-                    }
-                    getMessagesController().reorderPinnedDialogs(folderId, null, 0);
                     updateCounters(true);
                     if (viewPages != null) {
                         for (int a = 0; a < viewPages.length; a++) {
@@ -9210,17 +9152,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (dialog == null) {
             return false;
         }
-        MessagesController.DialogFilter filter;
-        boolean containsFilter = (viewPages[0].dialogsType == 7 || viewPages[0].dialogsType == 8) && (!actionBar.isActionModeShowed() || actionBar.isActionModeShowed(null));
-        if (containsFilter) {
-            filter = getMessagesController().selectedDialogFilter[viewPages[0].dialogsType == 8 ? 1 : 0];
-        } else {
-            filter = null;
+        MessagesController.DialogFilter filter = getPinDialogFilter();
+        return getMessagesController().isDialogPinned(dialog, filter);
+    }
+
+    private MessagesController.DialogFilter getPinDialogFilter() {
+        int dialogsType = viewPages[0].dialogsType;
+        if ((dialogsType == 7 || dialogsType == 8) && (!actionBar.isActionModeShowed() || actionBar.isActionModeShowed(null))) {
+            return getMessagesController().selectedDialogFilter[dialogsType == 8 ? 1 : 0];
         }
-        if (filter != null) {
-            return filter.pinnedDialogs.indexOfKey(dialog.id) >= 0;
-        }
-        return dialog.pinned;
+        return null;
     }
 
     private void performSelectedDialogsAction(ArrayList<Long> selectedDialogs, int action, boolean alert, boolean longPress) {
@@ -9231,15 +9172,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (getParentActivity() == null) {
             return;
         }
-        MessagesController.DialogFilter filter;
-        boolean containsFilter = (viewPages[0].dialogsType == 7 || viewPages[0].dialogsType == 8) && (!actionBar.isActionModeShowed() || actionBar.isActionModeShowed(null));
-        if (containsFilter) {
-            filter = getMessagesController().selectedDialogFilter[viewPages[0].dialogsType == 8 ? 1 : 0];
-        } else {
-            filter = null;
-        }
+        MessagesController.DialogFilter filter = getPinDialogFilter();
         int count = selectedDialogs.size();
         int pinnedActionCount = 0;
+        boolean syncedPinsChanged = false;
         if (action == archive || action == archive2) {
             ArrayList<Long> copy = new ArrayList<>(selectedDialogs);
             getMessagesController().addDialogToFolder(copy, canUnarchiveCount == 0 ? 1 : 0, -1, null, 0);
@@ -9269,64 +9205,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             hideActionMode(false);
             return;
-        } else if ((action == pin || action == pin2) && canPinCount != 0) {
-            int pinnedCount = 0;
-            int pinnedSecretCount = 0;
-            int newPinnedCount = 0;
-            int newPinnedSecretCount = 0;
-            ArrayList<TLRPC.Dialog> dialogs = getMessagesController().getDialogs(folderId);
-            for (int a = 0, N = dialogs.size(); a < N; a++) {
-                TLRPC.Dialog dialog = dialogs.get(a);
-                if (dialog instanceof TLRPC.TL_dialogFolder) {
-                    continue;
-                }
-                if (isDialogPinned(dialog)) {
-                    if (DialogObject.isEncryptedDialog(dialog.id)) {
-                        pinnedSecretCount++;
-                    } else {
-                        pinnedCount++;
-                    }
-                } else if (!getMessagesController().isPromoDialog(dialog.id, false)) {
-                    break;
-                }
-            }
-            int alreadyAdded = 0;
-            for (int a = 0; a < count; a++) {
-                long selectedDialog = selectedDialogs.get(a);
-                TLRPC.Dialog dialog = getMessagesController().dialogs_dict.get(selectedDialog);
-                if (dialog == null || isDialogPinned(dialog)) {
-                    continue;
-                }
-                if (DialogObject.isEncryptedDialog(selectedDialog)) {
-                    newPinnedSecretCount++;
-                } else {
-                    newPinnedCount++;
-                }
-                if (filter != null && filter.alwaysShow.contains(selectedDialog)) {
-                    alreadyAdded++;
-                }
-            }
-            int maxPinnedCount;
-            if (containsFilter) {
-                maxPinnedCount = 100 - filter.alwaysShow.size();
-            } else if (folderId != 0 || filter != null) {
-                if (UserConfig.getInstance(currentAccount).isPremium()) {
-                    maxPinnedCount = getMessagesController().maxFolderPinnedDialogsCountPremium;
-                } else {
-                    maxPinnedCount = getMessagesController().maxFolderPinnedDialogsCountDefault;
-                }
-            } else {
-                maxPinnedCount = getUserConfig().isPremium() ? getMessagesController().dialogFiltersPinnedLimitPremium : getMessagesController().dialogFiltersPinnedLimitDefault;
-            }
-            if (newPinnedSecretCount + pinnedSecretCount > maxPinnedCount || newPinnedCount + pinnedCount - alreadyAdded > maxPinnedCount) {
-                if (folderId != 0 || filter != null) {
-                    AlertsCreator.showSimpleAlert(DialogsActivity.this, LocaleController.formatString("PinFolderLimitReached", R.string.PinFolderLimitReached, LocaleController.formatPluralString("Chats", maxPinnedCount)));
-                } else {
-                    LimitReachedBottomSheet limitReachedBottomSheet = new LimitReachedBottomSheet(this, getParentActivity(), LimitReachedBottomSheet.TYPE_PIN_DIALOGS, currentAccount, null);
-                    showDialog(limitReachedBottomSheet);
-                }
-                return;
-            }
         } else if (action == community_ungroup) {
             if (alert) {
                 AlertsCreator.showSimpleConfirmAlert(this,
@@ -9462,25 +9340,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         continue;
                     }
                     pinnedActionCount++;
-                    pinDialog(selectedDialog, true, filter, minPinnedNum, count == 1);
-                    if (filter != null) {
+                    if (pinDialog(selectedDialog, true, filter, minPinnedNum, count == 1)) {
+                        syncedPinsChanged = true;
                         minPinnedNum++;
-                        if (encryptedChat != null) {
-                            if (!filter.alwaysShow.contains(encryptedChat.user_id)) {
-                                filter.alwaysShow.add(encryptedChat.user_id);
-                            }
-                        } else {
-                            if (!filter.alwaysShow.contains(dialog.id)) {
-                                filter.alwaysShow.add(dialog.id);
-                            }
-                        }
                     }
                 } else {
                     if (!isDialogPinned(dialog)) {
                         continue;
                     }
                     pinnedActionCount++;
-                    pinDialog(selectedDialog, false, filter, minPinnedNum, count == 1);
+                    syncedPinsChanged |= pinDialog(selectedDialog, false, filter, minPinnedNum, count == 1);
                 }
             } else if (action == read) {
                 if (canReadCount != 0) {
@@ -9590,10 +9459,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             BulletinFactory.createMuteBulletin(this, canUnmuteCount == 0, null).show();
         }
         if (action == pin || action == pin2) {
-            if (filter != null) {
-                FilterCreateActivity.saveFilterToServer(filter, filter.flags, filter.name, filter.entities, filter.title_noanimate, filter.color, filter.alwaysShow, filter.neverShow, filter.pinnedDialogs, false, false, true, true, false, DialogsActivity.this, null);
-            } else {
-                getMessagesController().reorderPinnedDialogs(folderId, null, 0);
+            if (syncedPinsChanged) {
+                if (filter != null) {
+                    FilterCreateActivity.saveFilterToServer(filter, filter.flags, filter.name, filter.entities, filter.title_noanimate, filter.color, filter.alwaysShow, filter.neverShow, filter.pinnedDialogs, false, false, true, true, false, DialogsActivity.this, null);
+                } else {
+                    getMessagesController().reorderPinnedDialogs(folderId, null, 0);
+                }
             }
             UndoView undoView = getUndoView();
             if (searchIsShowed && undoView != null) {
@@ -9710,7 +9581,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
-    private void pinDialog(long selectedDialog, boolean pin, MessagesController.DialogFilter filter, int minPinnedNum, boolean animated) {
+    private boolean pinDialog(long selectedDialog, boolean pin, MessagesController.DialogFilter filter, int minPinnedNum, boolean animated) {
 
         int selectedDialogIndex = -1;
         int currentDialogIndex = -1;
@@ -9718,13 +9589,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         int scrollToPosition = viewPages[0].dialogsType == 0 && hasHiddenArchive() && viewPages[0].archivePullViewState == ARCHIVE_ITEM_STATE_HIDDEN ? 1 : 0;
         int currentPosition = viewPages[0].layoutManager.findFirstVisibleItemPosition();
 
-        if (filter != null) {
-            int index = filter.pinnedDialogs.get(selectedDialog, Integer.MIN_VALUE);
-            if (!pin && index == Integer.MIN_VALUE) {
-                return;
-            }
-
+        MessagesController controller = getMessagesController();
+        TLRPC.Dialog dialog = controller.dialogs_dict.get(selectedDialog);
+        if (dialog == null) {
+            return false;
         }
+        long peerId = selectedDialog;
+        if (filter != null && DialogObject.isEncryptedDialog(selectedDialog)) {
+            TLRPC.EncryptedChat encryptedChat = controller.getEncryptedChat(DialogObject.getEncryptedChatId(selectedDialog));
+            if (encryptedChat != null) {
+                peerId = encryptedChat.user_id;
+            }
+        }
+        boolean sync = pin ? controller.canPinDialogInTelegram(dialog, filter, peerId)
+                : controller.isTelegramDialogPinned(dialog, filter);
 
         debugLastUpdateAction = pin ? 4 : 5;
         boolean needScroll = false;
@@ -9744,21 +9622,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         boolean updated;
-        if (filter != null) {
-            if (pin) {
-                filter.pinnedDialogs.put(selectedDialog, minPinnedNum);
-            } else {
-                filter.pinnedDialogs.delete(selectedDialog);
+        if (!sync) {
+            updated = controller.setLocalDialogPinned(selectedDialog, filter, pin);
+            if (updated) {
+                controller.sortDialogs(null);
+                getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
             }
-
-            if (animated) {
-                getMessagesController().onFilterUpdate(filter);
-            }
-            updated = true;
         } else {
-            updated = getMessagesController().pinDialog(selectedDialog, pin, null, -1);
+            if (!pin) {
+                controller.setLocalDialogPinned(selectedDialog, filter, false);
+            }
+            if (filter != null) {
+                if (pin) {
+                    filter.pinnedDialogs.put(selectedDialog, minPinnedNum);
+                    if (!filter.alwaysShow.contains(peerId)) {
+                        filter.alwaysShow.add(peerId);
+                    }
+                } else {
+                    filter.pinnedDialogs.delete(selectedDialog);
+                }
+                if (animated) {
+                    controller.onFilterUpdate(filter);
+                }
+                updated = true;
+            } else {
+                updated = controller.pinDialog(selectedDialog, pin, null, -1);
+            }
         }
-
 
         if (updated) {
             if (needScroll) {
@@ -9797,6 +9687,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 setDialogsListFrozen(false);
             }
         }
+        return sync && updated;
     }
 
     public void scrollToTop(boolean animated, boolean expandStories) {

@@ -3471,12 +3471,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                         markUnread = dialog.unread_mark;
                         currentEditDate = message != null ? message.messageOwner.edit_date : 0;
                         lastMessageDate = dialog.last_message_date;
-                        if (dialogsType == 7 || dialogsType == 8) {
-                            MessagesController.DialogFilter filter = MessagesController.getInstance(currentAccount).selectedDialogFilter[dialogsType == 8 ? 1 : 0];
-                            drawPin = filter != null && filter.pinnedDialogs.indexOfKey(dialog.id) >= 0;
-                        } else {
-                            drawPin = currentDialogFolderId == 0 && dialog.pinned;
-                        }
+                        MessagesController controller = MessagesController.getInstance(currentAccount);
+                        MessagesController.DialogFilter filter = dialogsType == 7 || dialogsType == 8
+                                ? controller.selectedDialogFilter[dialogsType == 8 ? 1 : 0] : null;
+                        drawPin = currentDialogFolderId == 0 && controller.isDialogPinned(dialog, filter);
                         if (message != null) {
                             lastSendState = message.messageOwner.send_state;
                         }
