@@ -53,9 +53,12 @@ story_cells = read("TMessagesProj/src/main/java/org/telegram/ui/Stories/DialogSt
 
 def resource_names(folder: str, file: str) -> set[str]:
     root = ET.parse(ROOT / "TMessagesProj/src/main/res" / folder / file).getroot()
-    names = [item.attrib["name"] for item in root if "name" in item.attrib]
-    assert len(names) == len(set(names)), f"Duplicate resources in {folder}/{file}"
-    return {item.attrib["name"] for item in root if "name" in item.attrib}
+    resources = [
+        (item.get("type", item.tag).removeprefix("string-").removeprefix("integer-"), item.attrib["name"])
+        for item in root if "name" in item.attrib
+    ]
+    assert len(resources) == len(set(resources)), f"Duplicate resources in {folder}/{file}"
+    return {name for _, name in resources}
 
 
 english_resources = resource_names("values", "bygram_strings.xml") | resource_names("values", "bygram_preferences.xml")
