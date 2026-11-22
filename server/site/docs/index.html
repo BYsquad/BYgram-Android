@@ -120,7 +120,7 @@
 
       <section id="ai-skills">
         <h2>Скиллы для ИИ</h2>
-        <p>Скилл <code>bygram-plugin</code> помогает агенту выбрать API BYgram по вашему запросу, написать исходники и манифест, собрать <code>.byplugin</code> и проверить результат. В комплект входят справочник SDK, примеры, упаковщик, конвертер exteraGram и инструкции по тестированию на Android.</p>
+        <p>Скилл <code>bygram-plugin</code> помогает агенту выбрать API BYgram по вашему запросу, написать исходники и манифест, собрать <code>.byplugin</code> и проверить результат. Скилл ссылается на <a href="#sdk">справочник SDK на сайте</a>. В комплект входят примеры, упаковщик и конвертер exteraGram.</p>
         <h3 id="ai-skills-install">Установка без репозитория</h3>
         <p><a href="./install_bygram_skills.py" download>Скачать Python-установщик скиллов</a>. Откройте терминал в папке загрузки и запустите команду с Python 3.10 или новее.</p>
         <figure><figcaption>Установить все скиллы</figcaption><pre><code>python install_bygram_skills.py</code></pre></figure>
@@ -130,7 +130,7 @@
           <li><strong>Codex</strong> — начните запрос с <code>$bygram-plugin</code>.</li>
           <li><strong>Claude Code и Copilot в VS Code</strong> — вызовите <code>/bygram-plugin</code>.</li>
           <li><strong>Gemini CLI и Cursor</strong> — попросите применить скилл <code>bygram-plugin</code>.</li>
-          <li><strong>DeepSeek</strong> — откройте файл промпта по пути из вывода установщика. Вставьте его в чат и приложите нужные материалы SDK из установленного комплекта.</li>
+          <li><strong>DeepSeek</strong> — откройте файл промпта по пути из вывода установщика и вставьте его в чат. Если чат не открывает ссылки, добавьте нужные выдержки из документации на сайте.</li>
         </ul>
         <p>После установки откройте новую сессию агента. Например, попросите: «Добавь в меню чата пункт с настраиваемой подсказкой. Собери .byplugin и перечисли выполненные проверки».</p>
       </section>

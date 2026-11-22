@@ -1,0 +1,58 @@
+// Keep a stable resource ID for each icon and retain the original in every density.
+def originalResources = file('src/main/res')
+def preparedResources = layout.buildDirectory.dir('generated/bygramIconResources')
+def launcherResources = [
+        'call', 'camera', 'live_loc', 'notification', 'player', 'voicechat_active', 'voicechat_muted',
+        'ic_player', 'ic_action_previous', 'ic_action_next', 'ic_ab_reply', 'ic_ab_reply2', 'ic_reply_icon',
+        'ic_call_end_white_24dp', 'msg_markread', 'msg_copy', 'msg_filled_shareout',
+        'ic_rating_star', 'ic_rating_star_filled', 'video_actions', 'bygram_splash'
+] as Set
+def drawableFiles = fileTree(originalResources) { include 'drawable*/*' }.files
+def iconName = { File source -> source.name.substring(0, source.name.indexOf('.')) }
+def animationSources = drawableFiles.findAll { it.name.endsWith('.xml') }
+def animatedParts = new HashSet<String>()
+animationSources.each { source ->
+    def xml = source.getText('UTF-8')
+    if (xml.contains('<animated-vector') || xml.contains('<animated-selector')) {
+        (xml =~ /@drawable\/([a-z0-9_]+)/).each { animatedParts.add(it[1]) }
+    }
+}
+def staticIcons = drawableFiles.groupBy(iconName).findAll { name, sources ->
+    !launcherResources.contains(name) && !animatedParts.contains(name) &&
+            !(name ==~ /(?:widget|widgets|shortcut|book|notification|intro|tg_splash|ic_launcher|preview)_.*/) &&
+            sources.every { source ->
+                if (source.name.endsWith('.xml')) {
+                    String xml = source.getText('UTF-8').replaceAll(/(?s)<!--.*?-->/, '')
+                    return xml.replaceFirst(/(?s)^\s*<\?xml.*?\?>/, '').trim().startsWith('<vector')
+                }
+                !source.name.endsWith('.9.png') && (source.name.endsWith('.webp') || source.name.endsWith('.png')) &&
+                        name ==~ /(?:msg|msg2|menu|filled|ic|media|input|large|device|calls|search|chats|list|smiles|stickers|bot|pip|zoom|map|poll|emoji|qr|files|profile|premium|popup|player|floating|permissions|chat|voice|video|photos|other|photo|flash|voicechat|dialog)_.*/
+            }
+}.keySet().toSorted()
+
+def prepareIcons = tasks.register('prepareBygramIconResources', Sync) {
+    inputs.property('iconNames', staticIcons)
+    into(preparedResources)
+    from(originalResources) {
+        eachFile { details ->
+            if (details.relativePath.segments[0].startsWith('drawable') && staticIcons.contains(iconName(details.file))) {
+                details.name = 'bygram_original_' + details.name
+            }
+        }
+    }
+    doLast {
+        File drawableDir = preparedResources.get().dir('drawable').asFile
+        staticIcons.each { name ->
+            new File(drawableDir, name + '.xml').setText(
+                    '<drawable xmlns:android="http://schemas.android.com/apk/res/android" ' +
+                            'class="org.telegram.messenger.BygramIconDrawable" ' +
+                            'android:drawable="@drawable/bygram_original_' + name + '" />\n', 'UTF-8')
+        }
+        String entries = staticIcons.collect { "        <item>@drawable/${it}</item>" }.join('\n')
+        preparedResources.get().file('values/bygram_icon_catalog.xml').asFile.setText(
+                "<resources>\n    <array name=\"bygram_icon_catalog\">\n${entries}\n    </array>\n</resources>\n", 'UTF-8')
+    }
+}
+
+android.sourceSets.main.res.setSrcDirs([preparedResources])
+tasks.named('preBuild') { dependsOn(prepareIcons) }

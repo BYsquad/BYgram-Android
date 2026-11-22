@@ -21,8 +21,6 @@ TARGETS = {
 }
 
 PROMPT = "references/docs/plugins/deepseek-prompt.md"
-WORKFLOW_LINK = "../../../docs/plugins/agent-workflow.md"
-PORTABLE_WORKFLOW_LINK = "references/docs/plugins/agent-workflow.md"
 
 
 def build(output):
@@ -35,8 +33,7 @@ def build(output):
         repo / "LICENSE",
         repo / "third_party/plugin-runtime-notices.md",
         *(docs / name for name in (
-            "README.md", "agent-workflow.md", "deepseek-prompt.md", "dev-server.md",
-            "exteragram-port.md", "manifest-v1.schema.json", "sdk-v1.md", "testing-and-release.md",
+            "deepseek-prompt.md", "manifest-v1.schema.json",
         )),
         *docs.glob("examples/*/main.py"),
         *docs.glob("examples/*/manifest.json"),
@@ -50,23 +47,11 @@ def build(output):
         "bygram/_elyx.py", "bygram/_port_extera.py", "bygram/_port_elyx.py", "bygram/_mobile_pypi.py",
     ))
 
-    contents = {}
-    for path in bundled:
-        data = path.read_bytes()
-        if path == docs / "README.md":
-            data = data.replace(b"](agent-skills.md)", b"](agent-workflow.md)")
-            online = b"](https://github.com/BYsquad/BYgram-Android/blob/main/docs/plugins/"
-            for name in (b"implementation-plan.md", b"paid-catalog-plan.md", b"paid-catalog.md"):
-                data = data.replace(b"](" + name + b")", online + name + b")")
-        contents[f"references/{path.relative_to(repo).as_posix()}"] = data
+    contents = {f"references/{path.relative_to(repo).as_posix()}": path.read_bytes() for path in bundled}
 
     for client, location in (("shared", ".agents"), ("claude", ".claude"), ("copilot", ".github")):
         path = repo / location / "skills/bygram-plugin/SKILL.md"
-        skill = path.read_text(encoding="utf-8")
-        if WORKFLOW_LINK not in skill:
-            raise ValueError(f"Missing workflow link in {path}")
-        skill = skill.replace(WORKFLOW_LINK, PORTABLE_WORKFLOW_LINK)
-        contents[f"{client}/SKILL.md"] = skill.encode("utf-8")
+        contents[f"{client}/SKILL.md"] = path.read_bytes()
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

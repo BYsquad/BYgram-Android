@@ -53,7 +53,6 @@ import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.EmptyTextProgressView;
 import org.telegram.ui.Components.LayoutHelper;
-import org.telegram.ui.Components.Premium.PremiumFeatureBottomSheet;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.TranslateAlert2;
 import org.telegram.utils.glass.BaseFragmentSimpleGlass;
@@ -224,19 +223,10 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                         getMessagesController().getTranslateController().setContextTranslateEnabled(value);
                         ((TextCheckCell) view).setChecked(value);
                         NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.updateSearchSettings);
-                    } else if (position == autoTranslationPosition) {
-                        boolean value = !getChatValue();
-                        if (value && !getUserConfig().isPremium()) {
-                            showDialog(new PremiumFeatureBottomSheet(LanguageSelectActivity.this, PremiumPreviewFragment.PREMIUM_FEATURE_TRANSLATIONS, false));
-                            return;
-                        }
-                        getMessagesController().getTranslateController().setChatTranslateEnabled(value);
-                        NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.updateSearchSettings);
-                        ((TextCheckCell) view).setChecked(value);
                     }
                     final boolean currentFullValue = getContextValue() || getChatValue();
                     if (currentFullValue != prevFullValue) {
-                        int start = autoTranslationPosition >= 0 ? autoTranslationPosition : manualTranslationPosition;
+                        int start = manualTranslationPosition;
                         TextCheckCell last = null;
                         for (int i = 0; i < listView.getChildCount(); ++i) {
                             View child = listView.getChildAt(i);
@@ -569,6 +559,10 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         return getMessagesController().getTranslateController().isContextTranslateEnabled();
     }
 
+    private boolean supportsContextTranslation() {
+        return getMessagesController().getTranslateController().supportsContextTranslation();
+    }
+
     private boolean getChatValue() {
         return getMessagesController().getTranslateController().isFeatureAvailable();
     }
@@ -585,8 +579,6 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
     private int settingsToPosition = -1;
     @Keep
     private int manualTranslationPosition = -1;
-    @Keep
-    private int autoTranslationPosition = -1;
     @Keep
     private int doNotTranslatePosition = -1;
     private int infoPosition1;
@@ -618,12 +610,9 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             } else {
                 int count = 0;
                 count++;
-                if (getMessagesController().isTranslationsManualEnabled() || getMessagesController().isTranslationsAutoEnabled()) {
+                if (supportsContextTranslation() || getChatValue()) {
                     count++;
-                    if (getMessagesController().isTranslationsManualEnabled()) {
-                        count++;
-                    }
-                    if (getMessagesController().isTranslationsAutoEnabled() && !getMessagesController().premiumFeaturesBlocked()) {
+                    if (supportsContextTranslation()) {
                         count++;
                     }
                     if (getChatValue() || getContextValue()) {
@@ -782,11 +771,8 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                     TextCheckCell cell = (TextCheckCell) holder.itemView;
                     cell.updateRTL();
                     if (position == manualTranslationPosition) {
-                        cell.setTextAndCheck(LocaleController.getString(R.string.ShowTranslateButton), getContextValue(), true);
+                        cell.setTextAndCheck(LocaleController.getString(R.string.ShowTranslateButton), getContextValue(), getContextValue() || getChatValue());
                         cell.setCheckBoxIcon(0);
-                    } else if (position == autoTranslationPosition) {
-                        cell.setTextAndCheck(LocaleController.getString(R.string.ShowTranslateChatButton), getChatValue(), getContextValue() || getChatValue());
-                        cell.setCheckBoxIcon(!getUserConfig().isPremium() ? R.drawable.permission_locked : 0);
                     }
                     break;
                 }
@@ -805,7 +791,7 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 }
                 case VIEW_TYPE_HEADER: {
                     HeaderCell header = (HeaderCell) holder.itemView;
-                    header.setText(position == 0 && (getMessagesController().isTranslationsManualEnabled() || getMessagesController().isTranslationsAutoEnabled()) ? LocaleController.getString(R.string.TranslateMessages) : LocaleController.getString(R.string.Language));
+                    header.setText(position == 0 && (supportsContextTranslation() || getChatValue()) ? LocaleController.getString(R.string.TranslateMessages) : LocaleController.getString(R.string.Language));
                     break;
                 }
             }
@@ -817,24 +803,16 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             if (search) {
                 return VIEW_TYPE_LANGUAGE;
             } else {
-                if (getMessagesController().isTranslationsManualEnabled() || getMessagesController().isTranslationsAutoEnabled()) {
+                if (supportsContextTranslation() || getChatValue()) {
                     settingsFromPosition = position - i;
                     if (i-- == 0) return VIEW_TYPE_HEADER;
-                    if (getMessagesController().isTranslationsManualEnabled()) {
+                    if (supportsContextTranslation()) {
                         if (i-- == 0) {
                             manualTranslationPosition = position;
                             return VIEW_TYPE_SWITCH;
                         }
                     } else {
                         manualTranslationPosition = -1;
-                    }
-                    if (getMessagesController().isTranslationsAutoEnabled() && !getMessagesController().premiumFeaturesBlocked()) {
-                        if (i-- == 0) {
-                            autoTranslationPosition = position;
-                            return VIEW_TYPE_SWITCH;
-                        }
-                    } else {
-                        autoTranslationPosition = -1;
                     }
                     if (getChatValue() || getContextValue()) {
                         doNotTranslatePosition = position;

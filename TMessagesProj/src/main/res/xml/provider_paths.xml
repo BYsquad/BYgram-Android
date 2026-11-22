@@ -4,5 +4,6 @@
     <files-path name="logs" path="/logs/"/>
     <files-path name="cache" path="/cache/"/>
     <cache-path name="plugin_share" path="bygram-plugin-share/"/>
+    <cache-path name="icon_pack_share" path="bygram-icon-share/"/>
     <root-path name="external_files" path="/storage/" />
 </paths>

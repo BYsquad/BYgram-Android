@@ -6,6 +6,10 @@
     <string name="BygramUnlimitedPinnedChatsInfo">Закріплюйте скільки завгодно чатів. Закріплення понад ліміт Telegram зберігаються на цьому пристрої.</string>
     <string name="BygramUnlimitedChatFolders">Необмежена кількість папок</string>
     <string name="BygramUnlimitedChatFoldersInfo">Створюйте скільки завгодно папок чатів. Папки понад ліміт Telegram зберігаються на цьому пристрої.</string>
+    <string name="BygramExteraPlugins">Плагіни exteraGram</string>
+    <string name="BygramExteraPluginsInfo">Імпортуйте сумісні файли .plugin через «Плагіни → Встановити з файлу».</string>
+    <string name="BygramExteraIconPacks">Па́ки іконок exteraGram</string>
+    <string name="BygramExteraIconPacksInfo">Відкрийте файл .icons із чату або імпортуйте його через «Кастомізація → Зовнішній вигляд → Па́ки іконок».</string>
     <string name="BygramHidePhone">Приховати номер телефону</string>
     <string name="BygramHideOwnPhoneInfo">Приховує ваш номер у вашому профілі та налаштуваннях. Не змінює видимість номера для інших користувачів Telegram.</string>
     <string name="BygramRelativeOnline">Відносний час останнього відвідування</string>
@@ -24,6 +28,13 @@
     <string name="BygramProfileIdModeInfo">Telegram API показує ID без змін. Bot API додає мінус для груп і -100 для супергруп та каналів.</string>
     <string name="BygramProfileIdCopied">ID скопійовано</string>
     <string name="BygramSwipePip">Проведіть угору для режиму «Зображення в зображенні»</string>
+    <string name="BygramTranslationProvider">Сервіс перекладу</string>
+    <string name="BygramTranslateChat">Перекласти чат</string>
+    <string name="BygramTranslationProviderInfo">Під час перекладу повідомлення або ввімкнення перекладу чату текст надсилається вибраному сервісу. Хмарні сервіси використовують ваш API-ключ.</string>
+    <string name="BygramTranslationApiKey">Ключ API</string>
+    <string name="BygramTranslationFolder">Ідентифікатор каталогу Yandex Cloud</string>
+    <string name="BygramTranslationRegion">Регіон Azure (для Global залиште порожнім)</string>
+    <string name="BygramTranslationSetupError">Не вдалося зберегти налаштування. Введіть ключ API й заповніть обов’язкові поля.</string>
     <string-array name="BygramTranslationProviders">
         <item>Telegram</item>
         <item>Google</item>
@@ -194,4 +205,26 @@
     <string name="BygramPluginAuthorBalance">Баланс автора</string>
     <string name="BygramPluginAuthorWallet">Приймання платежів автором</string>
     <string name="BygramPluginTonAuthorRefund">При оплаті TON кошти надходять безпосередньо автору плагіна. Команда BYgram не здійснює повернення таких платежів і не несе відповідальності за повернення коштів, отриманих автором, у межах, дозволених законом. Питання обов’язкового повернення можна передати автору через підтримку BYgram.</string>
+    <string name="BygramIconPacks">Па́ки іконок</string>
+    <string name="BygramIconPackCreate">Створити пак іконок</string>
+    <string name="BygramIconPackImport">Імпортувати пак іконок</string>
+    <string name="BygramIconPacksInfo">Підтримуються паки BYgram (.byicons) та exteraGram (.icons).</string>
+    <string name="BygramStockIcons">Стандартні іконки</string>
+    <string name="BygramIconPackActive">Активний</string>
+    <string name="BygramIconPackSignIn">Увійдіть у Telegram, щоб створити пак іконок.</string>
+    <string name="BygramIconPackName">Назва паку</string>
+    <string name="BygramIconPackUsername">Ім’я користувача автора</string>
+    <string name="BygramIconPackUsernameInvalid">Введіть від 1 до 32 латинських літер, цифр або підкреслень. Символ @ на початку необов’язковий.</string>
+    <string name="BygramIconPackAuthor">Автор: %1$s · ID Telegram %2$d</string>
+    <string name="BygramIconPackExteraAuthor">Автор: %1$s · пак exteraGram</string>
+    <string name="BygramIconPackCount">Замінено іконок: %1$d</string>
+    <string name="BygramIconPackSearch">Пошук за назвою іконки</string>
+    <string name="BygramIconPackShare">Поділитися .byicons</string>
+    <string name="BygramIconPackDelete">Видалити цей пак із пристрою?</string>
+    <string name="BygramIconPackEditorInfo">Натисніть іконку, щоб переглянути, замінити або скинути її.</string>
+    <string name="BygramIconPackReadOnly">Імпортовані паки можна застосовувати й пересилати. Автор та іконки захищені від редагування.</string>
+    <string name="BygramIconPackReplaced">Замінена</string>
+    <string name="BygramIconPackReplace">Замінити зображення</string>
+    <string name="BygramIconPackError">Не вдалося відкрити або зберегти пак іконок. Перевірте файл і повторіть спробу.</string>
+    <string name="BygramIconPackImportConfirm">Імпортувати пак іконок із вкладення?</string>
 </resources>

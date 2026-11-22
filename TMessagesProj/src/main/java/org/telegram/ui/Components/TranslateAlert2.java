@@ -62,6 +62,8 @@ import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.RichMessageLayout;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.BygramTranslation;
+import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.TranslateController;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.XiaomiUtilities;
@@ -73,6 +75,7 @@ import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ChatActivity;
 import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Cells.TextSelectionHelper;
 
@@ -302,7 +305,6 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
 
         containerView.addView(buttonView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
 
-        translate();
     }
 
     private boolean hasEnoughHeight() {
@@ -315,20 +317,14 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         return height >= listView.getHeight() - listView.getPaddingTop() - listView.getPaddingBottom();
     }
 
+    private volatile int translationAttempt;
+
     public void translate() {
+        final int attempt = ++translationAttempt;
         if (reqId != null) {
             ConnectionsManager.getInstance(currentAccount).cancelRequest(reqId, true);
             reqId = null;
         }
-
-        final String method = MessagesController.getInstance(currentAccount).translationsManualEnabled;
-        if ("alternative".equalsIgnoreCase(method)) {
-            translateAlt();
-            return;
-        }/* else if ("system".equalsIgnoreCase(method)) {
-            translateSystem();
-            return;
-        }*/
 
         String lang = toLanguage;
         if (lang != null) {
@@ -336,6 +332,25 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         }
         if ("nb".equals(lang)) {
             lang = "no";
+        }
+
+        BygramTranslation.Provider provider = BygramTranslation.provider();
+        if (provider != BygramTranslation.Provider.TELEGRAM && !noforwards && !reqSum && reqRichMessage == null && !TextUtils.isEmpty(reqText) &&
+                (!(fragment instanceof ChatActivity) || !DialogObject.isEncryptedDialog(((ChatActivity) fragment).getDialogId()))) {
+            BygramTranslation.translate(provider, reqText.toString(), lang,
+                    () -> translationAttempt == attempt && BygramTranslation.provider() == provider,
+                    (result, rateLimit) -> {
+                        if (translationAttempt == attempt && BygramTranslation.provider() == provider) {
+                            showAlternativeResult(result, rateLimit);
+                        }
+                    });
+            return;
+        }
+
+        final String method = MessagesController.getInstance(currentAccount).translationsManualEnabled;
+        if ("alternative".equalsIgnoreCase(method)) {
+            translateAlt();
+            return;
         }
 
         if (reqRichMessage != null && reqPeer != null) {
@@ -475,27 +490,23 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         }
         final String toLng = _toLng;
 
-        alternativeTranslate(text, fromLng, toLng, (res, rateLimit) -> {
-            if (res != null) {
-                firstTranslation = false;
-                textView.setText(preprocessText(res));
-                adapter.updateMainView(textViewContainer);
-            } else {
-                if (isDismissed()) return;
-//                if ("system".equals(MessagesController.getInstance(currentAccount).translationsManualEnabled)) {
-//                    translateSystem();
-//                    return;
-//                }
-                if (firstTranslation) {
-                    dismiss();
-                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, LocaleController.getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
-                } else {
-                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider).createErrorBulletin(LocaleController.getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2)).show();
-                    headerView.toLanguageTextView.setText(languageName(toLanguage = prevToLanguage));
-                    adapter.updateMainView(textViewContainer);
-                }
-            }
-        });
+        alternativeTranslate(text, fromLng, toLng, this::showAlternativeResult);
+    }
+
+    private void showAlternativeResult(String res, boolean rateLimit) {
+        if (isDismissed()) return;
+        if (res != null) {
+            firstTranslation = false;
+            textView.setText(preprocessText(res));
+            adapter.updateMainView(textViewContainer);
+        } else if (firstTranslation) {
+            dismiss();
+            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, LocaleController.getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
+        } else {
+            BulletinFactory.of((FrameLayout) containerView, resourcesProvider).createErrorBulletin(LocaleController.getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2)).show();
+            headerView.toLanguageTextView.setText(languageName(toLanguage = prevToLanguage));
+            adapter.updateMainView(textViewContainer);
+        }
     }
 
     private static int lastIndexOfSafe(String text, String target, int start, int end) {
@@ -1024,7 +1035,10 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         this.onLinkPress = onLinkPress;
     }
 
+    private boolean noforwards;
+
     public void setNoforwards(boolean noforwards) {
+        this.noforwards = noforwards;
         if (textView != null) {
             textView.setTextIsSelectable(!noforwards);
         }
@@ -1689,6 +1703,7 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
     @Override
     public void show() {
         super.show();
+        translate();
         NotificationCenter.getGlobalInstance().addWeakObserver(this, NotificationCenter.emojiLoaded);
         NotificationCenter.getGlobalInstance().addWeakObserver(this, NotificationCenter.translationModelDownloaded);
         NotificationCenter.getGlobalInstance().addWeakObserver(this, NotificationCenter.translationModelDownloading);
@@ -1696,6 +1711,7 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
 
     @Override
     public void dismiss() {
+        ++translationAttempt;
         super.dismiss();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.translationModelDownloaded);

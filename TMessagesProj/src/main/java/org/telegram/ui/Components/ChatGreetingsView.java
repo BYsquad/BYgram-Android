@@ -86,7 +86,6 @@ public class ChatGreetingsView extends LinearLayout implements Theme.Colorable {
         descriptionView.setGravity(Gravity.CENTER_HORIZONTAL);
 
         stickerContainer = new FrameLayout(context);
-        stickerContainer.setVisibility(org.telegram.messenger.BygramConfig.getBoolean("bygram_hide_greeting") ? View.GONE : View.VISIBLE);
         stickerToSendView = new BackupImageView(context);
         stickerToSendView.getImageReceiver().setAspectFit(true);
         stickerContainer.addView(stickerToSendView, LayoutHelper.createFrame(112, 112));
@@ -107,6 +106,13 @@ public class ChatGreetingsView extends LinearLayout implements Theme.Colorable {
         preloadedGreetingsSticker = sticker;
         if (preloadedGreetingsSticker == null) {
             preloadedGreetingsSticker = MediaDataController.getInstance(currentAccount).getGreetingsSticker();
+        }
+    }
+
+    public void setGreetingStickerHidden(boolean hidden) {
+        stickerContainer.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        if (!preview) {
+            descriptionView.setText(getString(hidden ? R.string.BygramGreetingWithoutSticker : R.string.NoMessagesGreetingsDescription));
         }
     }
 
@@ -450,7 +456,9 @@ public class ChatGreetingsView extends LinearLayout implements Theme.Colorable {
     public void setPreview(CharSequence title, CharSequence message) {
         preview = true;
         titleView.setText(TextUtils.isEmpty(title == null ? null : title.toString().trim()) ? getString(R.string.NoMessages) : title);
-        descriptionView.setText(TextUtils.isEmpty(message == null ? null : message.toString().trim()) ? getString(R.string.NoMessagesGreetingsDescription) : message);
+        descriptionView.setText(TextUtils.isEmpty(message == null ? null : message.toString().trim())
+                ? getString(stickerContainer.getVisibility() == View.GONE ? R.string.BygramGreetingWithoutSticker : R.string.NoMessagesGreetingsDescription)
+                : message);
         descriptionView.setMaxWidth(
             descriptionView.getText().length() > 60 ?
                 Math.min((int) (AndroidUtilities.displaySize.x * .5f), HintView2.cutInFancyHalf(descriptionView.getText(), descriptionView.getPaint())) :

@@ -8,7 +8,7 @@
 - Android NDK `27.2.12479018`.
 - CMake `3.22.1`.
 - Gradle Wrapper `8.13` скачивает Gradle автоматически.
-- Python 3 для проверки локализации и импорта из публичного каталога переводов.
+- Python 3 для проверки локализации.
 
 Проверьте окружение:
 
@@ -31,7 +31,7 @@ android sdk list --all
 - Не меняйте `APP_VERSION_CODE` и `APP_VERSION_NAME`, если задача отдельно этого не требует.
 - `APP_PACKAGE` остаётся `com.bygram.mobile`.
 - Не уменьшайте KotlinPoet `2.3.0`, credentials `1.6.0`, dynamicanimation `1.1`.
-- Сборка использует XML-переводы, зафиксированные в этом репозитории. Перед релизом импортируйте проверенный коммит из публичного [BYgram-translations](https://github.com/BYxarek/BYgram-translations).
+- Сборка использует XML-ресурсы переводов Android-проекта.
 - Генератор бинарной локализации должен включать `bygram_strings.xml` и `bygram_preferences.xml` для английского, русского и украинского языков. Иначе `LocaleController.getString(R.string.Bygram...)` показывает `LOC_ERR:null`, даже если текст есть в Android XML.
 
 ## Gradle Wrapper в PowerShell
@@ -48,17 +48,8 @@ PATH менять не требуется.
 
 ## Обновление переводов
 
-После проверки и слияния pull request в публичный репозиторий получите его свежий `main` и из корня `C:\project\BYgram\BYgram-mobile` выполните:
+Английские, русские и украинские строки BYgram хранятся в `bygram_strings.xml` и `bygram_preferences.xml` в каталогах `TMessagesProj/src/main/res/values`, `values-ru` и `values-uk`. Обновляйте эти файлы в Android-проекте и проверяйте бинарную локализацию собранного APK.
 
-```powershell
-gh repo clone BYxarek/BYgram-translations C:\project\BYgram-translations
-python Tools/sync_bygram_translations.py C:\project\BYgram-translations
-python Tools/sync_bygram_translations.py C:\project\BYgram-translations --check
-```
-
-Если каталог уже клонирован, перед импортом выполните `git -C C:\project\BYgram-translations pull --ff-only`. Скрипт читает только XML, проверяет имена ресурсов, форматные аргументы и длины массивов, затем копирует переводы в приложение. Он требует совпадения английских Android-ресурсов по именам, тексту и структуре; форматирование XML и строки `BygramDesktop*` не участвуют в сравнении. Строки Windows исключаются при импорте, остальные тексты и разметка сохраняются. После импорта проверьте diff и зафиксируйте его в закрытом репозитории. Обычная сборка не обращается к внешнему сервису переводов.
-
-Полная проверка Android-ссылок и каталога: `python Tools/check_bygram_translation_catalog.py C:\project\BYgram-translations`.
 ## Сборка APK
 
 Android-клиент BYgram использует пакет `com.bygram.mobile`, minSdk 24 и прежний ключ подписи. Плагины, Python и Firebase входят в основную сборку.

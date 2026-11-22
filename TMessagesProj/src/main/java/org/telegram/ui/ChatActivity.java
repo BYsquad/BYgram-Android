@@ -4158,8 +4158,12 @@ public class ChatActivity extends BaseFragment implements
                 } else if (id == search) {
                     openSearchWithText(isSupportedTags() ? "" : null);
                 } else if (id == translate) {
-                    getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
-                    if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
+                    TranslateController controller = getMessagesController().getTranslateController();
+                    boolean turnOn = !controller.canManuallyTranslateChat(getDialogId()) || !controller.isTranslatingDialog(getDialogId());
+                    if (turnOn && controller.isTranslateDialogHidden(getDialogId())) {
+                        controller.setHideTranslateDialog(getDialogId(), false, true);
+                    }
+                    if (!controller.toggleTranslatingDialog(getDialogId(), turnOn)) {
                         updateTopPanel(true);
                     }
                 } else if (id == call || id == video_call) {
@@ -7020,7 +7024,7 @@ public class ChatActivity extends BaseFragment implements
 
             @Override
             public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
-                if (newState == RecyclerView.SCROLL_STATE_DRAGGING && BygramConfig.getBoolean("bygram_scroll_hide_keyboard") && chatActivityEnterView != null) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING && BygramConfig.getBoolean(BygramConfig.SCROLL_HIDE_KEYBOARD) && chatActivityEnterView != null && chatActivityEnterView.isKeyboardVisible()) {
                     chatActivityEnterView.closeKeyboard();
                 }
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
@@ -7587,7 +7591,7 @@ public class ChatActivity extends BaseFragment implements
                 } else {
                     String username = ChatObject.getPublicUsername(chat);
                     if (username != null) {
-                        chatActivityEnterView.replaceWithText(start, len, "@" + username + (BygramConfig.getBoolean("bygram_mention_comma") ? ", " : " "), false);
+                        chatActivityEnterView.replaceWithText(start, len, "@" + username + BygramConfig.mentionSuffix(), false);
                     }
                 }
             } else if (object instanceof TLRPC.User) {
@@ -7596,10 +7600,11 @@ public class ChatActivity extends BaseFragment implements
                     searchUserMessages(user, null);
                 } else {
                     if (UserObject.getPublicUsername(user) != null) {
-                        chatActivityEnterView.replaceWithText(start, len, "@" + UserObject.getPublicUsername(user) + (BygramConfig.getBoolean("bygram_mention_comma") && !user.bot ? ", " : " "), false);
+                        chatActivityEnterView.replaceWithText(start, len, "@" + UserObject.getPublicUsername(user)
+                                + (start == 0 && user.bot_inline_placeholder != null ? " " : BygramConfig.mentionSuffix()), false);
                     } else {
                         String name = UserObject.getFirstName(user, false);
-                        Spannable spannable = new SpannableString(name + (BygramConfig.getBoolean("bygram_mention_comma") ? ", " : " "));
+                        Spannable spannable = new SpannableString(name + BygramConfig.mentionSuffix());
                         spannable.setSpan(new URLSpanUserMention("" + user.id, 3), 0, name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         chatActivityEnterView.replaceWithText(start, len, spannable, false);
                     }
@@ -8853,7 +8858,13 @@ public class ChatActivity extends BaseFragment implements
                                 getNotificationCenter().postNotificationName(NotificationCenter.peerSettingsDidLoad, dialog_id);
                             }
                         }
-                    } else {
+                    } else if (subscriberBottomAction() == BygramConfig.CHANNEL_BUTTON_DISCUSS) {
+                        Bundle args = new Bundle();
+                        args.putLong("chat_id", chatInfo.linked_chat_id);
+                        if (getMessagesController().checkCanOpenChat(args, ChatActivity.this)) {
+                            presentFragment(new ChatActivity(args));
+                        }
+                    } else if (subscriberBottomAction() != BygramConfig.CHANNEL_BUTTON_HIDDEN) {
                         toggleMute(true);
                     }
                 } else {
@@ -10100,7 +10111,7 @@ public class ChatActivity extends BaseFragment implements
         translateButton = new TranslateButton(getContext(), this, themeDelegate) {
             @Override
             protected void onButtonClick() {
-                if (getUserConfig().isPremium() || currentChat != null && currentChat.autotranslation) {
+                if (getMessagesController().getTranslateController().isFeatureAvailable(getDialogId())) {
                     getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId());
                 } else {
                     MessagesController.getNotificationsSettings(currentAccount).edit().putInt("dialog_show_translate_count" + getDialogId(), 14).commit();
@@ -11962,7 +11973,12 @@ public class ChatActivity extends BaseFragment implements
         if (translateItem == null) {
             return;
         }
-        translateItem.setVisibility(getMessagesController().getTranslateController().isTranslateDialogHidden(getDialogId()) && getMessagesController().getTranslateController().isDialogTranslatable(getDialogId()) ? View.VISIBLE : View.GONE);
+        TranslateController controller = getMessagesController().getTranslateController();
+        long dialogId = getDialogId();
+        boolean manual = controller.canManuallyTranslateChat(dialogId);
+        translateItem.setText(LocaleController.getString(manual && controller.isTranslatingDialog(dialogId)
+                ? R.string.ShowOriginalButton : R.string.BygramTranslateChat));
+        translateItem.setVisibility(manual || controller.isTranslateDialogHidden(dialogId) && controller.isDialogTranslatable(dialogId) ? View.VISIBLE : View.GONE);
     }
 
     private Animator infoTopViewAnimator;
@@ -23640,6 +23656,7 @@ public class ChatActivity extends BaseFragment implements
                     chatAdapter.notifyDataSetChanged(true);
                 }
                 if (prevLinkedChatId != chatInfo.linked_chat_id) {
+                    updateBottomOverlay();
                     if (prevLinkedChatId != 0) {
                         TLRPC.Chat chat = getMessagesController().getChat(prevLinkedChatId);
                         getMessagesController().startShortPoll(chat, classGuid, true);
@@ -28783,12 +28800,26 @@ public class ChatActivity extends BaseFragment implements
     public void updateBottomOverlay() {
         updateBottomOverlay(false);
     }
+    private int subscriberBottomAction() {
+        if (chatMode != MODE_DEFAULT || isReport() || isThreadChat() || !ChatObject.isChannelAndNotMegaGroup(currentChat)
+                || currentChat instanceof TLRPC.TL_channelForbidden || ChatObject.isNotInChat(currentChat)
+                || ChatObject.hasAdminRights(currentChat)) {
+            return BygramConfig.CHANNEL_BUTTON_MUTE;
+        }
+        int action = BygramConfig.getInt(BygramConfig.CHANNEL_BUTTON, BygramConfig.CHANNEL_BUTTON_MUTE);
+        if (action == BygramConfig.CHANNEL_BUTTON_DISCUSS && (chatInfo == null || chatInfo.linked_chat_id == 0)) {
+            return BygramConfig.CHANNEL_BUTTON_MUTE;
+        }
+        return action;
+    }
+
     public void updateBottomOverlay(boolean animated) {
         if (bottomOverlayChatText == null || chatMode == MODE_SCHEDULED || getContext() == null) {
             return;
         }
         bottomOverlayChatWaitsReply = false;
         bottomOverlayLinks = false;
+        bottomChannelButtonsLayout.getContainer().setVisibility(View.VISIBLE);
 
         boolean accentTextButton = false;
         boolean forceVisible = false;
@@ -28923,7 +28954,10 @@ public class ChatActivity extends BaseFragment implements
                     bottomOverlayChatText.setTextInfo(LocaleController.getString(R.string.ForumReplyToMessagesInTopic));
                     bottomOverlayChatText.setEnabled(false);
                 } else if (!isThreadChat()) {
-                    if (!getMessagesController().isDialogMuted(dialog_id, getTopicId())) {
+                    if (subscriberBottomAction() == BygramConfig.CHANNEL_BUTTON_DISCUSS) {
+                        bottomOverlayChatText.setText(LocaleController.getString(R.string.BygramChannelDiscuss));
+                        bottomOverlayChatText.setEnabled(true);
+                    } else if (!getMessagesController().isDialogMuted(dialog_id, getTopicId())) {
                         bottomOverlayChatText.setText(LocaleController.getString(R.string.ChannelMuteNoCaps), false);
                         bottomOverlayChatText.setEnabled(true);
                     } else {
@@ -29127,6 +29161,9 @@ public class ChatActivity extends BaseFragment implements
                     AndroidUtilities.runOnUIThread(() -> chatActivityEnterView.openKeyboard(), 100);
                 } else {
                     bottomChannelButtonsLayout.setVisibility(View.VISIBLE);
+                    if (subscriberBottomAction() == BygramConfig.CHANNEL_BUTTON_HIDDEN) {
+                        bottomChannelButtonsLayout.getContainer().setVisibility(View.GONE);
+                    }
                     // AndroidUtilities.updateViewShow(bottomChannelButtonsLayout, true, false, true);
                     chatActivityEnterView.setFieldFocused(false);
                     chatActivityEnterView.setVisibility(View.INVISIBLE);
@@ -30261,10 +30298,11 @@ public class ChatActivity extends BaseFragment implements
         }
 
         boolean showRestartTopic = !isInPreviewMode() && forumTopic != null && forumTopic.closed && !forumTopic.hidden && ChatObject.canManageTopic(currentAccount, currentChat, forumTopic);
-        boolean showTranslate = (
-            getUserConfig().isPremium() || currentChat != null && currentChat.autotranslation ?
-                getMessagesController().getTranslateController().isDialogTranslatable(getDialogId()) && !getMessagesController().getTranslateController().isTranslateDialogHidden(getDialogId()) :
-                !getMessagesController().premiumFeaturesBlocked() && preferences.getInt("dialog_show_translate_count" + did, 5) <= 0
+        TranslateController translateController = getMessagesController().getTranslateController();
+        boolean showTranslate = translateController.isChatTranslateEnabled() && (
+            translateController.isFeatureAvailable(getDialogId()) ?
+                translateController.isDialogTranslatable(getDialogId()) && !translateController.isTranslateDialogHidden(getDialogId()) :
+                !getUserConfig().isPremium() && !getMessagesController().premiumFeaturesBlocked() && preferences.getInt("dialog_show_translate_count" + did, 5) <= 0
         ) || DEBUG_TOP_PANELS;
         boolean showAddProfilePicture = UserObject.isBot(currentUser) && currentUser.bot_can_edit && currentUser.photo == null;
         boolean showBizBot = currentEncryptedChat == null && preferences.getLong("dialog_botid" + did, 0) != 0 || DEBUG_TOP_PANELS;
@@ -33813,6 +33851,7 @@ public class ChatActivity extends BaseFragment implements
                     setVisiblePart(getY() + emptyViewContent.getY(), getServiceHeight(this));
                 }
             };
+            greetingsViewContainer.setGreetingStickerHidden(BygramConfig.getBoolean(BygramConfig.HIDE_GREETING));
             updateGreetingLock();
             greetingsViewContainer.setListener((sticker) -> {
                 animatingDocuments.put(sticker, 0);
@@ -33862,6 +33901,7 @@ public class ChatActivity extends BaseFragment implements
                             setVisiblePart(getY() + emptyViewContent.getY(), getServiceHeight(this));
                         }
                     };
+                    greetingsViewContainer.setGreetingStickerHidden(BygramConfig.getBoolean(BygramConfig.HIDE_GREETING));
                     updateGreetingLock();
                     greetingsViewContainer.setListener((sticker) -> {
                         animatingDocuments.put(sticker, 0);
@@ -41027,6 +41067,7 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public void didPressSummarize(ChatMessageCell cell, boolean byReply) {
             final MessageObject msg = cell.getMessageObject();
+            if (!TranslateController.isSummarizable(msg)) return;
             msg.messageOwner.summarizedOpen = !msg.messageOwner.summarizedOpen;
             final boolean opened = msg.messageOwner.summarizedOpen;
             msg.updateTranslation(true);

@@ -30,6 +30,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
@@ -635,16 +636,17 @@ public class MentionsContainerView extends FrameLayout implements NotificationCe
                 TLRPC.Chat chat = (TLRPC.Chat) object;
                 String username = ChatObject.getPublicUsername(chat);
                 if (username != null) {
-                    delegate.replaceText(start, len, "@" + username + " " , false);
+                    delegate.replaceText(start, len, "@" + username + BygramConfig.mentionSuffix(), false);
                 }
             } else if (object instanceof TLRPC.User) {
                 TLRPC.User user = (TLRPC.User) object;
 
                 if (UserObject.getPublicUsername(user) != null) {
-                    delegate.replaceText(start, len, "@" + UserObject.getPublicUsername(user) + " ", false);
+                    delegate.replaceText(start, len, "@" + UserObject.getPublicUsername(user)
+                            + (start == 0 && user.bot_inline_placeholder != null ? " " : BygramConfig.mentionSuffix()), false);
                 } else {
                     String name = UserObject.getFirstName(user, false);
-                    Spannable spannable = new SpannableString(name + " ");
+                    Spannable spannable = new SpannableString(name + BygramConfig.mentionSuffix());
                     spannable.setSpan(new URLSpanUserMention("" + user.id, 3), 0, spannable.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     delegate.replaceText(start, len, spannable, false);
                 }

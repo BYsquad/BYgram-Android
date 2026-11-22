@@ -3877,7 +3877,7 @@ public class MessageObject {
             translateController.isTranslatingDialog(getDialogId()) &&
             !translateController.isTranslateDialogHidden(getDialogId()) &&
             (translatedText != null || messageOwner.translatedPoll != null || messageOwner.translatedRichMessage != null) &&
-            TextUtils.equals(translateController.getDialogTranslateTo(getDialogId()), messageOwner.translatedToLanguage)
+            TextUtils.equals(translateController.getMessageTranslationKey(this), messageOwner.translatedToLanguage)
         ) {
             if (translated && !summarized) {
                 return replyUpdated || false;

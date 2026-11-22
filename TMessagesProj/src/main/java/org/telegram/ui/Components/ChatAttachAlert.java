@@ -6557,7 +6557,7 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
 
     private boolean shownAiButton;
     private void showAiButton(boolean show_) {
-        final boolean show = show_ && (baseFragment instanceof ChatActivity && !((ChatActivity) baseFragment).isSecretChat());
+        final boolean show = !org.telegram.messenger.BygramConfig.getBoolean(org.telegram.messenger.BygramConfig.HIDE_AI_EDITOR) && show_ && (baseFragment instanceof ChatActivity && !((ChatActivity) baseFragment).isSecretChat());
 
         if (shownAiButton == show) return;
         if (show) {

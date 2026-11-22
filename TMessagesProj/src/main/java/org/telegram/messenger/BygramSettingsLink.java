@@ -23,10 +23,13 @@ public final class BygramSettingsLink {
         }
         int[] rows;
         switch (parts[0]) {
-            case "root": rows = new int[]{-1, -2, 10, 11, 12}; break;
+            case "root": rows = new int[]{-1, -2, 10, 11}; break;
             case "customization": rows = new int[]{-1}; break;
+            case "conversation": rows = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9}; break;
+            case "ai": rows = new int[]{1, 2, 3}; break;
             case "plugins": rows = new int[]{}; break;
-            case "appearance": case "chat_list": case "winter": rows = new int[]{}; break;
+            case "appearance": rows = new int[]{30}; break;
+            case "chat_list": case "winter": rows = new int[]{}; break;
             case "general": rows = new int[]{-1, -2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 200, 201, 202, 203}; break;
             case "profile": rows = new int[]{-1, 1, 2, 3, 4, 5, 6, 7}; break;
             case "typing": rows = new int[]{-1, 100, 101, 103, 104, 105, 106, 107, 108, 109, 110, 200}; break;
@@ -68,9 +71,12 @@ public final class BygramSettingsLink {
                 case 4: return "typing";
                 case 5: return "appearance";
                 case 6: return "winter";
+                case 7: return "conversation";
+                case 8: return "ai";
             }
         }
         if (row == 0) return null;
+        if ("appearance".equals(page) && row == 30) return "appearance.30";
         if ("chat_list".equals(page) || "appearance".equals(page) || "winter".equals(page)) {
             // Keep links usable on versions that still use the general.* namespace.
             BygramSettingsLink link = parse("general." + row);

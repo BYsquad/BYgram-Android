@@ -79,5 +79,5 @@ Telegram-аккаунты, access/refresh tokens и Spy message history сохр
 - default в `getBoolean()` или fallback/clamp для int;
 - UI и единственный общий consumer guard;
 - export/reset/migration scope;
-- английские строки приложения и публичного каталога переводов, затем русский и другие переводы через pull request;
+- английские строки в Android-ресурсах проекта, затем русский и другие переводы;
 - один минимальный runnable regression check.

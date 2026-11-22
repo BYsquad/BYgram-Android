@@ -394,12 +394,13 @@ public class LinkManager {
                 presentFragment(new RestrictedLanguagesSelectActivity());
                 return true;
             }
+            if ("translate-chats".equalsIgnoreCase(second)) {
+                presentFragment(BygramSettingsActivity.forLink(BygramSettingsLink.parse("conversation.9")));
+                return true;
+            }
             presentFragment(new LanguageSelectActivity());
             if ("show-button".equalsIgnoreCase(second)) {
                 scrollTo("manualTranslationPosition");
-            }
-            if ("translate-chats".equalsIgnoreCase(second)) {
-                scrollTo("autoTranslationPosition");
             }
             return true;
         }

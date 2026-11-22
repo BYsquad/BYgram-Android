@@ -9006,9 +9006,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         maxHeight = maxWidth = (int) (Math.min(getParentWidth(), AndroidUtilities.displaySize.y) * 0.5f);
                     }
                     if (!messageObject.isAnimatedEmoji() && !messageObject.isDice()) {
-                        float scale = Math.max(2, Math.min(20, BygramConfig.getInt("bygram_sticker_size", 12))) / 12f;
+                        float scale = BygramConfig.getInt(BygramConfig.STICKER_SIZE, BygramConfig.STICKER_SIZE_DEFAULT)
+                                / (float) BygramConfig.STICKER_SIZE_DEFAULT;
                         maxWidth = (int) (maxWidth * scale);
                         maxHeight *= scale;
+                        int widthLimit = Math.max(dp(48), getParentWidth() - dp(usesSideStickerTime(messageObject) ? 144 : 100));
+                        maxWidth = Math.min(maxWidth, widthLimit);
+                        maxHeight = Math.min(maxHeight, widthLimit);
                     }
                     String filter;
                     if (messageObject.isAnimatedEmoji() || messageObject.isDice()) {
@@ -10027,7 +10031,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     }
                 }
             }
-            if (BygramConfig.getInt("bygram_channel_button", 2) == 0) drawCommentButton = false;
 
             if (currentMessageObject.eventId != 0 && !currentMessageObject.isMediaEmpty() && MessageObject.getMedia(currentMessageObject.messageOwner).webpage != null) {
                 int linkPreviewMaxWidth = backgroundWidth - dp(41);
@@ -12611,6 +12614,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 transitionParams.updatePhotoImageX = false;
                 photoImage.setImageCoords((float) x, photoImage.getImageY(), photoImage.getImageWidth(), photoImage.getImageHeight());
             }
+            if (usesSideStickerTime(currentMessageObject)) {
+                int badgeWidth = timeWidth + dp(currentMessageObject.isOutOwner() ? 34 : 14);
+                float badgeX = currentMessageObject.isOutOwner()
+                        ? x - badgeWidth - dp(6)
+                        : x + photoImage.getImageWidth() + dp(6);
+                badgeX = Math.max(dp(4), Math.min(layoutWidth - badgeWidth - dp(4), badgeX));
+                timeX = (int) (badgeX + dp(STICKER_STATUS_OFFSET + 6 + (effectId == 0 ? 0 : 18)));
+            }
             buttonX = (int) (x + (photoImage.getImageWidth() - dp(48)) / 2.0f);
             buttonY = (int) (photoImage.getImageY() + (photoImage.getImageHeight() - dp(48)) / 2);
             radialProgress.setProgressRect(buttonX, buttonY, buttonX + dp(48), buttonY + dp(48));
@@ -13953,7 +13964,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         final TranslateController translateController = MessagesController.getInstance(currentAccount).getTranslateController();
         final boolean translating = translateController.isTranslating(currentMessageObject);
         final boolean shouldTranslate = currentMessageObject != null && TranslateController.isTranslatable(currentMessageObject) && translateController.isTranslatingDialog(currentMessageObject.getDialogId());
-        final boolean shouldSummarize = currentMessageObject != null && currentMessageObject.messageOwner.summarizedOpen;
+        final boolean shouldSummarize = TranslateController.isSummarizable(currentMessageObject) && currentMessageObject.messageOwner.summarizedOpen;
         final boolean isFinal = shouldTranslate == (currentMessageObject != null && currentMessageObject.translated) && shouldSummarize == (currentMessageObject != null && currentMessageObject.summarized);
         if (origin == !isFinal) {
             if (translationLoadingFloat == null) {
@@ -15603,7 +15614,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 return LocaleController.formatPmEditedDate(editDate);
             }
-            return (BygramConfig.getBoolean("bygram_edited_icon") ? "\u270e" : getString(R.string.EditedMessage)) + " " + LocaleController.getInstance().getFormatterDay().format((long) (message.messageOwner.date) * 1000);
+            return (BygramConfig.getBoolean(BygramConfig.EDITED_ICON) ? "\u270e" : getString(R.string.EditedMessage)) + " " + LocaleController.getInstance().getFormatterDay().format((long) (message.messageOwner.date) * 1000);
         } else if (current.isSaved && current.messageOwner.fwd_from != null && (current.messageOwner.fwd_from.date != 0 || current.messageOwner.fwd_from.saved_date != 0)
                 // A widget keeps its time alone in Saved Messages: the pill over its corner stays short.
                 && !(MessageObject.getMedia(current.messageOwner) instanceof TLRPC.TL_messageMediaWidget)) {
@@ -16933,7 +16944,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         setupCompactHeader(messageObject, namesOffsetBeforeForwardAndReply);
 
-        if (messageObject.summarized && (currentPosition == null || currentPosition.minY == 0)) {
+        if (messageObject.summarized && TranslateController.isSummarizable(messageObject) && (currentPosition == null || currentPosition.minY == 0)) {
             drawSummaryReply = true;
             if (summaryTitle == null) {
                 summaryTitle = new Text(getString(R.string.SummaryTitle), 14, AndroidUtilities.bold());
@@ -21331,9 +21342,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         canvas.drawCircle(x, y, dp(3.5f), bygramOnlinePaint);
     }
 
+    private static boolean isRegularSticker(MessageObject message) {
+        return message != null && message.isAnyKindOfSticker() && !message.isAnimatedEmoji() && !message.isDice();
+    }
+
+    private static boolean usesSideStickerTime(MessageObject message) {
+        return isRegularSticker(message) && BygramConfig.stickerTime() == BygramConfig.STICKER_TIME_SIDE;
+    }
+
     public boolean shouldDrawTimeOnMedia() {
-        if (currentMessageObject != null && currentMessageObject.isAnyKindOfSticker()
-                && BygramConfig.getInt("bygram_sticker_time", BygramConfig.getBoolean("bygram_hide_sticker_time") ? 2 : 0) == 1) return false;
+        if (usesSideStickerTime(currentMessageObject)) return true;
         if (overideShouldDrawTimeOnMedia != 0) {
             return overideShouldDrawTimeOnMedia == 1;
         }
@@ -21350,8 +21368,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public void drawTime(Canvas canvas, float alpha, boolean fromParent) {
-        if (currentMessageObject != null && currentMessageObject.isAnyKindOfSticker()
-                && BygramConfig.getInt("bygram_sticker_time", BygramConfig.getBoolean("bygram_hide_sticker_time") ? 2 : 0) == 2) return;
+        if (isRegularSticker(currentMessageObject) && BygramConfig.stickerTime() == BygramConfig.STICKER_TIME_HIDDEN) return;
         if (!drawFromPinchToZoom && delegate != null && delegate.getPinchToZoomHelper() != null && delegate.getPinchToZoomHelper().isInOverlayModeFor(this) && shouldDrawTimeOnMedia()) {
             return;
         }

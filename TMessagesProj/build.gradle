@@ -68,6 +68,7 @@ configurations.all {
 dependencies {
     implementation 'com.aliucord:Aliuhook:1.1.4-api37.1-bygram.3'
     implementation 'com.linkedin.dexmaker:dexmaker:2.28.6'
+    implementation 'com.caverock:androidsvg-aar:1.4'
     compileOnly 'com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3' // DexMaker runtime dependency
     implementation 'org.mvel:mvel2:2.5.2.Final'
     implementation platform('com.google.firebase:firebase-bom:34.18.0')
@@ -325,6 +326,8 @@ task checkVisibility {
 }
 
 preBuild.dependsOn checkVisibility
+
+apply from: rootProject.file('gradle/bygram-icons.gradle')
 
 def verifyPluginBackend = tasks.register('verifyPluginBackend') {
     def artifact = rootProject.file('third_party/maven/com/aliucord/Aliuhook/1.1.4-api37.1-bygram.3/Aliuhook-1.1.4-api37.1-bygram.3.aar')

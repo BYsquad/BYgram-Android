@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.graphics.drawable.Drawable;
 
 import org.telegram.messenger.BygramConfig;
+import org.telegram.messenger.BygramTranslation;
 import org.telegram.messenger.BygramSettingsLink;
 import org.telegram.messenger.BygramUpdates;
 import org.telegram.messenger.FileLog;
@@ -30,6 +31,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.TranslateController;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -194,6 +196,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         switch (target.customizationSection()) {
             case "plugins": return org.telegram.messenger.PluginEntry.page();
             case "customization": page = new CustomizationSettingsActivity(); break;
+            case "conversation": page = new ConversationCustomizationActivity(); break;
+            case "ai": page = new AiCustomizationActivity(); break;
             case "general": page = new GeneralCustomizationActivity(); break;
             case "appearance": page = new AppearanceCustomizationActivity(); break;
             case "chat_list": page = new ChatListCustomizationActivity(); break;
@@ -233,6 +237,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     static String settingsPage(BaseFragment fragment) {
         if (fragment instanceof BygramSettingsActivity) return "root";
         if (fragment instanceof CustomizationSettingsActivity) return "customization";
+        if (fragment instanceof ConversationCustomizationActivity) return "conversation";
+        if (fragment instanceof AiCustomizationActivity) return "ai";
         if (fragment instanceof GeneralCustomizationActivity) return "general";
         if (fragment instanceof AppearanceCustomizationActivity) return "appearance";
         if (fragment instanceof ChatListCustomizationActivity) return "chat_list";
@@ -374,7 +380,6 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         items.add(UItem.asHeader(getString(R.string.BygramLinks)).setId(-2));
         items.add(UItem.asButton(10, R.drawable.msg_channel, getString(R.string.BygramChannel)));
         items.add(UItem.asButton(11, R.drawable.msg_discussion, getString(R.string.BygramChat)));
-        items.add(UItem.asButton(12, R.drawable.msg_link, getString(R.string.BygramTranslations)));
         items.add(UItem.asShadow(LocaleController.formatString(R.string.BygramReleaseNumber, BygramUpdates.RELEASE_NUMBER)));
     }
 
@@ -414,8 +419,6 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://t.me/BYgram_official");
         } else if (item.id == 11) {
             org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://t.me/BYgram_community");
-        } else if (item.id == 12) {
-            org.telegram.messenger.browser.Browser.openUrl(getContext(), "https://github.com/BYxarek/BYgram-translations");
         }
     }
 
@@ -492,6 +495,14 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                         getString(R.string.BygramUnlimitedChatFolders),
                         getString(R.string.BygramUnlimitedChatFoldersInfo),
                         R.drawable.settings_folders).onBind(tintIcon));
+                items.add(UItem.asTopViewStatic(
+                        getString(R.string.BygramExteraPlugins),
+                        getString(R.string.BygramExteraPluginsInfo),
+                        R.drawable.msg_customize).onBind(tintIcon));
+                items.add(UItem.asTopViewStatic(
+                        getString(R.string.BygramExteraIconPacks),
+                        getString(R.string.BygramExteraIconPacksInfo),
+                        R.drawable.msg_palette).onBind(tintIcon));
             }, null, null);
             list.setSections();
             list.adapter.setApplyBackground(false);
@@ -859,6 +870,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             items.add(UItem.asButton(2, R.drawable.msg_settings, getString(R.string.BygramGeneral)));
             items.add(UItem.asButton(3, R.drawable.msg_discussion, getString(R.string.BygramChatList)));
+            items.add(UItem.asButton(7, R.drawable.msg_message, getString(R.string.BygramConversation)));
+            items.add(UItem.asButton(8, R.drawable.msg_edit, getString(R.string.BygramAiFeatures)));
             items.add(UItem.asButton(1, R.drawable.msg_contacts, getString(R.string.BygramProfile)));
             items.add(UItem.asButton(5, R.drawable.msg_theme, getString(R.string.BygramAppearance)));
             items.add(UItem.asButton(6, R.drawable.bygram_snowflake, getString(R.string.BygramWinter)));
@@ -1056,6 +1069,139 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         return tabs;
     }
 
+    public static class ConversationCustomizationActivity extends ToggleSettingsActivity {
+        private SlideIntChooseView stickerSize;
+        private static final int[] STICKER_TIMES = { R.string.Default, R.string.BygramTimeBesideSticker, R.string.BygramHide };
+        private static final int[] CHANNEL_ACTIONS = { R.string.ChannelMuteNoCaps, R.string.BygramChannelDiscuss, R.string.BygramHide };
+
+        @Override int getTitleRes() { return R.string.BygramConversation; }
+
+        @Override void createControls(Context context) {
+            stickerSize = new SlideIntChooseView(context, getResourceProvider());
+            stickerSize.setLabel(getString(R.string.BygramStickerSize));
+            stickerSize.set(BygramConfig.getInt(BygramConfig.STICKER_SIZE, BygramConfig.STICKER_SIZE_DEFAULT),
+                    SlideIntChooseView.Options.make(0, BygramConfig.STICKER_SIZE_MIN, BygramConfig.STICKER_SIZE_MAX,
+                            value -> Math.round(value * 100f / BygramConfig.STICKER_SIZE_DEFAULT) + "%"), value -> setIntSetting(BygramConfig.STICKER_SIZE, value));
+        }
+
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asHeader(getString(R.string.BygramChatStickers)));
+            items.add(UItem.asCustom(stickerSize, 75).setId(1));
+            items.add(UItem.asButton(2, getString(R.string.BygramStickerTime),
+                    getString(STICKER_TIMES[BygramConfig.stickerTime()])));
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asButton(3, getString(R.string.BygramChannelBottomButton),
+                    getString(CHANNEL_ACTIONS[BygramConfig.getInt(BygramConfig.CHANNEL_BUTTON, BygramConfig.CHANNEL_BUTTON_MUTE)])));
+            items.add(UItem.asShadow(getString(R.string.BygramChannelBottomButtonInfo)));
+            items.add(UItem.asCheck(4, getString(R.string.BygramHideGreeting)).setChecked(BygramConfig.getBoolean(keyFor(4))));
+            items.add(UItem.asCheck(5, getString(R.string.BygramScrollHideKeyboard)).setChecked(BygramConfig.getBoolean(keyFor(5))));
+            items.add(UItem.asCheck(6, getString(R.string.BygramMentionComma)).setChecked(BygramConfig.getBoolean(keyFor(6))));
+            items.add(UItem.asCheck(7, getString(R.string.BygramEditedIcon)).setChecked(BygramConfig.getBoolean(keyFor(7))));
+            items.add(UItem.asShadow(null));
+            items.add(UItem.asHeader(getString(R.string.TranslateMessages)));
+            items.add(UItem.asCheck(9, getString(R.string.ShowTranslateChatButton))
+                    .setChecked(getMessagesController().getTranslateController().isChatTranslatePreferenceEnabled()));
+            items.add(UItem.asButton(8, getString(R.string.BygramTranslationProvider), BygramTranslation.provider().label));
+            items.add(UItem.asShadow(getString(R.string.BygramTranslationProviderInfo)));
+        }
+
+        @Override String keyFor(int id) {
+            switch (id) {
+                case 4: return BygramConfig.HIDE_GREETING;
+                case 5: return BygramConfig.SCROLL_HIDE_KEYBOARD;
+                case 6: return BygramConfig.MENTION_COMMA;
+                case 7: return BygramConfig.EDITED_ICON;
+                default: return null;
+            }
+        }
+
+        @Override void onCustomClick(int id) {
+            if (id == 9) {
+                TranslateController controller = getMessagesController().getTranslateController();
+                controller.setChatTranslateEnabled(!controller.isChatTranslatePreferenceEnabled());
+                getNotificationCenter().postNotificationName(NotificationCenter.updateSearchSettings);
+                listView.adapter.update(true);
+                return;
+            }
+            if (id == 8) {
+                BygramTranslation.Provider[] providers = BygramTranslation.Provider.values();
+                String[] labels = new String[providers.length];
+                for (int i = 0; i < providers.length; i++) labels[i] = providers[i].label;
+                showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext(), getResourceProvider())
+                        .setTitle(getString(R.string.BygramTranslationProvider))
+                        .setItems(labels, (dialog, which) -> AndroidUtilities.runOnUIThread(() -> configureProvider(providers[which])))
+                        .create());
+                return;
+            }
+            if (id != 2 && id != 3) return;
+            boolean time = id == 2;
+            int[] options = time ? STICKER_TIMES : CHANNEL_ACTIONS;
+            String[] labels = new String[options.length];
+            for (int i = 0; i < options.length; i++) labels[i] = getString(options[i]);
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext(), getResourceProvider())
+                    .setTitle(getString(time ? R.string.BygramStickerTime : R.string.BygramChannelBottomButton))
+                    .setItems(labels, (dialog, which) -> {
+                        setIntSetting(time ? BygramConfig.STICKER_TIME : BygramConfig.CHANNEL_BUTTON, which);
+                        listView.adapter.update(true);
+                    }).create());
+        }
+
+        private void configureProvider(BygramTranslation.Provider provider) {
+            if (provider == BygramTranslation.Provider.TELEGRAM) {
+                saveProvider(provider, "", "");
+                return;
+            }
+            EditText key = createDialogInput(getContext(), getString(R.string.BygramTranslationApiKey));
+            key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            key.setText(BygramTranslation.credential(provider, true));
+            LinearLayout inputs = new LinearLayout(getContext());
+            inputs.setOrientation(LinearLayout.VERTICAL);
+            inputs.addView(dialogInputContainer(key));
+            EditText location = createDialogInput(getContext(), getString(provider == BygramTranslation.Provider.YANDEX
+                    ? R.string.BygramTranslationFolder : R.string.BygramTranslationRegion));
+            if (provider != BygramTranslation.Provider.GOOGLE) {
+                location.setText(BygramTranslation.credential(provider, false));
+                inputs.addView(dialogInputContainer(location));
+            }
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext(), getResourceProvider())
+                    .setTitle(provider.label)
+                    .setMessage(getString(R.string.BygramTranslationProviderInfo))
+                    .setView(inputs)
+                    .setNegativeButton(getString(R.string.Cancel), null)
+                    .setPositiveButton(getString(R.string.Save), (dialog, which) ->
+                            saveProvider(provider, key.getText().toString().trim(), location.getText().toString().trim()))
+                    .create());
+        }
+
+        private void saveProvider(BygramTranslation.Provider provider, String key, String location) {
+            if (BygramTranslation.select(provider, key, location)) {
+                listView.adapter.update(true);
+            } else {
+                BulletinFactory.of(this).createErrorBulletin(getString(R.string.BygramTranslationSetupError)).show();
+            }
+        }
+    }
+
+    public static class AiCustomizationActivity extends ToggleSettingsActivity {
+        @Override int getTitleRes() { return R.string.BygramAiFeatures; }
+
+        @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asCheck(1, getString(R.string.BygramHideAiEditor)).setChecked(BygramConfig.getBoolean(keyFor(1))));
+            items.add(UItem.asCheck(2, getString(R.string.BygramHideAiSummaries)).setChecked(BygramConfig.getBoolean(keyFor(2))));
+            items.add(UItem.asCheck(3, getString(R.string.BygramHideAiInstantView)).setChecked(BygramConfig.getBoolean(keyFor(3))));
+        }
+
+        @Override String keyFor(int id) {
+            switch (id) {
+                case 1: return BygramConfig.HIDE_AI_EDITOR;
+                case 2: return BygramConfig.HIDE_AI_SUMMARIES;
+                case 3: return BygramConfig.HIDE_AI_INSTANT_VIEW;
+                default: return null;
+            }
+        }
+
+    }
+
     public static class GeneralCustomizationActivity extends ToggleSettingsActivity {
         @Override int getTitleRes() { return R.string.BygramGeneral; }
 
@@ -1235,6 +1381,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             items.add(UItem.asHeader(getString(R.string.BygramAppIcons)).setId(-1));
             items.add(UItem.asCustom(icons, 104).setId(-1));
+            items.add(UItem.asButton(30, R.drawable.msg_theme, getString(R.string.BygramIconPacks)));
             items.add(UItem.asShadow(null));
             items.add(UItem.asHeader(getString(R.string.BygramSections)));
             items.add(UItem.asCustom(sectionCorners, 75).setId(26));
@@ -1285,6 +1432,12 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         }
 
         @Override void onCustomClick(int id) {
+            if (id == 30) {
+                BaseFragment page = new BygramIconPacksActivity();
+                page.setCurrentAccount(currentAccount);
+                presentFragment(page);
+                return;
+            }
             if (id != 3) return;
             md3Expanded = !md3Expanded;
             logSetting(md3Expanded ? "expanded" : "collapsed", "material3");

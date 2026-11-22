@@ -117,6 +117,8 @@ import androidx.viewpager.widget.ViewPager;
 
 import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
+import org.telegram.messenger.TranslateController;
 import org.telegram.messenger.AnimationNotificationsLocker;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BotGuardHelper;
@@ -232,6 +234,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Stack;
 import java.util.WeakHashMap;
@@ -289,6 +292,8 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
     private DecelerateInterpolator interpolator = new DecelerateInterpolator(1.5f);
 
     public final ArrayList<Object> pagesStack = new ArrayList<>();
+    private final HashMap<String, MessageObject> instantSummarySources = new HashMap<>();
+    private final HashMap<String, String> instantSummaries = new HashMap<>();
     public boolean isLastArticle() {
         if (pagesStack.isEmpty()) return false;
         final Object last = pagesStack.get(pagesStack.size() - 1);
@@ -1996,6 +2001,12 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
             pages[index].setType(PageLayout.TYPE_ARTICLE);
             adapter.isRtl = webPage.cached_page.rtl;
             adapter.currentPage = webPage;
+            if (!BygramConfig.getBoolean(BygramConfig.HIDE_AI_INSTANT_VIEW)) {
+                String summary = instantSummaries.get(webPage.url);
+                if (!TextUtils.isEmpty(summary)) {
+                    adapter.blocks.add(new InstantSummaryBlock(summary));
+                }
+            }
 
             int numBlocks = 0;
             int count = webPage.cached_page.blocks.size();
@@ -2059,6 +2070,82 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
             return pages[0].getWebView();
         }
         return null;
+    }
+
+    private void loadInstantSummary(TLRPC.WebPage page, MessageObject source) {
+        if (BygramConfig.getBoolean(BygramConfig.HIDE_AI_INSTANT_VIEW) || page.cached_page == null
+                || page.cached_page.local != null || !TranslateController.supportsSummary(source) || source.getId() <= 0) {
+            return;
+        }
+        if (instantSummarySources.get(page.url) == source) return;
+        String url = page.url;
+        instantSummarySources.put(url, source);
+        instantSummaries.remove(url);
+        if (source.messageOwner.summaryText != null && !TextUtils.isEmpty(source.messageOwner.summaryText.text)) {
+            showInstantSummary(url, source.messageOwner.summaryText.text);
+            return;
+        }
+        TLRPC.TL_messages_summarizeText request = new TLRPC.TL_messages_summarizeText();
+        request.peer = MessagesController.getInstance(source.currentAccount).getInputPeer(source.getDialogId());
+        request.id = source.getId();
+        ConnectionsManager.getInstance(source.currentAccount).sendRequestTyped(request, AndroidUtilities::runOnUIThread, (result, error) -> {
+            if (instantSummarySources.get(url) != source || BygramConfig.getBoolean(BygramConfig.HIDE_AI_INSTANT_VIEW)) return;
+            if (result != null && !TextUtils.isEmpty(result.text)) {
+                showInstantSummary(url, result.text);
+            } else {
+                instantSummarySources.remove(url);
+            }
+        });
+    }
+
+    private void showInstantSummary(String url, String summary) {
+        instantSummaries.put(url, summary);
+        for (PageLayout page : pages) {
+            if (page == null) continue;
+            WebpageAdapter adapter = page.adapter;
+            if (adapter.currentPage == null || !TextUtils.equals(url, adapter.currentPage.url)) continue;
+            if (!adapter.blocks.isEmpty() && adapter.blocks.get(0) instanceof InstantSummaryBlock) continue;
+            int first = page.layoutManager.findFirstVisibleItemPosition();
+            View anchor = page.layoutManager.findViewByPosition(first);
+            int offset = anchor == null ? 0 : anchor.getTop() - page.listView.getPaddingTop();
+            adapter.blocks.add(0, new InstantSummaryBlock(summary));
+            for (Map.Entry<String, Integer> entry : adapter.anchors.entrySet()) {
+                entry.setValue(entry.getValue() + 1);
+            }
+            adapter.notifyDataSetChanged();
+            if (first > (adapter.padding ? 1 : 0) && anchor != null) {
+                page.layoutManager.scrollToPositionWithOffset(first + 1, offset);
+            }
+        }
+    }
+
+    private static LinearLayout createInstantSummaryView(Context context, Theme.ResourcesProvider theme) {
+        LinearLayout view = new LinearLayout(context);
+        view.setOrientation(LinearLayout.VERTICAL);
+        view.setPadding(dp(12), dp(8), dp(12), dp(8));
+        view.setBackground(Theme.createRoundRectDrawable(dp(10), Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteLinkText, theme), .10f)));
+        TextView title = new TextView(context);
+        title.setText(getString(R.string.BygramInstantViewPostSummary));
+        title.setTextSize(14);
+        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteLinkText, theme));
+        title.setTypeface(AndroidUtilities.bold());
+        view.addView(title, LayoutHelper.createLinear(-1, -2));
+        TextView body = new TextView(context);
+        body.setTextSize(15);
+        body.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, theme));
+        view.addView(body, LayoutHelper.createLinear(-1, -2, Gravity.TOP, 0, 4, 0, 0));
+        return view;
+    }
+
+    private static final class InstantSummaryBlock extends TL_iv.pageBlockParagraph {
+        final String summary;
+
+        InstantSummaryBlock(String summary) {
+            this.summary = summary;
+            TL_iv.textPlain plain = new TL_iv.textPlain();
+            plain.text = summary;
+            text = plain;
+        }
     }
 
     private boolean addPageToStack(TLRPC.WebPage webPage, String anchor, int order) {
@@ -5606,6 +5693,8 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
 
         } else {
             pagesStack.clear();
+            instantSummarySources.clear();
+            instantSummaries.clear();
             containerView.setTranslationX(0);
             if (sheet != null) {
                 sheet.setBackProgress(0);
@@ -5633,6 +5722,7 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
 
         if (webpage != null) {
             scrolledToAnchor = addPageToStack(webpage, anchor, openingAbove ? 1 : 0);
+            loadInstantSummary(webpage, messageObject);
             if (!localWebpage && refreshWebpage) {
                 final String anchorFinal = !scrolledToAnchor && anchor != null ? anchor : null;
                 final TLRPC.TL_messages_getWebPage req = new TLRPC.TL_messages_getWebPage();
@@ -7209,6 +7299,13 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
                     view = new BlockMathCell(context, ArticleViewer.this, this);
                     break;
                 }
+                case 93: {
+                    FrameLayout container = new FrameLayout(context);
+                    container.addView(createInstantSummaryView(context, getResourcesProvider()),
+                            LayoutHelper.createFrame(-1, -2, Gravity.TOP, 16, 10, 16, 8));
+                    view = container;
+                    break;
+                }
                 case 100:
                 default: {
                     TextView textView = new TextView(context);
@@ -7407,6 +7504,11 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
                     cell.setBlock((TL_iv.pageBlockMath) block);
                     break;
                 }
+                case 93: {
+                    LinearLayout card = (LinearLayout) ((FrameLayout) holder.itemView).getChildAt(0);
+                    ((TextView) card.getChildAt(1)).setText(((InstantSummaryBlock) block).summary);
+                    break;
+                }
                 case 100: {
                     TextView textView = (TextView) holder.itemView;
                     textView.setText("unsupported block " + block);
@@ -7416,6 +7518,7 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
         }
 
         private int getTypeForBlock(TL_iv.PageBlock block) {
+            if (block instanceof InstantSummaryBlock) return 93;
             if (block instanceof TL_iv.pageBlockParagraph) {
                 return 0;
             } else if (block instanceof TL_iv.pageBlockHeader || isHeadingBlock(block)) {
@@ -7543,6 +7646,11 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
                 }
             }
             calculateContentHeight();
+        }
+
+        private boolean isCoverFollowedByChannel(TL_iv.PageBlock cover) {
+            int index = blocks.indexOf(cover);
+            return index >= 0 && index + 1 < blocks.size() && blocks.get(index + 1) instanceof TL_iv.pageBlockChannel;
         }
 
         private void updateRows() {
@@ -8049,7 +8157,7 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
                 if (!isFirst && currentType == 0 && currentBlock.level <= 0) {
                     height += dp(8);
                 }
-                boolean nextIsChannel = parentBlock instanceof TL_iv.pageBlockCover && adapter != null && adapter.blocks.size() > 1 && adapter.blocks.get(1) instanceof TL_iv.pageBlockChannel;
+                boolean nextIsChannel = parentBlock instanceof TL_iv.pageBlockCover && adapter != null && adapter.isCoverFollowedByChannel(parentBlock);
                 if (currentType != 2 && !nextIsChannel) {
                     height += dp(8);
                 }
@@ -12901,7 +13009,7 @@ public class ArticleViewer extends IArticleViewer implements NotificationCenter.
                     height += dp(8);
                 }
                 // TODO
-                boolean nextIsChannel = parentBlock instanceof TL_iv.pageBlockCover && adapter != null && adapter.blocks != null && adapter.blocks.size() > 1 && adapter.blocks.get(1) instanceof TL_iv.pageBlockChannel;
+                boolean nextIsChannel = parentBlock instanceof TL_iv.pageBlockCover && adapter != null && adapter.blocks != null && adapter.isCoverFollowedByChannel(parentBlock);
                 if (currentType != 2 && !nextIsChannel) {
                     height += dp(8);
                 }

@@ -37,11 +37,14 @@ def main():
 
         for name in TARGETS:
             skill = home / name
-            for doc in [skill / "SKILL.md", *(skill / "references/docs/plugins").glob("*.md")]:
-                for link in re.findall(r"\]\(([^() \n]+)\)", doc.read_text(encoding="utf-8")):
-                    link = link.split("#", 1)[0]
-                    if link and "://" not in link:
-                        assert (doc.parent / link).exists(), (doc, link)
+            prompt = skill / "references/docs/plugins/deepseek-prompt.md"
+            for doc in (skill / "SKILL.md", prompt):
+                instructions = doc.read_text(encoding="utf-8")
+                links = re.findall(r"\]\(([^() \n]+)\)", instructions)
+                assert all(link.startswith("https://") for link in links), (doc, links)
+                assert "https://byxarek.site/TEST-PROJECT/BYgram/docs/#sdk" in instructions, doc
+                assert "agent-workflow.md" not in instructions, doc
+            assert list(prompt.parent.glob("*.md")) == [prompt]
 
         standalone = home / TARGETS[0] / "references"
         package = work / "hello.byplugin"

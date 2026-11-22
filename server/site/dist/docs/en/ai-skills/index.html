@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI skills for BYgram plugins | BYgram</title>
+  <meta name="description" content="Use a coding agent to write, port, package and test BYgram plugins.">
+  <link rel="canonical" href="https://byxarek.site/TEST-PROJECT/BYgram/docs/en/ai-skills/">
+  <link rel="stylesheet" href="../guide-b8548225feef.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <article class="layout">
+    <aside class="sidebar">
+      <header class="sidebar-top"><a class="brand" href="../">BYgram</a></header>
+      <nav id="navigation" aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/">Build and install a package</a><a href="../ai-skills/" aria-current="page">AI skills for BYgram plugins</a><a href="../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav>
+    </aside>
+    <header class="top">
+      <details class="english-menu"><summary>Guides</summary><nav aria-label="Guides"><section class="nav-group"><p>Getting started</p>
+    <a href="../">Overview</a><a href="../package/">Build and install a package</a><a href="../ai-skills/" aria-current="page">AI skills for BYgram plugins</a><a href="../lifecycle/">Lifecycle and cleanup</a></section><section class="nav-group"><p>Catalog</p>
+    <a href="../catalog/paid/">Publish a paid plugin</a></section><section class="nav-group"><p>Elyx</p>
+    <a href="../elyx/">Elyx overview</a><a href="../elyx/project-structure/">Elyx project structure</a><a href="../elyx/metadata/">Elyx metadata</a><a href="../elyx/assets/">Elyx assets and data imports</a><a href="../elyx/localization/">Elyx localization and settings</a><a href="../elyx/settings/">Elyx settings storage</a><a href="../elyx/runtime/">Elyx runtime API</a><a href="../elyx/dependencies/">Elyx dependencies</a><a href="../elyx/development/">Develop and debug Elyx</a></section><section class="nav-group"><p>API reference</p>
+    <a href="../api/accounts/">AccountClient and account scope</a><a href="../api/file-hooks/">File utilities and extension hooks</a><a href="../api/java-proxy/">Managed Java proxies</a><a href="../api/intents/">Android Intent handlers</a><a href="../api/settings/">Settings and custom rows</a><a href="../api/ui/">Dialogs, bulletins and Android helpers</a><a href="../api/text-formatting/">Text formatting</a><a href="../api/reflection/">Java reflection and hooks</a></section></nav></details>
+      <strong>Plugin documentation</strong>
+      <a class="tools" href="../../" lang="ru" hreflang="ru">Русский</a>
+    </header>
+    <main id="content"><section>
+      <h1>AI skills for BYgram plugins</h1>
+      <p class="lead">Use a coding agent to write, port, package and test BYgram plugins.</p>
+      <h2 id="install-without-cloning">Install without cloning</h2><p><a href="../../install_bygram_skills.py" download>Download the Python skill installer</a>. From your downloads folder, run it with Python 3.10 or later. The skill links to the online SDK documentation. The installer includes examples, the packager and the exteraGram converter.</p><figure><figcaption>Install all skills</figcaption><pre><code>python install_bygram_skills.py</code></pre></figure><p>To install for one client, append <code>codex</code>, <code>claude</code>, <code>gemini</code>, <code>cursor</code>, <code>copilot</code> or <code>deepseek</code>. If <code>python</code> is unavailable, use <code>py</code> on Windows or <code>python3</code> on Linux and macOS.</p><h2 id="use-the-skill">Use the skill</h2><p>Start a new agent session. Use <code>$bygram-plugin</code> in Codex or <code>/bygram-plugin</code> in Claude Code and Copilot in VS Code. In Gemini CLI or Cursor, ask the agent to use <code>bygram-plugin</code>. For DeepSeek, open the prompt at the path printed by the installer and paste it into chat. If the chat cannot open links, add the relevant excerpts from the documentation website.</p><p>Example request: “Add a chat menu item that shows a configurable tip. Build the .byplugin and list the checks you ran.”</p>
+      <nav id="pagination" aria-label="Adjacent guides">
+        <a href="../package/">← Build and install a package</a>
+        <a class="next" href="../lifecycle/">Lifecycle and cleanup →</a>
+      </nav>
+    </section></main>
+    <aside class="outline" aria-label="On this page"><p>On this page</p>
+      <a href="#install-without-cloning">Install without cloning</a><a href="#use-the-skill">Use the skill</a>
+    </aside>
+  </article>
+</body>
+</html>

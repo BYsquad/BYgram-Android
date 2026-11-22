@@ -8,7 +8,7 @@ public class BygramSettingsLinkCheck {
     public static void main(String[] args) {
         check("root".equals(BygramSettingsLink.parse(null).page), "Missing target opens overview");
         check("root".equals(BygramSettingsLink.parse("").page), "Empty target opens overview");
-        String[] pages = {"root", "customization", "general", "chat_list", "appearance", "winter", "profile", "typing", "ghost",
+        String[] pages = {"root", "customization", "general", "chat_list", "appearance", "winter", "conversation", "ai", "profile", "typing", "ghost",
                 "spy", "hidden", "protected", "profile_views", "activity", "other", "plugins"};
         int count = 0;
         for (String page : pages) {
@@ -21,7 +21,7 @@ public class BygramSettingsLinkCheck {
             }
         }
         for (String value : new String[]{"unknown", "ghost.0", "ghost.6", "ghost.02", "ghost.+2",
-                "ghost.2.3", "ghost.", "ghost.2147483648", "activity.100000", "hidden.100", "root.100",
+                "ghost.2.3", "ghost.", "ghost.2147483648", "activity.100000", "hidden.100", "root.100", "root.12",
                 "../ghost", "Ghost", "general.-3"}) {
             check(BygramSettingsLink.parse(value) == null, "Reject: " + value);
         }
@@ -29,12 +29,23 @@ public class BygramSettingsLinkCheck {
         check("chat_list".equals(BygramSettingsLink.target("customization", 3)), "Chat list category");
         check("appearance".equals(BygramSettingsLink.target("customization", 5)), "Appearance category");
         check("winter".equals(BygramSettingsLink.target("customization", 6)), "Winter category");
+        check("conversation".equals(BygramSettingsLink.target("customization", 7)), "Conversation category");
+        check("ai".equals(BygramSettingsLink.target("customization", 8)), "Telegram AI category");
+        check(BygramSettingsLink.parse("conversation.7").highlightedRow() == 7, "Edited icon row");
+        check(BygramSettingsLink.parse("ai.3").highlightedRow() == 3, "Instant View summary row");
+        check(BygramSettingsLink.parse("conversation.8").highlightedRow() == 8, "Translation provider row");
+        check(BygramSettingsLink.parse("conversation.9").highlightedRow() == 9, "Translate entire chat row");
+        check(BygramSettingsLink.parse("conversation.10") == null, "Unknown conversation row");
+        check(BygramSettingsLink.parse("ai.4") == null, "Unknown AI row");
         for (String page : new String[]{"chat_list", "appearance", "winter"}) {
             int generated = 0;
             for (int row = -2; row <= 203; row++) {
                 String target = BygramSettingsLink.target(page, row);
                 BygramSettingsLink legacy = BygramSettingsLink.parse("general." + row);
-                if (legacy != null && page.equals(legacy.customizationSection())) {
+                if ("appearance".equals(page) && row == 30) {
+                    check("appearance.30".equals(target) && BygramSettingsLink.parse(target).highlightedRow() == row, "Icon packs link");
+                    generated++;
+                } else if (legacy != null && page.equals(legacy.customizationSection())) {
                     check(("general." + row).equals(target), "Preserve row link for " + page + ": " + row);
                     generated++;
                 } else {

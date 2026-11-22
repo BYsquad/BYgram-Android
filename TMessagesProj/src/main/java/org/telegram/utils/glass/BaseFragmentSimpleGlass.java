@@ -286,7 +286,9 @@ public class BaseFragmentSimpleGlass {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || glassCaptureSourceCanvas == null || !captureIgnoresBlurSetting && !GlassEngine.getCurrentGlassSettings().isBlurEnabled) {
             return;
         }
-
+        if (contentView == null || capture == null) {
+            return;
+        }
 
         if (BitwiseUtils.hasFlag(flags, GlassEngine.FLAG_INVALIDATED_POSITIONS) || BitwiseUtils.hasFlag(flags, GlassEngine.FLAG_INVALIDATED_SCROLL_EDGES)) {
             GlassPositionsArray glassPositionsArray = glassEngine.getAllVisibleDrawablesWithDisplayListPositionsMerged();

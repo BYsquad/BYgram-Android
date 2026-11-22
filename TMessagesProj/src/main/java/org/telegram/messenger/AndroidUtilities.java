@@ -188,6 +188,7 @@ import org.telegram.ui.Components.UndoView;
 import org.telegram.ui.Components.spoilers.SpoilersTextView;
 import org.telegram.ui.DebugRecordingCanvasReplayFragment;
 import org.telegram.ui.LaunchActivity;
+import org.telegram.ui.BygramIconPacksActivity;
 import org.telegram.ui.Stories.PeerStoriesView;
 import org.telegram.ui.Stories.StoryMediaAreasView;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
@@ -4298,6 +4299,8 @@ public class AndroidUtilities {
             f = FileLoader.getInstance(message.currentAccount).getPathToMessage(message.messageOwner);
         }
         if (f != null && f.exists()) {
+            if (!message.messageOwner.noforwards && !MessagesController.getInstance(message.currentAccount).isPeerNoForwards(message.getDialogId()) &&
+                    BygramIconPacksActivity.openFile(parentFragment, f, message.getDocumentName())) return;
             if (PluginEntry.openFile(activity, f, message.getDocumentName())) return;
             if (PluginEntry.openFileHook(message, f, message.getDocumentName(), activity, parentFragment, place)) return;
             if (parentFragment != null && f.getName().toLowerCase().endsWith("attheme")) {
@@ -4375,6 +4378,8 @@ public class AndroidUtilities {
 
     public static boolean openForView(File f, String fileName, String mimeType, final Activity activity, Theme.ResourcesProvider resourcesProvider, boolean restrict) {
         if (f != null && f.exists()) {
+            if (!restrict && activity instanceof LaunchActivity &&
+                    BygramIconPacksActivity.openFile(LaunchActivity.getLastFragment(), f, fileName)) return true;
             if (!restrict && PluginEntry.openFile(activity, f, fileName)) return true;
             String realMimeType = null;
             Intent intent = new Intent(Intent.ACTION_VIEW);

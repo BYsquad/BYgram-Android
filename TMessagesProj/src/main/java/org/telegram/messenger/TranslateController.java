@@ -91,7 +91,7 @@ public class TranslateController extends BaseController {
     }
 
     public boolean isFeatureAvailable() {
-        return isChatTranslateEnabled() && (BygramConfig.getInt("bygram_translation_provider", 0) != 0 || UserConfig.getInstance(currentAccount).isPremium());
+        return isChatTranslateEnabled() && (BygramTranslation.provider() != BygramTranslation.Provider.TELEGRAM || UserConfig.getInstance(currentAccount).isPremium());
     }
 
     public boolean isFeatureAvailable(long dialogId) {
@@ -100,7 +100,7 @@ public class TranslateController extends BaseController {
         }
         final TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
         return (
-            BygramConfig.getInt("bygram_translation_provider", 0) != 0 || UserConfig.getInstance(currentAccount).isPremium() ||
+            canManuallyTranslateChat(dialogId) || UserConfig.getInstance(currentAccount).isPremium() ||
             chat != null && chat.autotranslation
         );
     }
@@ -108,18 +108,39 @@ public class TranslateController extends BaseController {
     private Boolean chatTranslateEnabled;
     private Boolean contextTranslateEnabled;
 
+    public boolean canManuallyTranslateChat(long dialogId) {
+        return isChatTranslateEnabled() &&
+            !DialogObject.isEncryptedDialog(dialogId) &&
+            getUserConfig().getClientUserId() != dialogId &&
+            (UserConfig.getInstance(currentAccount).isPremium() || canUseCloudTranslation(dialogId));
+    }
+
+    private boolean canUseCloudTranslation(long dialogId) {
+        return BygramTranslation.provider() != BygramTranslation.Provider.TELEGRAM &&
+            !DialogObject.isEncryptedDialog(dialogId) &&
+            !getMessagesController().isPeerNoForwards(dialogId);
+    }
+
     public boolean isChatTranslateEnabled() {
-        if (BygramConfig.getInt("bygram_translation_provider", 0) == 0 && !getMessagesController().isTranslationsAutoEnabled()) {
+        if (BygramTranslation.provider() == BygramTranslation.Provider.TELEGRAM && !getMessagesController().isTranslationsAutoEnabled()) {
             return false;
         }
+        return isChatTranslatePreferenceEnabled();
+    }
+
+    public boolean isChatTranslatePreferenceEnabled() {
         if (chatTranslateEnabled == null) {
             chatTranslateEnabled = messagesController.getMainSettings().getBoolean("translate_chat_button", true);
         }
         return chatTranslateEnabled;
     }
 
+    public boolean supportsContextTranslation() {
+        return BygramTranslation.provider() != BygramTranslation.Provider.TELEGRAM || getMessagesController().isTranslationsManualEnabled();
+    }
+
     public boolean isContextTranslateEnabled() {
-        if (BygramConfig.getInt("bygram_translation_provider", 0) == 0 && !getMessagesController().isTranslationsManualEnabled()) {
+        if (!supportsContextTranslation()) {
             return false;
         }
         if (contextTranslateEnabled == null) {
@@ -134,9 +155,14 @@ public class TranslateController extends BaseController {
 
     public void setChatTranslateEnabled(boolean enable) {
         messagesController.getMainSettings().edit().putBoolean("translate_chat_button", chatTranslateEnabled = enable).apply();
+        if (!enable) cloudTranslations.clear();
     }
 
     public static boolean isSummarizable(MessageObject messageObject) {
+        return !BygramConfig.getBoolean(BygramConfig.HIDE_AI_SUMMARIES) && supportsSummary(messageObject);
+    }
+
+    public static boolean supportsSummary(MessageObject messageObject) {
         return (
             messageObject != null &&
             messageObject.messageOwner != null &&
@@ -164,7 +190,8 @@ public class TranslateController extends BaseController {
         return (
             messageObject != null &&
             messageObject.messageOwner != null &&
-            !messageObject.isOutOwner() &&
+            (!messageObject.isOutOwner() || MessagesController.getInstance(messageObject.currentAccount).getTranslateController()
+                .providerForMessage(messageObject) != BygramTranslation.Provider.TELEGRAM) &&
             !messageObject.isRestrictedMessage &&
             !messageObject.isSponsored() &&
             !(MessageObject.getMedia(messageObject) instanceof TLRPC.TL_messageMediaWidget) &&
@@ -193,7 +220,7 @@ public class TranslateController extends BaseController {
 
     public boolean isDialogTranslatable(long dialogId) {
         return (
-            translatableDialogs.contains(dialogId) &&
+            (translatableDialogs.contains(dialogId) || canManuallyTranslateChat(dialogId) && translatingDialogs.get(dialogId, false)) &&
             isFeatureAvailable(dialogId) &&
             !DialogObject.isEncryptedDialog(dialogId) &&
             getUserConfig().getClientUserId() != dialogId
@@ -217,7 +244,7 @@ public class TranslateController extends BaseController {
     }
 
     private boolean isChatAutoTranslated(long dialogId) {
-        if (!isDialogTranslatable(dialogId)) {
+        if (BygramTranslation.provider() != BygramTranslation.Provider.TELEGRAM || !isDialogTranslatable(dialogId)) {
             return false;
         }
         final TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
@@ -275,6 +302,21 @@ public class TranslateController extends BaseController {
             lang = "no";
         }
         return lang;
+    }
+
+    private BygramTranslation.Provider providerForMessage(MessageObject message) {
+        if (message.type == MessageObject.TYPE_ARTICLE ||
+            MessageObject.getMedia(message) instanceof TLRPC.TL_messageMediaPoll ||
+            message.messageOwner.noforwards || !canUseCloudTranslation(message.getDialogId())) {
+            return BygramTranslation.Provider.TELEGRAM;
+        }
+        return BygramTranslation.provider();
+    }
+
+    public String getMessageTranslationKey(MessageObject message) {
+        String language = getDialogTranslateTo(message.getDialogId());
+        BygramTranslation.Provider provider = providerForMessage(message);
+        return provider == BygramTranslation.Provider.TELEGRAM ? language : language + "@" + provider.name();
     }
 
     public void setDialogTranslateTo(long dialogId, String language) {
@@ -581,7 +623,7 @@ public class TranslateController extends BaseController {
 
         final long dialogId = messageObject.getDialogId();
 
-        if (onScreen && messageObject.messageOwner.summarizedOpen && messageObject.messageOwner.summaryText == null && !isTranslatingDialog(messageObject.getDialogId())) {
+        if (onScreen && isSummarizable(messageObject) && messageObject.messageOwner.summarizedOpen && messageObject.messageOwner.summaryText == null && !isTranslatingDialog(messageObject.getDialogId())) {
             final MessageObject finalMessageObject = messageObject;
             pushToSummarize(finalMessageObject, null, (text) -> {
                 finalMessageObject.messageOwner.summaryText = text;
@@ -620,7 +662,7 @@ public class TranslateController extends BaseController {
         if (!keepReply && messageObject.type != MessageObject.TYPE_ARTICLE && (
                 (messageObject.messageOwner.voiceTranscriptionOpen && messageObject.messageOwner.voiceTranscriptionFinal ? messageObject.messageOwner.translatedVoiceTranscription : messageObject.messageOwner.translatedText) == null && messageObject.messageOwner.translatedPoll == null ||
                 messageObject.messageOwner.translatedPoll != null && !PollText.isFullyTranslated(messageObject, messageObject.messageOwner.translatedPoll) ||
-                !language.equals(messageObject.messageOwner.translatedToLanguage)
+                !TextUtils.equals(getMessageTranslationKey(messageObject), messageObject.messageOwner.translatedToLanguage)
             ) &&
             (potentialReplyMessageObject = findReplyMessageObject(dialogId, messageObject.getId())) != null
         ) {
@@ -667,7 +709,7 @@ public class TranslateController extends BaseController {
                         }
                     });
                 }
-            } else if (finalMessageObject.messageOwner.summarizedOpen) {
+            } else if (isSummarizable(finalMessageObject) && finalMessageObject.messageOwner.summarizedOpen) {
                 if (finalMessageObject.messageOwner.translatedSummaryText == null || !language.equals(finalMessageObject.messageOwner.translatedSummaryLanguage)) {
                     pushToSummarize(finalMessageObject, language, text -> {
                         finalMessageObject.messageOwner.translatedSummaryLanguage = text != null ? language : null;
@@ -684,7 +726,7 @@ public class TranslateController extends BaseController {
                 (finalMessageObject.messageOwner.voiceTranscriptionOpen && finalMessageObject.messageOwner.voiceTranscriptionFinal ? finalMessageObject.messageOwner.translatedVoiceTranscription : finalMessageObject.messageOwner.translatedText) == null &&
                 finalMessageObject.messageOwner.translatedPoll == null ||
                 finalMessageObject.messageOwner.translatedPoll != null && !PollText.isFullyTranslated(finalMessageObject, finalMessageObject.messageOwner.translatedPoll) ||
-                !language.equals(finalMessageObject.messageOwner.translatedToLanguage)
+                !TextUtils.equals(getMessageTranslationKey(finalMessageObject), finalMessageObject.messageOwner.translatedToLanguage)
             ) {
                 NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.messageTranslating, finalMessageObject);
                 if (MessageObject.getMedia(finalMessageObject) instanceof TLRPC.TL_messageMediaPoll) {
@@ -869,7 +911,7 @@ public class TranslateController extends BaseController {
 
     private ArrayList<Integer> pendingLanguageChecks = new ArrayList<>();
     private void checkLanguage(MessageObject messageObject) {
-        if (!LanguageDetector.hasSupport()) {
+        if (messageObject.isOutOwner() || !LanguageDetector.hasSupport()) {
             return;
         }
         final String detectText = getDetectLanguageText(messageObject);
@@ -1022,6 +1064,12 @@ public class TranslateController extends BaseController {
         int reqId = -1;
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<String, Object> cloudTranslations = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String cloudTranslationId(long dialogId, int messageId, boolean transcription) {
+        return dialogId + ":" + messageId + ":" + transcription;
+    }
+
     private void pushToTranslate(
         MessageObject message,
         String language,
@@ -1044,6 +1092,33 @@ public class TranslateController extends BaseController {
         } else {
             source.text = message.messageOwner.message;
             source.entities = message.messageOwner.entities;
+        }
+
+        final BygramTranslation.Provider provider = providerForMessage(message);
+        if (provider != BygramTranslation.Provider.TELEGRAM) {
+            final int id = message.getId();
+            final String requestId = cloudTranslationId(dialogId, id, isTranscription);
+            final Object request = new Object();
+            if (cloudTranslations.putIfAbsent(requestId, request) != null) return;
+            final String translationKey = getMessageTranslationKey(message);
+            BygramTranslation.translate(provider, source.text, language,
+                () -> cloudTranslations.get(requestId) == request && BygramTranslation.provider() == provider,
+                (result, rateLimit) -> {
+                    if (!cloudTranslations.remove(requestId, request) || !isTranslatingDialog(dialogId) ||
+                        isTranslateDialogHidden(dialogId) || !TextUtils.equals(translationKey, getMessageTranslationKey(message))) {
+                        return;
+                    }
+                    if (result == null) {
+                        toggleTranslatingDialog(dialogId, false);
+                        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_ERROR,
+                            getString(rateLimit ? R.string.TranslationFailedAlert1 : R.string.TranslationFailedAlert2));
+                        return;
+                    }
+                    TLRPC.TL_textWithEntities translated = new TLRPC.TL_textWithEntities();
+                    translated.text = result;
+                    callback.run(isTranscription, id, TranslateAlert2.preprocess(source, translated), translationKey);
+                });
+            return;
         }
 
         PendingTranslation pendingTranslation;
@@ -1103,7 +1178,7 @@ public class TranslateController extends BaseController {
                     }
                 }
 
-                final String method = BygramConfig.getInt("bygram_translation_provider", 0) != 0 ? "alternative" : getMessagesController().translationsAutoEnabled;
+                final String method = getMessagesController().translationsAutoEnabled;
                 if ("alternative".equals(method) || "system".equals(method)) {
                     final String toLanguage = pendingTranslation1.language;
                     for (int i = 0; i < pendingTranslation1.messageIds.size(); ++i) {
@@ -1600,17 +1675,15 @@ public class TranslateController extends BaseController {
     }
 
     public boolean isTranslating(MessageObject messageObject) {
-        if (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.summarizedOpen)
+        if (isSummarizable(messageObject) && messageObject.messageOwner.summarizedOpen)
             return loadingSummarizations.contains(Objects.hash(messageObject.getDialogId(), messageObject.getId(), isTranslatingDialog(messageObject.getDialogId()) ? 1 : 0));
+        if (messageObject == null || messageObject.messageOwner == null || !isTranslatingDialog(messageObject.getDialogId())) {
+            return false;
+        }
+        final boolean transcription = messageObject.messageOwner.voiceTranscriptionOpen && messageObject.messageOwner.voiceTranscriptionFinal;
         synchronized (this) {
-            return (
-                messageObject != null &&
-                messageObject.messageOwner != null &&
-                (messageObject.messageOwner.voiceTranscriptionOpen && messageObject.messageOwner.voiceTranscriptionFinal ?
-                    loadingTranscriptionTranslations : loadingTranslations
-                ).contains(messageObject.getId()) &&
-                isTranslatingDialog(messageObject.getDialogId())
-            );
+            return (transcription ? loadingTranscriptionTranslations : loadingTranslations).contains(messageObject.getId()) ||
+                cloudTranslations.containsKey(cloudTranslationId(messageObject.getDialogId(), messageObject.getId(), transcription));
         }
     }
 
@@ -1623,12 +1696,14 @@ public class TranslateController extends BaseController {
         }
         final boolean isTranscription = messageObject.messageOwner != null && messageObject.messageOwner.voiceTranscriptionOpen && messageObject.messageOwner.voiceTranscriptionFinal;
         synchronized (this) {
-            if ((isTranscription ? loadingTranscriptionTranslations : loadingTranslations).contains(messageObject.getId())) {
+            if ((isTranscription ? loadingTranscriptionTranslations : loadingTranslations).contains(messageObject.getId()) ||
+                cloudTranslations.containsKey(cloudTranslationId(messageObject.getDialogId(), messageObject.getId(), isTranscription))) {
                 return true;
             }
             if (group != null) {
                 for (MessageObject message : group.messages) {
-                    if ((isTranscription ? loadingTranscriptionTranslations : loadingTranslations).contains(message.getId())) {
+                    if ((isTranscription ? loadingTranscriptionTranslations : loadingTranslations).contains(message.getId()) ||
+                        cloudTranslations.containsKey(cloudTranslationId(message.getDialogId(), message.getId(), isTranscription))) {
                         return true;
                     }
                 }
@@ -1638,6 +1713,7 @@ public class TranslateController extends BaseController {
     }
 
     public void cancelAllTranslations() {
+        cloudTranslations.clear();
         synchronized (this) {
             for (ArrayList<PendingTranslation> translations : pendingTranslations.values()) {
                 if (translations != null) {
@@ -1695,6 +1771,7 @@ public class TranslateController extends BaseController {
     }
 
     public void cancelTranslations(long dialogId) {
+        cloudTranslations.keySet().removeIf(key -> key.startsWith(dialogId + ":"));
         synchronized (this) {
             ArrayList<PendingTranslation> translations = pendingTranslations.get(dialogId);
             if (translations != null) {
@@ -1818,9 +1895,12 @@ public class TranslateController extends BaseController {
                     translatingDialogs.put(did, !disabled);
                     translatableDialogs.add(did);
                 }
-                if (to != null) {
-                    translateDialogLanguage.put(did, to);
-                }
+            }
+            if (from == null || canManuallyTranslateChat(did)) {
+                translatingDialogs.put(did, !disabled);
+            }
+            if (to != null) {
+                translateDialogLanguage.put(did, to);
             }
         }
 

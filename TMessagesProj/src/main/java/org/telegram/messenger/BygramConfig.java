@@ -70,6 +70,25 @@ public final class BygramConfig {
     public static final String SNOW_AMOUNT = "bygram_snow_amount";
     public static final int SNOW_AMOUNT_MIN = 10;
     public static final int SNOW_AMOUNT_MAX = 100;
+    public static final String STICKER_SIZE = "bygram_sticker_size";
+    public static final int STICKER_SIZE_DEFAULT = 12;
+    public static final int STICKER_SIZE_MIN = 2;
+    public static final int STICKER_SIZE_MAX = 20;
+    public static final String STICKER_TIME = "bygram_sticker_time";
+    public static final int STICKER_TIME_SIDE = 1;
+    public static final int STICKER_TIME_HIDDEN = 2;
+    private static final String LEGACY_HIDE_STICKER_TIME = "bygram_hide_sticker_time";
+    public static final String CHANNEL_BUTTON = "bygram_channel_bottom_action";
+    public static final int CHANNEL_BUTTON_MUTE = 0;
+    public static final int CHANNEL_BUTTON_DISCUSS = 1;
+    public static final int CHANNEL_BUTTON_HIDDEN = 2;
+    public static final String HIDE_GREETING = "bygram_hide_greeting";
+    public static final String SCROLL_HIDE_KEYBOARD = "bygram_scroll_hide_keyboard";
+    public static final String MENTION_COMMA = "bygram_mention_comma";
+    public static final String EDITED_ICON = "bygram_edited_icon";
+    public static final String HIDE_AI_EDITOR = "bygram_hide_ai_editor";
+    public static final String HIDE_AI_SUMMARIES = "bygram_hide_ai_summaries";
+    public static final String HIDE_AI_INSTANT_VIEW = "bygram_hide_ai_instant_view";
     public static final String SECONDS = "bygram_seconds";
     public static final String MD3_PROFILE_BUTTONS = "bygram_md3_profile_buttons";
     public static final String QR_GLASS_STYLE = "bygram_qr_glass_style";
@@ -212,6 +231,17 @@ public final class BygramConfig {
             case SNOW_NAVIGATION:
             case SNOW_SCREENS:
             case SNOW_AMOUNT:
+            case STICKER_SIZE:
+            case STICKER_TIME:
+            case LEGACY_HIDE_STICKER_TIME:
+            case CHANNEL_BUTTON:
+            case HIDE_GREETING:
+            case SCROLL_HIDE_KEYBOARD:
+            case MENTION_COMMA:
+            case EDITED_ICON:
+            case HIDE_AI_EDITOR:
+            case HIDE_AI_SUMMARIES:
+            case HIDE_AI_INSTANT_VIEW:
             case SECONDS:
             case MD3_PROFILE_BUTTONS:
             case QR_GLASS_STYLE:
@@ -277,6 +307,9 @@ public final class BygramConfig {
     }
 
     public static int getInt(String key, int fallback) {
+        if (STICKER_SIZE.equals(key) || STICKER_TIME.equals(key) || CHANNEL_BUTTON.equals(key)) {
+            return clampChatSetting(key, preferences().getInt(key, fallback));
+        }
         if (SNOW_AMOUNT.equals(key)) {
             return Math.max(SNOW_AMOUNT_MIN, Math.min(SNOW_AMOUNT_MAX, preferences().getInt(key, fallback)));
         }
@@ -285,6 +318,10 @@ public final class BygramConfig {
     }
 
     public static void setInt(String key, int value) {
+        if (STICKER_SIZE.equals(key) || STICKER_TIME.equals(key) || CHANNEL_BUTTON.equals(key)) {
+            preferences().edit().putInt(key, clampChatSetting(key, value)).apply();
+            return;
+        }
         if (SNOW_AMOUNT.equals(key)) {
             preferences().edit().putInt(key, Math.max(SNOW_AMOUNT_MIN, Math.min(SNOW_AMOUNT_MAX, value))).apply();
             return;
@@ -294,6 +331,19 @@ public final class BygramConfig {
             if (FOLDER_STYLE.equals(key)) value = Math.max(0, Math.min(2, value));
             preferences().edit().putInt(key, value).apply();
         }
+    }
+
+    private static int clampChatSetting(String key, int value) {
+        if (STICKER_SIZE.equals(key)) return Math.max(STICKER_SIZE_MIN, Math.min(STICKER_SIZE_MAX, value));
+        return Math.max(0, Math.min(2, value));
+    }
+
+    public static int stickerTime() {
+        return getInt(STICKER_TIME, getBoolean(LEGACY_HIDE_STICKER_TIME) ? STICKER_TIME_HIDDEN : 0);
+    }
+
+    public static String mentionSuffix() {
+        return getBoolean(MENTION_COMMA) ? ", " : " ";
     }
 
     public static float avatarRadius(float size) {

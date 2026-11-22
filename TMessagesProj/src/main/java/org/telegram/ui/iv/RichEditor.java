@@ -50,6 +50,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.BygramConfig;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
@@ -625,6 +626,7 @@ public class RichEditor extends BaseFragment implements NotificationCenter.Notif
         bottomPanel.addView(aiButton, LayoutHelper.createLinear(44, 44, 0, Gravity.LEFT | Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
         ScaleStateListAnimator.apply(aiButton);
         aiButton.setContentDescription(getString(R.string.AIEditor));
+        aiButton.setVisibility(BygramConfig.getBoolean(BygramConfig.HIDE_AI_EDITOR) ? View.GONE : View.VISIBLE);
         aiButton.setOnClickListener(v -> {
             if (listView.isInSelectionMode()) {
                 onAiStyleSelection();
@@ -983,6 +985,7 @@ public class RichEditor extends BaseFragment implements NotificationCenter.Notif
         aiStyleButton = new Button(context, 0, getResourceProvider());
         aiStyleButton.setImageDrawable(new AiButtonDrawable(context));
         aiStyleButton.setContentDescription(getString(R.string.AIEditor));
+        aiStyleButton.setVisibility(BygramConfig.getBoolean(BygramConfig.HIDE_AI_EDITOR) ? View.GONE : View.VISIBLE);
         aiStyleButton.setOnClickListener(v -> onAiStyleSelection());
         formattingLayout1.addView(aiStyleButton, LayoutHelper.createLinear(38, 38, Gravity.CENTER_VERTICAL));
 
