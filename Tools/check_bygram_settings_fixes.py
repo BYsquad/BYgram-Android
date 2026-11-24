@@ -78,12 +78,15 @@ checks = {
     "chat list customization has en ru uk resources": all({'BygramCollapseSearchOnStart', 'BygramCollapseSearchOnStartInfo', 'BygramHideArchive', 'BygramHideArchiveInfo'} <= resource_names(locale, 'bygram_preferences.xml') for locale in ('values', 'values-ru', 'values-uk')),
     "Telegram and BYgram message menu actions have unique IDs": bool(menu_option_ids) and len(menu_option_ids) == len(set(menu_option_ids)),
     "BYgram settings keep a reserved ID while Telegram uses 24": "BYGRAM_SETTINGS_ID = 1000" in settings_root and "Factory.of(BYGRAM_SETTINGS_ID," in settings_root and "case BYGRAM_SETTINGS_ID:" in settings_root and "Factory.of(24," in settings_root and "case 24:" in settings_root,
-    "unlicensed users receive the manager URL": "'bot_url' => managerUrl()" in api and "appSetting('manager_username'" in api and 'callback.run(false, botUrl)' in activity,
-    "license status returns the manager URL": "'manager_url' => managerUrl()" in api,
+    "activity start requires an account session before issuing tokens": bool(re.search(
+        r"if \(\$action === 'activity_start'\) \{[^}]*requireAccountSession\(\$userId\);"
+        r"[^}]*issueTokens\(\$pdo, \$userId\)", api)),
+    "legacy license status checks activity session readiness": bool(re.search(
+        r"\$session = authenticatedSession\(\$pdo\);.*?\nif \(\$action === 'license'\) "
+        r"jsonResponse\(\['ok' => true, 'licensed' => true, 'valid_until' => 0\]\);", api, re.S)),
     "unused server paths are absent": all(name not in admin_api + admin_ui + bootstrap + schema for name in (
         "auth.confirm", "auth_challenges", "profile_badges", "promo_uses", "manual_payment_requests",
         "validateMiniApp", "grantLicense", "addReferralToOrder")),
-    "activation links use Telegram start payloads": "?start=bind_" in api,
     "telemetry has one synchronisation method": "applyTelemetrySettings" in config and "applyTelemetrySettings" in application,
     "activity master is account-specific": "isActivityEnabled(int account)" in config and "isActivityEnabled(account)" in activity,
     "activity is opt-in": 'activityEnabledKey(account), false' in config,

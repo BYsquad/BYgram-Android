@@ -50,7 +50,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
 
-        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaringEnabled = true
     }
 
     androidResources {
@@ -79,10 +79,10 @@ android {
             matchingFallbacks = ['release']
             debuggable false
             jniDebuggable false
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
             minifyEnabled true
-            multiDexEnabled true
-            shrinkResources true
+            multiDexEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
         }
@@ -90,10 +90,10 @@ android {
             matchingFallbacks = ['release']
             debuggable false
             jniDebuggable false
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
             minifyEnabled true
-            multiDexEnabled true
-            shrinkResources true
+            multiDexEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
         }
@@ -101,10 +101,10 @@ android {
             matchingFallbacks = ['release']
             debuggable false
             jniDebuggable false
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
             minifyEnabled true
-            multiDexEnabled true
-            shrinkResources true
+            multiDexEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
         }
@@ -161,15 +161,15 @@ android {
         minSdkVersion 24
         targetSdkVersion 36
         versionName APP_VERSION_NAME
-        ndkVersion "27.2.12479018"
+        ndkVersion = "27.2.12479018"
 
-        multiDexEnabled true
+        multiDexEnabled = true
 
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
         externalNativeBuild {
             cmake {
-                version '3.22.1'
+                version = '3.22.1'
                 arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-23' // , '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
                 targets 'tmessages.49', 'twidget'
             }
@@ -179,9 +179,9 @@ android {
     buildFeatures {
         buildConfig = true
     }
-    namespace 'org.telegram.messenger.regular'
+    namespace = 'org.telegram.messenger.regular'
 
     lintOptions {
-        checkReleaseBuilds false
+        checkReleaseBuilds = false
     }
 }

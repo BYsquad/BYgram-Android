@@ -12,7 +12,7 @@
 	url = https://github.com/FFmpeg/FFmpeg.git
 [submodule "TMessagesProj/lib/jlatexmath"]
 	path = TMessagesProj/lib/jlatexmath
-	url = https://github.com/dkaraush/jlatexmath-android.git
+	url = https://github.com/BYsquad/jlatexmath-android.git
 [submodule "TMessagesProj/jni/third_party/xiph/ogg"]
 	path = TMessagesProj/jni/third_party/xiph/ogg
 	url = https://github.com/xiph/ogg.git
@@ -36,7 +36,7 @@
 	url = https://github.com/tdlib/td.git
 [submodule "TMessagesProj_Modules/media"]
 	path = TMessagesProj_Modules/media
-	url = https://github.com/Arseny271/media.git
+	url = https://github.com/BYsquad/media.git
 [submodule "TMessagesProj/jni/third_party/absl"]
 	path = TMessagesProj/jni/third_party/absl
 	url = https://github.com/abseil/abseil-cpp.git
@@ -45,7 +45,7 @@
 	url = https://github.com/wasm-micro-runtime/wasm-micro-runtime.git
 [submodule "TMessagesProj/jni/tgcalls"]
 	path = TMessagesProj/jni/tgcalls
-	url = https://github.com/TelegramMessenger/tgcalls.git
+	url = https://github.com/BYsquad/tgcalls.git
 [submodule "TMessagesProj/jni/wallet-engine"]
 	path = TMessagesProj/jni/wallet-engine
 	url = https://github.com/dkaraush/wallet-engine.git
@@ -57,7 +57,7 @@
 	url = https://github.com/TelegramMessenger/libprisma.git
 [submodule "TMessagesProj/jni/twidget/twidget"]
 	path = TMessagesProj/jni/twidget/twidget
-	url = https://github.com/TelegramMessenger/twidget.git
+	url = https://github.com/BYsquad/twidget.git
 [submodule "TMessagesProj/jni/twidget/widget-sandbox"]
 	path = TMessagesProj/jni/twidget/widget-sandbox
 	url = https://github.com/TelegramMessenger/widget-sandbox.git

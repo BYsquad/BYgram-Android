@@ -153,7 +153,7 @@ android {
 
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
-    ndkVersion "27.2.12479018"
+    ndkVersion = "27.2.12479018"
 
 
     externalNativeBuild {
@@ -164,7 +164,7 @@ android {
 
     // IWidgetEngine: the widget engine's isolated process (WidgetEngineService).
     buildFeatures {
-        aidl true
+        aidl = true
     }
 
     lintOptions {
@@ -177,7 +177,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
 
-        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -197,11 +197,11 @@ android {
 
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
-        multiDexEnabled true
+        multiDexEnabled = true
 
         externalNativeBuild {
             cmake {
-                version '3.22.1'
+                version = '3.22.1'
                 arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-23' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
                 targets 'tmessages.49', 'twidget'
             }
@@ -212,8 +212,8 @@ android {
         debug {
             manifestPlaceholders.bygramPluginDiagnosticsEnabled = 'true'
             jniDebuggable true
-            shrinkResources false
-            multiDexEnabled true
+            shrinkResources = false
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"" + getProps("BETA_PRIVATE_URL") + "\""
@@ -226,7 +226,7 @@ android {
         HA_private {
             matchingFallbacks = ['release']
             jniDebuggable false
-            multiDexEnabled true
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"" + getProps("BETA_PRIVATE_URL") + "\""
@@ -239,7 +239,7 @@ android {
         HA_public {
             matchingFallbacks = ['release']
             jniDebuggable false
-            multiDexEnabled true
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"" + getProps("BETA_PUBLIC_URL") + "\""
@@ -252,7 +252,7 @@ android {
         HA_hardcore {
             matchingFallbacks = ['release']
             jniDebuggable false
-            multiDexEnabled true
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"" + getProps("BETA_HARDCORE_URL") + "\""
@@ -265,7 +265,7 @@ android {
         standalone {
             matchingFallbacks = ['release']
             jniDebuggable false
-            multiDexEnabled true
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"\""
@@ -277,8 +277,8 @@ android {
 
         release {
             jniDebuggable false
-            shrinkResources false
-            multiDexEnabled true
+            shrinkResources = false
+            multiDexEnabled = true
             ndk.debugSymbolLevel = 'FULL'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"\""
@@ -291,7 +291,7 @@ android {
 
     sourceSets.main.java.srcDir 'src/plugins/java'
 
-    namespace 'org.telegram.messenger'
+    namespace = 'org.telegram.messenger'
 }
 
 
@@ -305,22 +305,23 @@ def getProps(String propName) {
         return "";
     }
 }
+def requestedTasks = gradle.startParameter.taskNames
+def isPrivateBuild = requestedTasks.any {
+    it.contains("HA_private") || it.contains("HA_hardcore") || it.contains("Debug") || it.contains("Release")
+}
+def isPublicAllowed = !project.hasProperty("IS_PRIVATE") || !project.property("IS_PRIVATE").toBoolean()
+def privateHockeyApk = requestedTasks.any { it.contains("HA_public") }
+        ? file("${projectDir}_AppHockeyApp/afat/HA_private/Telegram-Beta.apk") : null
+
 task checkVisibility {
     doFirst {
-        def isPrivateBuild = project.gradle.startParameter.taskNames.find {
-            it.contains("HA_private") || it.contains("HA_hardcore") || it.contains("Debug") || it.contains("Release")
-        }
-        def isPublicAllowed = !project.hasProperty("IS_PRIVATE") || !project.property("IS_PRIVATE").toBoolean()
         if (!isPrivateBuild && !isPublicAllowed) {
             throw new GradleException("Building public version of private code!")
         }
     }
     doLast {
-        if (project.gradle.startParameter.taskNames.find { it.contains("HA_public") }) {
-            def privateBuild = file("${projectDir}_AppHockeyApp/afat/HA_private/Telegram-Beta.apk")
-            if (privateBuild.exists()) {
-                privateBuild.delete()
-            }
+        if (privateHockeyApk != null && privateHockeyApk.exists()) {
+            privateHockeyApk.delete()
         }
     }
 }

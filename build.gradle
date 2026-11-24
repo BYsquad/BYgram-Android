@@ -3,7 +3,7 @@ buildscript {
     repositories {
         mavenCentral()
         google()
-        maven { url 'https://developer.huawei.com/repo/' }
+        maven { url = 'https://developer.huawei.com/repo/' }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.2'
@@ -45,7 +45,7 @@ subprojects {
     if (name == 'TMessagesProj' || name.startsWith('TMessagesProj_App')) {
         repositories {
             maven {
-                url rootProject.file('third_party/maven')
+                url = rootProject.file('third_party/maven')
                 content { includeGroup 'com.aliucord' }
             }
         }
@@ -53,7 +53,7 @@ subprojects {
     plugins.withId('com.android.application') {
         android {
             androidResources {
-                ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~:!optional:!licences:!*stmary*:!*eufb*'
+                ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~:!optional:!licences:!*stmary*:!*eufb*'
             }
         }
     }

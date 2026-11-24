@@ -76,6 +76,8 @@ java -classpath .\gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWra
 
 ## Проверка APK
 
+Диагностика сборки беты №4 и варианты исправлений приведены в [отчёте по Afat Debug](apk-build-diagnostics-2026-11-24.md).
+
 ```powershell
 $sdk = $env:ANDROID_HOME
 $apk = '.\output\BYgram-afatRelease.apk'

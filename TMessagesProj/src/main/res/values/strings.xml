@@ -2470,6 +2470,10 @@
     <string name="ShowTranslateChatButton">Translate Entire Chat</string>
     <string name="DoNotTranslate">Do Not Translate</string>
     <string name="Languages_one">%1$d Language</string>
+    <string name="Languages_zero">%1$d Languages</string>
+    <string name="Languages_two">%1$d Languages</string>
+    <string name="Languages_few">%1$d Languages</string>
+    <string name="Languages_many">%1$d Languages</string>
     <string name="Languages_other">%1$d Languages</string>
     <string name="ChooseLanguages">Choose languages</string>
     <string name="TranslateMessagesInfo1">The ‘Translate’ button will appear when you make a single tap on a text message.</string>
@@ -3998,9 +4002,14 @@
     <string name="AddToTheGroupForwardCount">Number of last messages to forward:</string>
     <string name="AddToTheGroup">Add %1$s to the group?</string>
     <string name="AddManyMembersAlertTitle_one">Add member</string>
+    <string name="AddManyMembersAlertTitle_two">Add %1$d members</string>
+    <string name="AddManyMembersAlertTitle_few">Add %1$d members</string>
+    <string name="AddManyMembersAlertTitle_many">Add %1$d members</string>
     <string name="AddManyMembersAlertTitle_other">Add %1$d members</string>
     <string name="AddMembersAlertNamesText">Are you sure you want to add %1$s to **%2$s**?</string>
     <string name="AddManyMembersAlertNamesText_one">Are you sure you want to add member to **%2$s**?</string>
+    <string name="AddManyMembersAlertNamesText_two">Are you sure you want to add %1$d members to **%2$s**?</string>
+    <string name="AddManyMembersAlertNamesText_few">Are you sure you want to add %1$d members to **%2$s**?</string>
     <string name="AddManyMembersAlertNamesText_other">Are you sure you want to add %1$d members to **%2$s**?</string>
     <string name="AddMembersForwardMessages">Show the last 100 messages to the new members</string>
     <string name="AddOneMemberForwardMessages">Show the last 100 messages to **%1$s**</string>

@@ -962,7 +962,7 @@ void ConnectionsManager::onConnectionDataReceived(Connection *connection, Native
 
         TLObject *object = nullptr;
 
-        long req_msg_id = 0;
+        uint64_t req_msg_id = 0;
         if (processedStatus != 1) {
             deserializingDatacenter = datacenter;
             object = TLdeserialize(nullptr, messageLength, data);
@@ -1261,11 +1261,11 @@ void ConnectionsManager::processServerResponse(TLObject *message, int64_t messag
         bool ignoreResult = false;
         if (hasResult) {
             TLObject *object = response->result.get();
-            if (LOGS_ENABLED) DEBUG_D("message_id %lld connection(%p, account%u, dc%u, type %d) received rpc_result with %s", messageId, connection, instanceNum, datacenter->getDatacenterId(), connection->getConnectionType(), typeid(*object).name());
+            if (LOGS_ENABLED) DEBUG_D("message_id %" PRId64 " connection(%p, account%u, dc%u, type %d) received rpc_result with %s", messageId, connection, instanceNum, datacenter->getDatacenterId(), connection->getConnectionType(), typeid(*object).name());
         }
         RpcError *error = hasResult ? dynamic_cast<RpcError *>(response->result.get()) : nullptr;
         if (error != nullptr) {
-            if (LOGS_ENABLED) DEBUG_E("message_id %lld req_msg_id %lld connection(%p, account%u, dc%u, type %d) rpc error %d: %s", messageId, resultMid, connection, instanceNum, datacenter->getDatacenterId(), connection->getConnectionType(), error->error_code, error->error_message.c_str());
+            if (LOGS_ENABLED) DEBUG_E("message_id %" PRId64 " req_msg_id %" PRId64 " connection(%p, account%u, dc%u, type %d) rpc error %d: %s", messageId, resultMid, connection, instanceNum, datacenter->getDatacenterId(), connection->getConnectionType(), error->error_code, error->error_message.c_str());
             if (error->error_code == 303) {
                 uint32_t migrateToDatacenterId = DEFAULT_DATACENTER_ID;
 
@@ -2047,7 +2047,7 @@ void ConnectionsManager::setUserId(int64_t userId) {
                 sendPing(datacenter, true);
             }
         }
-        if (LOGS_ENABLED) DEBUG_D("set user %lld", userId);
+        if (LOGS_ENABLED) DEBUG_D("set user %" PRId64, userId);
         if (currentUserId != 0 && !waitingLoginRequests.empty()) {
             for (auto iter = waitingLoginRequests.begin(); iter != waitingLoginRequests.end(); iter++) {
                 Request *request = iter->get();
@@ -2222,7 +2222,7 @@ void ConnectionsManager::failNotRunningRequest(int32_t token) {
                 if (LOGS_ENABLED) DEBUG_D("cancelled queued rpc request %p - %s", request->rawRequest, typeid(*request->rawRequest).name());
                 requestsQueue.erase(iter);
                 removeRequestFromGuid(token);
-                return true;
+                return;
             }
         }
     });
@@ -3349,7 +3349,7 @@ std::string base64UrlDecode(std::string base64) {
         size_t left = std::min(base64.size() - i, static_cast<size_t>(4));
         int c = 0;
         for (size_t t = 0; t < left; t++) {
-            auto value = url_char_to_value[base64.c_str()[i++]];
+            auto value = url_char_to_value[static_cast<unsigned char>(base64[i++])];
             if (value == 64) {
                 return "";
             }
