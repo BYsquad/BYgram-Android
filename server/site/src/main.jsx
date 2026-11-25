@@ -11,8 +11,6 @@ import profileUrl from '../assets/bygram-profile.png';
 import pluginsUrl from '../assets/bygram-plugins.png';
 import pluginAuthorUrl from '../assets/bygram-author.png';
 
-const pagePath = location.pathname.split('/').pop() || 'index.html';
-const activePage = pagePath === 'editions.html' ? 'features.html' : pagePath;
 const numbers = new Intl.NumberFormat('ru-RU');
 const userPlural = new Intl.PluralRules('ru-RU');
 const userLabels = { one: 'пользователь', few: 'пользователя', many: 'пользователей', other: 'пользователей' };
@@ -35,7 +33,12 @@ function downloadPath(release) {
     ? release.apk_name : null;
 }
 
-function Header() {
+function currentPage() {
+  const page = location.pathname.split('/').pop() || 'index.html';
+  return page === 'editions.html' ? 'features.html' : page;
+}
+
+function Header({ activePage }) {
   const links = [
     ['features.html', 'Возможности'],
     ['changelog.html', 'Что нового'],
@@ -117,7 +120,7 @@ function HomePage() {
   </main>;
 }
 
-function ReleaseCard({ release }) {
+function ReleaseCard({ release, onDownload }) {
   const href = downloadPath(release);
   return <section className="release-card" id="beta">
     <h2>Тестовая сборка (Debug)</h2>
@@ -128,23 +131,31 @@ function ReleaseCard({ release }) {
         <div><dt>Требования</dt><dd>{release.requirements}</dd></div>
         <div><dt>Размер</dt><dd>{release.size}</dd></div>
       </dl>
-      <a className="button" href={href} download><ArrowDownToLine aria-hidden="true" /> Скачать Debug APK</a>
+      <a className="button" href={href} download onClick={onDownload}><ArrowDownToLine aria-hidden="true" /> Скачать Debug APK</a>
       {release.sha256 && <details className="checksum"><summary>Контрольная сумма SHA-256</summary><code>{release.sha256}</code></details>}
     </> : <p role="status">Сборка пока недоступна.</p>}
   </section>;
 }
 
-function DownloadPage() {
+function DownloadPage({ onDownload }) {
   const beta = usePublicData('beta.json', null);
   return <main id="content" className="container standard">
     <header className="page-heading"><h1>Скачать BYgram</h1></header>
-    <ReleaseCard release={beta} />
-    <section className="install">
-      <h2>Как установить APK</h2>
-      <ol><li>Откройте файл из загрузок.</li><li>Если Android попросит, разрешите установку из этого источника.</li><li>Нажмите «Установить» или «Обновить».</li></ol>
-      <p>Для обновления поверх BYgram сохраните текущую установку. Удаление приложения сотрёт локальные данные.</p>
-    </section>
+    <ReleaseCard release={beta} onDownload={onDownload} />
+    <InstallSteps />
   </main>;
+}
+
+function InstallSteps({ apk }) {
+  return <section className="install">
+    <h2>Как установить APK</h2>
+    <ol>
+      <li>Дождитесь окончания скачивания. Откройте меню браузера → «Загрузки» или приложение «Файлы» → «Загрузки» и нажмите {apk ? <strong>{apk}</strong> : 'на файл APK'}.</li>
+      <li>Если Android попросит, разрешите установку из этого источника и вернитесь к установщику.</li>
+      <li>Нажмите «Установить» или «Обновить».</li>
+    </ol>
+    <p>Для обновления поверх BYgram сохраните текущую установку. Удаление приложения сотрёт локальные данные.</p>
+  </section>;
 }
 
 const features = [
@@ -217,16 +228,52 @@ function ChangelogPage() {
 }
 
 function ThanksPage() {
+  const apk = downloadPath({ apk_name: new URLSearchParams(location.search).get('apk') });
   return <main id="content" className="container standard">
-    <header className="page-heading"><h1>Установка BYgram</h1><p className="lead">Откройте загруженный APK и подтвердите установку или обновление.</p></header>
-    <a className="button" href="download.html"><ArrowDownToLine aria-hidden="true" /> К загрузкам</a>
+    <header className="page-heading"><h1>Спасибо за скачивание BYgram!</h1>{apk && <p className="lead">Если браузер попросит подтвердить скачивание, нажмите «Скачать».</p>}</header>
+    <InstallSteps apk={apk} />
+    {apk
+      ? <a className="button button--quiet" href={apk} download><ArrowDownToLine aria-hidden="true" /> Скачать APK повторно</a>
+      : <a className="button" href="download.html"><ArrowDownToLine aria-hidden="true" /> Скачать BYgram</a>}
   </main>;
 }
 
-const Page = {
+const pages = {
   'features.html': FeaturesPage,
   'download.html': DownloadPage,
   'changelog.html': ChangelogPage,
   'thanks.html': ThanksPage,
-}[activePage] || HomePage;
-createRoot(document.getElementById('root')).render(<><Header /><Page /><Footer /></>);
+};
+const initialTitle = document.title;
+
+function App() {
+  const [activePage, setActivePage] = useState(currentPage);
+
+  useEffect(() => {
+    const onPopState = () => setActivePage(currentPage());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    document.title = activePage === 'thanks.html' ? 'Спасибо за скачивание BYgram' : initialTitle;
+  }, [activePage]);
+
+  function showThanks(event) {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+    const thanks = new URL('thanks.html', location.href);
+    thanks.searchParams.set('apk', event.currentTarget.getAttribute('href'));
+    // Keep the document alive so navigation cannot cancel the browser's download.
+    window.setTimeout(() => {
+      history.pushState(null, '', thanks);
+      setActivePage(currentPage());
+      window.scrollTo(0, 0);
+    }, 0);
+  }
+
+  const Page = pages[activePage] || HomePage;
+  return <><Header activePage={activePage} /><Page onDownload={showThanks} /><Footer /></>;
+}
+
+createRoot(document.getElementById('root')).render(<App />);

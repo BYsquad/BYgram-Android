@@ -58,6 +58,32 @@ public final class BygramTypingController {
         return revision.matches("[a-f0-9]{64}") ? ENDPOINT + "profile-background.php?user_id=" + ownerId + "&v=" + revision : "";
     }
 
+    public static void migrateProfileBackgroundMode(long userId) {
+        if (accountToken(userId).isEmpty()) return;
+        request(userId, json("action", "profile_background_mode_set", "user_id", userId,
+                "full_profile", true, "only_if_unset", true), true, response -> {});
+    }
+
+    public static void setProfileBackgroundMode(int account, boolean fullProfile, Callback callback) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        if (userId <= 0) { callback.run(false, ""); return; }
+        writeProfileBackground(userId, json("action", "profile_background_mode_set", "user_id", userId,
+                "full_profile", fullProfile), callback);
+    }
+
+    private static void writeProfileBackground(long userId, JSONObject data, Callback callback) {
+        request(userId, data, true, response -> {
+            if (response != null && response.optBoolean("needs_registration")) {
+                register(userId, (registered, authUrl) -> {
+                    if (registered) writeProfileBackground(userId, data, callback);
+                    else callback.run(false, authUrl);
+                });
+            } else {
+                callback.run(response != null && response.optBoolean("ok"), "");
+            }
+        });
+    }
+
     public static void publishProfileBackground(int account, android.net.Uri uri, Callback callback) {
         long userId = UserConfig.getInstance(account).getClientUserId();
         if (userId <= 0) { callback.run(false, ""); return; }
@@ -77,13 +103,7 @@ public final class BygramTypingController {
                         encoded = android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP);
                     }
                 }
-                request(userId, json("action", "profile_background_put", "user_id", userId, "image", encoded), true, response -> {
-                    if (response != null && response.optBoolean("needs_registration")) register(userId, (registered, authUrl) -> {
-                        if (registered) publishProfileBackground(account, uri, callback);
-                        else callback.run(false, authUrl);
-                    });
-                    else callback.run(response != null && response.optBoolean("ok"), "");
-                });
+                writeProfileBackground(userId, json("action", "profile_background_put", "user_id", userId, "image", encoded), callback);
             } catch (Exception error) {
                 FileLog.w("BYgramSettings page=profile feature=read_background result=failed error="
                         + error.getClass().getSimpleName());
@@ -437,6 +457,7 @@ public final class BygramTypingController {
             HttpURLConnection connection = null;
             String action = data.optString("action");
             boolean settingsRequest = "typing_put".equals(action) || "profile_background_put".equals(action)
+                    || "profile_background_mode_set".equals(action)
                     || "profile_views_set".equals(action) || "profile_views_list".equals(action);
             int status = 0;
             try {

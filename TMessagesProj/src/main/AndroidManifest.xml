@@ -247,6 +247,456 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
 
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramClassicIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_classic"
+            android:roundIcon="@drawable/bygram_avatar_classic"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramOrbitIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_orbit"
+            android:roundIcon="@drawable/bygram_avatar_orbit"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramDraftIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_draft"
+            android:roundIcon="@drawable/bygram_avatar_draft"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramMoleIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_mole"
+            android:roundIcon="@drawable/bygram_avatar_mole"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramEchpochmakIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_echpochmak"
+            android:roundIcon="@drawable/bygram_avatar_echpochmak"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramAvatarIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_avatar"
+            android:roundIcon="@drawable/bygram_avatar_avatar"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramCandyIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_candy"
+            android:roundIcon="@drawable/bygram_avatar_candy"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramGuitarIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_guitar"
+            android:roundIcon="@drawable/bygram_avatar_guitar"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramImpostorIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_impostor"
+            android:roundIcon="@drawable/bygram_avatar_impostor"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramFrogIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_frog"
+            android:roundIcon="@drawable/bygram_avatar_frog"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramHamsterIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_hamster"
+            android:roundIcon="@drawable/bygram_avatar_hamster"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramSpongeIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_sponge"
+            android:roundIcon="@drawable/bygram_avatar_sponge"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramInvincibleIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_invincible"
+            android:roundIcon="@drawable/bygram_avatar_invincible"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramFlappyIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_flappy"
+            android:roundIcon="@drawable/bygram_avatar_flappy"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramNyanIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_nyan"
+            android:roundIcon="@drawable/bygram_avatar_nyan"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramGlacierIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_glacier"
+            android:roundIcon="@drawable/bygram_avatar_glacier"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramFishIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_fish"
+            android:roundIcon="@drawable/bygram_avatar_fish"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramPsychosisIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_psychosis"
+            android:roundIcon="@drawable/bygram_avatar_psychosis"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramXpIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_xp"
+            android:roundIcon="@drawable/bygram_avatar_xp"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramNasaIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_nasa"
+            android:roundIcon="@drawable/bygram_avatar_nasa"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramCyberpunkIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_cyberpunk"
+            android:roundIcon="@drawable/bygram_avatar_cyberpunk"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramSpaceIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_space"
+            android:roundIcon="@drawable/bygram_avatar_space"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramJellyfishIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_jellyfish"
+            android:roundIcon="@drawable/bygram_avatar_jellyfish"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramHumanIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_human"
+            android:roundIcon="@drawable/bygram_avatar_human"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramSunsetIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_sunset"
+            android:roundIcon="@drawable/bygram_avatar_sunset"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramAmethystIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_amethyst"
+            android:roundIcon="@drawable/bygram_avatar_amethyst"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramAuroraIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_aurora"
+            android:roundIcon="@drawable/bygram_avatar_aurora"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramOsuIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_osu"
+            android:roundIcon="@drawable/bygram_avatar_osu"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramGoogleIcon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_google"
+            android:roundIcon="@drawable/bygram_avatar_google"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:enabled="false"
+            android:name="org.telegram.messenger.BygramGoogle26Icon"
+            android:targetActivity="org.telegram.ui.LaunchActivity"
+            android:icon="@drawable/bygram_avatar_google_26"
+            android:roundIcon="@drawable/bygram_avatar_google_26"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
+
         <activity
             android:name="org.telegram.ui.LaunchActivity"
             android:theme="@style/Theme.TMessages.Start"

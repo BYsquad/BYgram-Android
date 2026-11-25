@@ -1273,7 +1273,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private boolean hasBygramPageBackground() {
-        return topView != null && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)
+        return topView != null && topView.bygramFullBackground
                 && topView.bygramBackground.hasImageLoaded();
     }
 
@@ -1305,6 +1305,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private class TopView extends FrameLayout {
         private final ImageReceiver bygramBackground = new ImageReceiver(this);
         private int bygramBackgroundGeneration;
+        private boolean bygramFullBackground;
         private boolean fullBackgroundVisible;
 
         private int currentColor;
@@ -1324,6 +1325,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (fullBackgroundVisible == fullBackground) return;
             fullBackgroundVisible = fullBackground;
             if (listView != null) {
+                listView.post(() -> {
+                    if (topView == this && listView != null) {
+                        // Bitmap section corners use the solid list color as a mask.
+                        listView.setLegacySections(hasBygramPageBackground());
+                    }
+                });
                 listView.invalidate();
                 for (int i = 0; i < listView.getChildCount(); i++) listView.getChildAt(i).invalidate();
             }
@@ -1332,6 +1339,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         void loadBygramBackground() {
             final int generation = ++bygramBackgroundGeneration;
+            bygramFullBackground = false;
             bygramBackground.setImageBitmap((Drawable) null);
             if (userId <= 0 || userId != getUserConfig().getClientUserId()
                     && BygramConfig.getBoolean(BygramConfig.HIDE_PROFILE_BACKGROUNDS)) { invalidate(); return; }
@@ -1341,6 +1349,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (response == null || !response.optBoolean("ok")) return;
                 String url = org.telegram.messenger.BygramTypingController.profileBackgroundUrl(userId, response);
                 if (!url.isEmpty()) {
+                    bygramFullBackground = response.optBoolean("full_profile");
+                    if (response.isNull("full_profile") && userId == getUserConfig().getClientUserId()
+                            && BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)) {
+                        bygramFullBackground = true;
+                        org.telegram.messenger.BygramTypingController.migrateProfileBackgroundMode(userId);
+                    }
                     String ext = response.optString("mime").equals("image/gif") ? "gif" : "jpg";
                     bygramBackground.setImage(org.telegram.messenger.ImageLocation.getForPath(url), null, null, null, null, 0, ext, null, 0);
                 }
@@ -4242,15 +4256,28 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         listView = new ClippedListView(context, resourcesProvider) {
 
-            private final BlurredBackgroundDrawable sectionGlass = getBaseSimpleGlass().factory.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider));
+            private final ArrayList<BlurredBackgroundDrawable> sectionGlassDrawables = new ArrayList<>();
+            private int sectionGlassIndex;
+
+            @Override
+            public void onDraw(Canvas canvas) {
+                sectionGlassIndex = 0;
+                super.onDraw(canvas);
+            }
 
             @Override
             public void drawBackgroundRect(Canvas canvas, RectF rect, float topRadius, float bottomRadius, float alpha) {
                 if (hasBygramPageBackground()) {
-                    sectionGlass.setRadius(topRadius, topRadius, bottomRadius, bottomRadius);
+                    if (isCapturingProfileGlass()) return;
+                    // Each visible card records its own bounds and alpha into a RenderNode.
+                    if (sectionGlassIndex == sectionGlassDrawables.size()) {
+                        sectionGlassDrawables.add(getBaseSimpleGlass().factory.create(this, BlurredBackgroundProviderImpl.topPanel(resourcesProvider)));
+                    }
+                    BlurredBackgroundDrawable sectionGlass = sectionGlassDrawables.get(sectionGlassIndex++);
+                    sectionGlass.setRadius(topRadius, topRadius, bottomRadius, bottomRadius, false);
                     sectionGlass.setBounds((int) rect.left, (int) rect.top, (int) rect.right, (int) rect.bottom);
                     sectionGlass.setAlpha((int) (180 * alpha));
-                    if (!isCapturingProfileGlass()) sectionGlass.draw(canvas);
+                    sectionGlass.draw(canvas);
                 } else {
                     super.drawBackgroundRect(canvas, rect, topRadius, bottomRadius, alpha);
                 }
@@ -5715,6 +5742,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         nameTextView.setPivotX(0);
         nameTextView.setPivotY(0);
         nameTextView.setScrollNonFitText(true);
+        nameTextView.setStopScrollWhenTextFits(BygramConfig.getBoolean(BygramConfig.STOP_PROFILE_NAME_SCROLL_WHEN_FITS));
         nameTextView.setFocusable(true);
         nameTextView.setEllipsizeByGradient(true);
         avatarContainer2.addView(nameTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 109, -6, 0, 0));
@@ -10066,6 +10094,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     public void onResume() {
         super.onResume();
         if (topView != null) topView.loadBygramBackground();
+        if (nameTextView != null) {
+            nameTextView.setStopScrollWhenTextFits(BygramConfig.getBoolean(BygramConfig.STOP_PROFILE_NAME_SCROLL_WHEN_FITS));
+        }
         bygramProfilePaused = false;
         AndroidUtilities.cancelRunOnUIThread(profileViewsIndicatorRunnable);
         profileViewsIndicatorRunnable.run();

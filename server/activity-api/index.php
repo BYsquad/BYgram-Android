@@ -148,7 +148,24 @@ if ($action === 'profile_background_get') {
     $query = $pdo->prepare('SELECT revision,mime FROM profile_backgrounds WHERE telegram_id=?');
     $query->execute([$ownerId]);
     $image = $query->fetch();
-    jsonResponse(['ok' => true, 'revision' => $image ? $image['revision'] : '', 'mime' => $image ? $image['mime'] : '']);
+    $mode = appSetting('profile_background_full:' . $ownerId);
+    jsonResponse(['ok' => true, 'revision' => $image ? $image['revision'] : '', 'mime' => $image ? $image['mime'] : '',
+        'full_profile' => $mode === '' ? null : $mode === '1']);
+}
+if ($action === 'profile_background_mode_set') {
+    $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);
+    $fullProfile = $request['full_profile'] ?? null;
+    if (!$userId || $userId < 1 || !is_bool($fullProfile)) jsonResponse(['ok' => false], 400);
+    requireAccountSession($userId);
+    rateLimit($pdo, 'profile_background_mode:' . $userId, 30);
+    $key = 'profile_background_full:' . $userId;
+    $value = $fullProfile ? '1' : '0';
+    if (($request['only_if_unset'] ?? false) === true) {
+        $pdo->prepare('INSERT INTO app_settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_key=setting_key')->execute([$key, $value]);
+    } else {
+        saveAppSetting($key, $value);
+    }
+    jsonResponse(['ok' => true]);
 }
 if ($action === 'profile_background_put') {
     $userId = filter_var($request['user_id'] ?? null, FILTER_VALIDATE_INT);

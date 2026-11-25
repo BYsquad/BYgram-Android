@@ -1203,9 +1203,13 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
     }
 
     public static class GeneralCustomizationActivity extends ToggleSettingsActivity {
+        private static final int AVATAR_ROW = 31;
+
         @Override int getTitleRes() { return R.string.BygramGeneral; }
 
         @Override void fillToggleItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+            items.add(UItem.asButton(AVATAR_ROW, getString(R.string.BygramAppAvatar)));
+            items.add(UItem.asShadow(null));
             items.add(UItem.asCheck(1, getString(R.string.BygramFilterZalgo))
                     .setChecked(BygramConfig.getBoolean(BygramConfig.FILTER_ZALGO)));
             items.add(UItem.asShadow(getString(R.string.BygramFilterZalgoInfo)));
@@ -1228,6 +1232,14 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                 case 10: return BygramConfig.CALL_VIBRATION;
                 case 25: return BygramConfig.SECONDS;
                 default: return null;
+            }
+        }
+
+        @Override void onCustomClick(int id) {
+            if (id == AVATAR_ROW) {
+                BygramAppAvatarActivity page = new BygramAppAvatarActivity();
+                page.setCurrentAccount(currentAccount);
+                presentFragment(page);
             }
         }
 
@@ -1485,6 +1497,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
 
     public static class ProfileCustomizationActivity extends ToggleSettingsActivity {
         private android.net.Uri pendingBackground;
+        private Boolean pendingBackgroundMode;
+        private boolean fullProfileBackground = BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND);
         private boolean backgroundPublishing;
         private boolean verifyBackgroundOnResume;
 
@@ -1494,10 +1508,12 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             items.add(UItem.asHeader(getString(R.string.BygramProfile)).setId(-1));
             items.add(UItem.asButton(5, getString(R.string.BygramProfileBackground)));
             items.add(UItem.asCheck(7, getString(R.string.BygramFullProfileBackground))
-                    .setChecked(BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND)));
+                    .setChecked(fullProfileBackground));
             items.add(UItem.asCheck(6, getString(R.string.BygramHideProfileBackgrounds))
                     .setChecked(BygramConfig.getBoolean(BygramConfig.HIDE_PROFILE_BACKGROUNDS)));
             items.add(UItem.asShadow(getString(R.string.BygramProfileBackgroundInfo)));
+            items.add(UItem.asCheck(8, getString(R.string.BygramStopProfileNameScrollWhenFits))
+                    .setChecked(BygramConfig.getBoolean(BygramConfig.STOP_PROFILE_NAME_SCROLL_WHEN_FITS)));
             items.add(UItem.asCheck(1, getString(R.string.BygramCustomProfileMusic))
                     .setChecked(BygramConfig.getBoolean(BygramConfig.CUSTOM_PROFILE_MUSIC)));
             items.add(UItem.asShadow(getString(R.string.BygramCustomProfileMusicInfo)));
@@ -1517,11 +1533,18 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             return id == 1 ? BygramConfig.CUSTOM_PROFILE_MUSIC
                     : id == 3 ? BygramConfig.HIDE_PHONE : id == 4 ? BygramConfig.RELATIVE_ONLINE
                     : id == 6 ? BygramConfig.HIDE_PROFILE_BACKGROUNDS
-                    : id == 7 ? BygramConfig.FULL_PROFILE_BACKGROUND : null;
+                    : id == 8 ? BygramConfig.STOP_PROFILE_NAME_SCROLL_WHEN_FITS : null;
         }
 
         @Override void onCustomClick(int id) {
+            if (backgroundPublishing) return;
+            if (id == 7) {
+                pendingBackgroundMode = !fullProfileBackground;
+                publishBackground();
+                return;
+            }
             if (id == 5) {
+                pendingBackgroundMode = null;
                 showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                         .setTitle(getString(R.string.BygramProfileBackground))
                         .setItems(new CharSequence[]{getString(R.string.BygramChooseBackground), getString(R.string.Delete)}, (dialog, which) -> {
@@ -1547,6 +1570,7 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
         @Override public void onActivityResultFragment(int requestCode, int resultCode, android.content.Intent data) {
             super.onActivityResultFragment(requestCode, resultCode, data);
             if (requestCode == 5081 && resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null) {
+                pendingBackgroundMode = null;
                 pendingBackground = data.getData();
                 publishBackground();
             }
@@ -1560,16 +1584,24 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             showDialog(progress);
             progress.setCanceledOnTouchOutside(false);
             progress.setCancelable(false);
-            String feature = pendingBackground == null ? "remove_background" : "publish_background";
+            Boolean mode = pendingBackgroundMode;
+            String feature = mode != null ? "profile_background_mode" : pendingBackground == null ? "remove_background" : "publish_background";
             logSetting("started", feature);
-            BygramTypingController.publishProfileBackground(currentAccount, pendingBackground, (ok, authUrl) -> {
+            BygramTypingController.Callback callback = (ok, authUrl) -> {
                 logPublishResult(feature, ok, authUrl);
                 backgroundPublishing = false;
                 progress.dismiss();
                 if (getContext() == null) return;
                 if (ok) {
-                    pendingBackground = null;
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, getString(R.string.BygramBackgroundPublished)).show();
+                    if (mode != null) {
+                        pendingBackgroundMode = null;
+                        fullProfileBackground = mode;
+                        listView.adapter.update(true);
+                    } else {
+                        pendingBackground = null;
+                        loadBackgroundMode();
+                        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, getString(R.string.BygramBackgroundPublished)).show();
+                    }
                 } else if (!authUrl.isEmpty()) {
                     showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
                             .setTitle(getString(R.string.BygramProfileBackground))
@@ -1584,6 +1616,24 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
                             .setTitle(getString(R.string.BygramProfileBackground)).setMessage(getString(R.string.BygramBackgroundFailed))
                             .setPositiveButton(getString(R.string.OK), null).create());
                 }
+            };
+            if (mode != null) {
+                BygramTypingController.setProfileBackgroundMode(currentAccount, mode, callback);
+            } else {
+                BygramTypingController.publishProfileBackground(currentAccount, pendingBackground, callback);
+            }
+        }
+
+        private void loadBackgroundMode() {
+            long userId = getUserConfig().getClientUserId();
+            if (userId <= 0) return;
+            BygramTypingController.loadProfileBackground(userId, (response, unused) -> {
+                if (listView == null || backgroundPublishing || response == null || !response.optBoolean("ok")) return;
+                fullProfileBackground = response.optBoolean("full_profile", BygramConfig.getBoolean(BygramConfig.FULL_PROFILE_BACKGROUND));
+                if (fullProfileBackground && response.isNull("full_profile") && !response.optString("revision").isEmpty()) {
+                    BygramTypingController.migrateProfileBackgroundMode(userId);
+                }
+                listView.adapter.update(true);
             });
         }
 
@@ -1592,6 +1642,8 @@ public class BygramSettingsActivity extends BygramSettingsPage implements Notifi
             if (verifyBackgroundOnResume) {
                 verifyBackgroundOnResume = false;
                 publishBackground();
+            } else {
+                loadBackgroundMode();
             }
         }
 

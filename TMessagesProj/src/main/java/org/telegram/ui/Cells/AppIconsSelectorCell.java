@@ -47,7 +47,7 @@ import org.telegram.ui.LauncherIconController;
 import org.telegram.ui.PremiumPreviewFragment;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 
 public class AppIconsSelectorCell extends RecyclerListView implements NotificationCenter.NotificationCenterDelegate {
@@ -63,7 +63,8 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
     }
 
     public AppIconsSelectorCell(Context context, BaseFragment fragment, int currentAccount) {
-        this(context, fragment, currentAccount, Arrays.asList(LauncherIconController.LauncherIcon.values()));
+        this(context, fragment, currentAccount, new ArrayList<>(EnumSet.range(
+                LauncherIconController.LauncherIcon.DEFAULT, LauncherIconController.LauncherIcon.NOX)));
     }
 
     public AppIconsSelectorCell(Context context, BaseFragment fragment, int currentAccount, List<LauncherIconController.LauncherIcon> icons) {

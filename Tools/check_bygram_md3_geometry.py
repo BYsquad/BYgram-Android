@@ -73,8 +73,9 @@ assert "new EditText(" not in settings and "shape.setStroke(" in settings and "d
 icons = settings.split("icons = new AppIconsSelectorCell", 1)[1].split("BackupImageView avatarPreview", 1)[0]
 launcher = source("TMessagesProj/src/main/java/org/telegram/ui/LauncherIconController.java")
 manifest = source("TMessagesProj/src/main/AndroidManifest.xml")
-assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "Customization must only offer BYgram and Telegram icons"
-assert 'DEFAULT("DefaultIcon", R.drawable.bygram_launcher_icon, 0, R.string.AppName)' in launcher and 'if (icon == LauncherIcon.VINTAGE) setIcon(LauncherIcon.DEFAULT)' in launcher, "Default and obsolete icon migration must use the edition icon"
+assert "LauncherIcon.DEFAULT" in icons and "LauncherIcon.AQUA" in icons and "LauncherIcon.VINTAGE" not in icons, "The quick selector must offer BYgram and Telegram icons"
+assert 'DEFAULT("DefaultIcon", R.drawable.bygram_launcher_icon, 0, R.string.AppName)' in launcher, "Fresh installs must use the edition icon"
+assert 'icon == LauncherIcon.VINTAGE' in launcher and 'setIcon(LauncherIcon.DEFAULT);' in launcher.split('public static LauncherIcon getCurrentIcon()', 1)[0], "Obsolete icon migration must use the edition icon"
 default_alias = manifest.split('android:name="org.telegram.messenger.DefaultIcon"', 1)[1].split('</activity-alias>', 1)[0]
 assert '@drawable/bygram_launcher_icon"' in default_alias, "Fresh installs must use the edition icon"
 assert (ROOT / "logo-new.png").read_bytes() == (ROOT / "TMessagesProj/src/main/res/drawable-nodpi/bygram_logo_new.png").read_bytes(), "Default icon asset differs from logo-new.png"
@@ -98,7 +99,7 @@ assert "bygram_uniform_avatars" not in image_receiver and "Arrays.fill(avatarRou
 assert "avatarRadius(" in config and "BygramConfig.avatarRadius" in image_receiver + profile + stories + profile_stories, "Profile avatars and story rings do not share the configured shape"
 assert "bygram_logo_new" not in badge and "getProfileBadgeInfo" not in activity_controller, "Profile badges are still present in the client"
 assert "setMultilineTextAndValue" in settings, "Long BYgram toggle labels are still ellipsized"
-assert "APP_VERSION_CODE=7303" in gradle.splitlines() and "APP_VERSION_NAME=13.2.2" in gradle.splitlines() and "APP_PACKAGE=com.bygram.mobile" in gradle.splitlines(), "Client version or package differs from the approved Telegram update"
-assert "telegram-widget.js" in admin and "data-telegram-login" in admin and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
+assert "APP_VERSION_CODE=7304" in gradle.splitlines() and "APP_VERSION_NAME=13.2.2" in gradle.splitlines() and "APP_PACKAGE=com.bygram.mobile" in gradle.splitlines(), "Client version or package differs from the approved Telegram update"
+assert "data-auth-url" in admin and "telegram-widget.js" in admin_ui and "dataset.telegramLogin" in admin_ui and "password" not in (admin + admin_ui).lower(), "Admin panel is not using Telegram Login Widget authorization"
 assert "BYxarek" + "_manager" not in activity_controller + api + bootstrap + main_site + config_example and "BYgram_manager" in activity_controller + api + main_site + config_example, "Manager username is outdated"
 print("PASS: MD3, native liquid glass, avatar endpoints and removed profile badges")

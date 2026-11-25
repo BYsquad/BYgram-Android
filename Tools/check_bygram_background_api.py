@@ -94,6 +94,19 @@ with tempfile.TemporaryDirectory(prefix="bygram-background-api-") as directory:
         image = base64.b64decode(put["image"])
         response = request({"action": "profile_background_get", "owner_id": 123})[1]
         assert response["revision"] == hashlib.sha256(image).hexdigest() and response["mime"] == "image/gif"
+        assert response["full_profile"] is None
+        mode = {"action": "profile_background_mode_set", "user_id": 123, "full_profile": True}
+        assert request(mode)[0] == 401
+        assert request(dict(mode, user_id=456), token)[0] == 401
+        assert request(dict(mode, full_profile="true"), token)[0] == 400
+        assert request(dict(mode, only_if_unset=True), token)[0] == 200
+        stretched = request({"action": "profile_background_get", "owner_id": 123})[1]
+        assert stretched == dict(response, full_profile=True)
+        assert request({"action": "profile_background_get", "owner_id": 456})[1]["full_profile"] is None
+        assert request(dict(mode, full_profile=False), token)[0] == 200
+        assert request(dict(mode, only_if_unset=True), token)[0] == 200
+        assert request(put, token)[0] == 200
+        assert request({"action": "profile_background_get", "owner_id": 123})[1] == dict(response, full_profile=False)
         with urllib.request.urlopen(base + "profile-background.php?user_id=123&v=" + response["revision"]) as downloaded:
             assert downloaded.read() == image
         assert request(dict(put, image="PHN2Zy8+"), token)[0] == 422

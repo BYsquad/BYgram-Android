@@ -47,6 +47,7 @@ public final class BygramConfig {
     public static final String KEEP_SEARCH_COLLAPSED = "bygram_keep_search_collapsed";
     public static final String HIDE_PROFILE_BACKGROUNDS = "bygram_hide_profile_backgrounds";
     public static final String FULL_PROFILE_BACKGROUND = "bygram_full_profile_background";
+    public static final String STOP_PROFILE_NAME_SCROLL_WHEN_FITS = "bygram_stop_profile_name_scroll_when_fits";
     public static final String COLLAPSE_FOLDERS_ON_SCROLL = "bygram_collapse_folders_on_scroll";
     public static final String COLLAPSE_NAVIGATION_ON_SCROLL = "bygram_collapse_navigation_on_scroll";
     public static final String PROFILE_ID_MODE = "bygram_profile_id";
@@ -214,6 +215,7 @@ public final class BygramConfig {
             case KEEP_SEARCH_COLLAPSED:
             case HIDE_PROFILE_BACKGROUNDS:
             case FULL_PROFILE_BACKGROUND:
+            case STOP_PROFILE_NAME_SCROLL_WHEN_FITS:
             case COLLAPSE_FOLDERS_ON_SCROLL:
             case COLLAPSE_NAVIGATION_ON_SCROLL:
             case PROFILE_ID_MODE:

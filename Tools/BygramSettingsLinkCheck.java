@@ -31,6 +31,8 @@ public class BygramSettingsLinkCheck {
         check("winter".equals(BygramSettingsLink.target("customization", 6)), "Winter category");
         check("conversation".equals(BygramSettingsLink.target("customization", 7)), "Conversation category");
         check("ai".equals(BygramSettingsLink.target("customization", 8)), "Telegram AI category");
+        String avatar = BygramSettingsLink.target("general", 31);
+        check("general.31".equals(avatar) && "general".equals(BygramSettingsLink.parse(avatar).customizationSection()), "App avatar row");
         check(BygramSettingsLink.parse("conversation.7").highlightedRow() == 7, "Edited icon row");
         check(BygramSettingsLink.parse("ai.3").highlightedRow() == 3, "Instant View summary row");
         check(BygramSettingsLink.parse("conversation.8").highlightedRow() == 8, "Translation provider row");
@@ -69,7 +71,7 @@ public class BygramSettingsLinkCheck {
         for (int row : new int[]{22, 23, 24, 25, 26, 27, 28, 203}) {
             check(BygramSettingsLink.parse("general." + row) != null, "Extended customization destination");
         }
-        for (String target : new String[]{"general.8", "general.9", "general.12", "general.13", "general.14", "general.15", "general.16", "general.17", "general.18", "general.19", "general.20", "general.21", "profile.3", "profile.4", "profile.7"}) {
+        for (String target : new String[]{"general.8", "general.9", "general.12", "general.13", "general.14", "general.15", "general.16", "general.17", "general.18", "general.19", "general.20", "general.21", "profile.3", "profile.4", "profile.7", "profile.8"}) {
             check(BygramSettingsLink.parse(target) != null, "Customization destination: " + target);
         }
         check(BygramSettingsLink.target("activity", 100_000) == null, "Never share a selected viewer index");

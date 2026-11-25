@@ -87,6 +87,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
     private Drawable wrapBackgroundDrawable;
 
     private boolean scrollNonFitText;
+    private boolean stopScrollWhenTextFits;
     private boolean textDoesNotFit;
     private float scrollingOffset;
     private long lastUpdateTime;
@@ -238,6 +239,12 @@ public class SimpleTextView extends View implements Drawable.Callback {
         checkUi_layerType();
     }
 
+    public void setStopScrollWhenTextFits(boolean value) {
+        if (stopScrollWhenTextFits == value) return;
+        stopScrollWhenTextFits = value;
+        requestLayout();
+    }
+
     public void setEllipsizeByGradient(boolean value) {
         setEllipsizeByGradient(value, null);
     }
@@ -371,6 +378,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
                 }
             }
             textDoesNotFit = textWidth + rightDrawableWidth > (width - paddingRight);
+            if (stopScrollWhenTextFits && !textDoesNotFit) {
+                scrollingOffset = 0;
+                currentScrollDelay = SCROLL_DELAY_MS;
+            }
             checkUi_layerType();
 
             if (fullLayout != null && fullLayoutAdditionalWidth > 0) {
